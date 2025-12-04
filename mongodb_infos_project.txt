@@ -1,0 +1,8 @@
+Username
+durelsam157_db_user
+
+Password
+JqLJT4mHAvBXV9mb
+
+String
+mongodb+srv://durelsam157_db_user:JqLJT4mHAvBXV9mb@cluster0.xmwvmq4.mongodb.net/

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(mongod --version:*)",
+      "Bash(net start)",
+      "Bash(findstr:*)",
+      "Bash(net start MongoDB)",
+      "Bash(sc query:*)",
+      "Bash(if not exist \"C:\\data\\db\" mkdir \"C:\\data\\db\")",
+      "Bash(start /B mongod --dbpath \"C:\\data\\db\" --logpath \"C:\\data\\mongodb.log\")",
+      "Bash(timeout:*)",
+      "Bash(npm run init-db:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
