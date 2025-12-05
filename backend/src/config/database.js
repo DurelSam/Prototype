@@ -114,4 +114,3 @@ const connectDB = async () => {
 
 // ... (Reste inchangé) ...
 module.exports = connectDB;
-module.exports.testConnection = testConnection;
