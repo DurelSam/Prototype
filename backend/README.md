@@ -40,7 +40,7 @@ npm install
 2. Configurer les variables d'environnement :
 - Le fichier `.env` est déjà configuré pour MongoDB Local
 - **IMPORTANT**: MongoDB Local est utilisé (pas de MongoDB Atlas)
-- La connexion par défaut est : `mongodb://localhost:27017/saas-communications`
+- La connexion par défaut est : `mongodb://localhost:27017/prototypedb`
 
 ## Configuration MongoDB Local
 
@@ -65,7 +65,7 @@ npm install
 
 Format de la chaîne de connexion :
 ```
-mongodb://localhost:27017/saas-communications
+mongodb://localhost:27017/prototypedb
 ```
 
 ## Démarrage

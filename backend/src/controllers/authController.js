@@ -142,12 +142,14 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Vérifier l'abonnement du tenant
-    if (!user.tenant_id.isSubscriptionActive()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Abonnement expiré. Veuillez renouveler votre abonnement.'
-      });
+    // Vérifier l'abonnement du tenant (sauf pour les SuperUser)
+    if (user.role !== 'SuperUser') {
+      if (!user.tenant_id || !user.tenant_id.isSubscriptionActive()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Abonnement expiré. Veuillez renouveler votre abonnement.'
+        });
+      }
     }
 
     // Mettre à jour la dernière connexion
@@ -155,32 +157,45 @@ exports.login = async (req, res) => {
     await user.save();
 
     // Générer le token JWT
+    const tokenPayload = {
+      userId: user._id,
+      role: user.role
+    };
+
+    // Ajouter tenantId seulement si l'utilisateur a un tenant
+    if (user.tenant_id) {
+      tokenPayload.tenantId = user.tenant_id._id;
+    }
+
     const token = jwt.sign(
-      {
-        userId: user._id,
-        tenantId: user.tenant_id._id,
-        role: user.role
-      },
+      tokenPayload,
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
+
+    // Préparer la réponse utilisateur
+    const userResponse = {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role
+    };
+
+    // Ajouter les informations du tenant seulement si elles existent
+    if (user.tenant_id) {
+      userResponse.tenant = {
+        id: user.tenant_id._id,
+        companyName: user.tenant_id.companyName,
+        subscriptionStatus: user.tenant_id.subscriptionStatus
+      };
+    }
 
     res.status(200).json({
       success: true,
       message: 'Connexion réussie',
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        tenant: {
-          id: user.tenant_id._id,
-          companyName: user.tenant_id.companyName,
-          subscriptionStatus: user.tenant_id.subscriptionStatus
-        }
-      }
+      user: userResponse
     });
 
   } catch (error) {
@@ -209,23 +224,29 @@ exports.getCurrentUser = async (req, res) => {
       });
     }
 
+    const userResponse = {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.isActive,
+      lastLogin: user.lastLogin
+    };
+
+    // Ajouter les informations du tenant seulement si elles existent
+    if (user.tenant_id) {
+      userResponse.tenant = {
+        id: user.tenant_id._id,
+        companyName: user.tenant_id.companyName,
+        subscriptionStatus: user.tenant_id.subscriptionStatus,
+        settings: user.tenant_id.settings
+      };
+    }
+
     res.status(200).json({
       success: true,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        isActive: user.isActive,
-        lastLogin: user.lastLogin,
-        tenant: {
-          id: user.tenant_id._id,
-          companyName: user.tenant_id.companyName,
-          subscriptionStatus: user.tenant_id.subscriptionStatus,
-          settings: user.tenant_id.settings
-        }
-      }
+      user: userResponse
     });
 
   } catch (error) {

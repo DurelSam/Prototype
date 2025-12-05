@@ -163,8 +163,8 @@ function Register() {
               className="select-input"
             >
               <option value="Employee">Employee</option>
-              <option value="Manager">Manager</option>
-              <option value="Admin">Administrator</option>
+              <option value="Admin">Admin</option>
+              <option value="UpperAdmin">Upper Admin (Company Owner)</option>
             </select>
           </div>
 

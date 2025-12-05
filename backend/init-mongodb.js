@@ -3,7 +3,7 @@
  *
  * Ce script:
  * 1. Teste la connexion à MongoDB local
- * 2. Crée la base de données 'saas-communications'
+ * 2. Crée la base de données 'prototypedb'
  * 3. Les collections seront créées automatiquement par Mongoose lors de la première insertion
  *
  * Collections qui seront créées automatiquement:

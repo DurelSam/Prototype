@@ -4,13 +4,17 @@ const userSchema = new mongoose.Schema({
   tenant_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant',
-    required: [true, 'L\'ID du tenant est requis'],
+    required: function() {
+      // tenant_id n'est pas requis pour les SuperUser
+      return this.role !== 'SuperUser';
+    },
     index: true
   },
 
   email: {
     type: String,
     required: [true, 'L\'email est requis'],
+    unique: true, // Email unique globalement
     lowercase: true,
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Email invalide']
@@ -25,7 +29,7 @@ const userSchema = new mongoose.Schema({
 
   role: {
     type: String,
-    enum: ['Admin', 'Manager', 'Employee'],
+    enum: ['SuperUser', 'UpperAdmin', 'Admin', 'Employee'],
     default: 'Employee'
   },
 
@@ -85,16 +89,32 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index composé pour garantir l'unicité de l'email par tenant
-userSchema.index({ email: 1, tenant_id: 1 }, { unique: true });
-
 // Index pour les recherches fréquentes
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
+userSchema.index({ tenant_id: 1, role: 1 });
 
 // Middleware pour mettre à jour updatedAt
 userSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  next();
+});
+
+// Middleware de validation pour UpperAdmin unique par tenant
+userSchema.pre('save', async function(next) {
+  // Vérifier qu'il n'y a qu'un seul UpperAdmin par tenant
+  if (this.role === 'UpperAdmin' && this.tenant_id) {
+    const existingUpperAdmin = await mongoose.model('User').findOne({
+      tenant_id: this.tenant_id,
+      role: 'UpperAdmin',
+      _id: { $ne: this._id } // Exclure l'utilisateur actuel si c'est une mise à jour
+    });
+
+    if (existingUpperAdmin) {
+      const error = new Error('Il ne peut y avoir qu\'un seul UpperAdmin par entreprise');
+      return next(error);
+    }
+  }
   next();
 });
 
@@ -106,14 +126,24 @@ userSchema.methods.getFullName = function() {
   return this.email;
 };
 
-// Méthode pour vérifier si l'utilisateur est admin
+// Méthode pour vérifier si l'utilisateur est SuperUser
+userSchema.methods.isSuperUser = function() {
+  return this.role === 'SuperUser';
+};
+
+// Méthode pour vérifier si l'utilisateur est UpperAdmin
+userSchema.methods.isUpperAdmin = function() {
+  return this.role === 'UpperAdmin';
+};
+
+// Méthode pour vérifier si l'utilisateur est Admin
 userSchema.methods.isAdmin = function() {
   return this.role === 'Admin';
 };
 
-// Méthode pour vérifier si l'utilisateur est manager
-userSchema.methods.isManager = function() {
-  return this.role === 'Manager' || this.role === 'Admin';
+// Méthode pour vérifier si l'utilisateur a des droits d'administration
+userSchema.methods.hasAdminRights = function() {
+  return ['SuperUser', 'UpperAdmin', 'Admin'].includes(this.role);
 };
 
 // Méthode pour vérifier si Outlook est connecté

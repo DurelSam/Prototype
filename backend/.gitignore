@@ -34,3 +34,9 @@ build/
 tmp/
 temp/
 *.tmp
+
+# Credentials (NEVER commit)
+*CREDENTIALS*.txt
+*credentials*.txt
+superuser*.txt
+SUPERUSER*.txt
