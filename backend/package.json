@@ -8,7 +8,9 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "init-db": "node init-mongodb.js",
-    "seed-superuser": "node seed-superuser.js"
+    "seed-superuser": "node seed-superuser.js",
+    "build": "node build-production.js",
+    "build:force": "node build-production.js --force"
   },
   "keywords": [],
   "author": "",
