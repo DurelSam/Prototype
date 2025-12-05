@@ -90,7 +90,7 @@ app.get("/api/test-db", async (req, res) => {
 });
 
 // Routes API
-app.use('/api/auth', require('./src/routes/authRoutes'));
+app.use("/api/auth", require("./src/routes/authRoutes"));
 // app.use('/api/tenants', require('./src/routes/tenantRoutes'));
 // app.use('/api/communications', require('./src/routes/communicationRoutes'));
 
