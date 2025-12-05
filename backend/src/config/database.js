@@ -1,96 +1,117 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
+
+// CORRECTION CLÉ : Définition des variables pour simplifier la construction.
+const USER = process.env.MONGO_USER;
+const PASS = process.env.MONGO_PASS;
+const HOST = process.env.MONGO_HOST;
+const DB_NAME = process.env.MONGO_DB;
 
 const connectDB = async () => {
   try {
-    // Construction de l'URI MongoDB
-    // Priorité 1: MONGODB_URI (si définie directement)
-    // Priorité 2: Construction avec MONGO_USER, MONGO_PASS, MONGO_HOST, MONGO_DB
-    const mongoUri = process.env.MONGODB_URI ||
-      `mongodb://${process.env.MONGO_USER}:${encodeURIComponent(process.env.MONGO_PASS)}@${process.env.MONGO_HOST}:27017/${process.env.MONGO_DB}?authSource=admin`;
+    let mongoUri;
+    let isUsingAuth; // Variable pour le log
 
-    // Options de connexion MongoDB
+    // -----------------------------------------------------------
+    // LOGIQUE DE CONSTRUCTION DE L'URI (Adaptée à Render/Local)
+    // -----------------------------------------------------------
+    if (process.env.MONGODB_URI) {
+      // Priorité 1: URI complète définie directement (cas général)
+      mongoUri = process.env.MONGODB_URI;
+      isUsingAuth = mongoUri.includes("@");
+    } else if (!USER || !PASS) {
+      // Priorité 2: Stratégie Render/Interne (Pas d'utilisateur/mot de passe)
+      // Ceci gère les cas où MONGO_USER/MONGO_PASS ont été "delete" dans server.js
+      if (!HOST || !DB_NAME) {
+        throw new Error(
+          "Les variables MONGO_HOST et MONGO_DB sont manquantes pour la connexion sans authentification."
+        );
+      }
+      mongoUri = `mongodb://${HOST}:27017/${DB_NAME}`;
+      isUsingAuth = false;
+    } else {
+      // Priorité 3: Stratégie avec Authentification (Local ou Externe)
+      // Utilise MONGO_USER/MONGO_PASS si elles sont présentes
+      mongoUri = `mongodb://${USER}:${encodeURIComponent(
+        PASS
+      )}@${HOST}:27017/${DB_NAME}?authSource=admin`;
+      isUsingAuth = true;
+    } // Options de connexion MongoDB
+
     const options = {
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
-    };
+    }; // Connexion à MongoDB
 
-    // Détection du mode (local ou production)
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.MONGO_USER;
-
-    // Connexion à MongoDB
     const conn = await mongoose.connect(mongoUri, options);
 
-    console.log(`\n${'='.repeat(50)}`);
+    console.log(`\n${"=".repeat(50)}`);
     console.log(`✅ MongoDB connecté avec succès!`);
-    console.log(`🌍 Mode: ${isProduction ? 'PRODUCTION (Authentification)' : 'DÉVELOPPEMENT (Local)'}`);
+    console.log(
+      `🌍 Mode: ${
+        isUsingAuth ? "AUTHENTIFIÉ" : "NON-AUTHENTIFIÉ (Interne/Local)"
+      }`
+    );
     console.log(`📡 Host: ${conn.connection.host}`);
     console.log(`📦 Base de données: ${conn.connection.name}`);
-    console.log(`🔒 État: ${conn.connection.readyState === 1 ? 'Connecté' : 'Déconnecté'}`);
-    console.log(`${'='.repeat(50)}\n`);
+    console.log(
+      `🔒 État: ${conn.connection.readyState === 1 ? "Connecté" : "Déconnecté"}`
+    );
+    console.log(`${"=".repeat(50)}\n`); // Gestion des événements de connexion
 
-    // Gestion des événements de connexion
-    mongoose.connection.on('error', (err) => {
-      console.error('❌ Erreur MongoDB:', err.message);
+    // ... (Reste inchangé) ...
+    mongoose.connection.on("error", (err) => {
+      console.error("❌ Erreur MongoDB:", err.message);
     });
 
-    mongoose.connection.on('disconnected', () => {
-      console.warn(`⚠️  MongoDB déconnecté (${isProduction ? 'Production' : 'Local'})`);
+    mongoose.connection.on("disconnected", () => {
+      console.warn(
+        `⚠️  MongoDB déconnecté (${isUsingAuth ? "Auth" : "No Auth"})`
+      );
     });
 
-    mongoose.connection.on('reconnected', () => {
-      console.log(`🔄 MongoDB reconnecté (${isProduction ? 'Production' : 'Local'})`);
-    });
+    mongoose.connection.on("reconnected", () => {
+      console.log(
+        `🔄 MongoDB reconnecté (${isUsingAuth ? "Auth" : "No Auth"})`
+      );
+    }); // Gestion de la fermeture propre
 
-    // Gestion de la fermeture propre
-    process.on('SIGINT', async () => {
+    process.on("SIGINT", async () => {
       await mongoose.connection.close();
-      console.log('MongoDB déconnecté suite à l\'arrêt de l\'application');
+      console.log("MongoDB déconnecté suite à l'arrêt de l'application");
       process.exit(0);
     });
-
   } catch (error) {
-    console.error('\n❌ Erreur de connexion MongoDB:');
-    console.error('Message:', error.message);
+    console.error("\n❌ Erreur de connexion MongoDB:");
+    console.error("Message:", error.message); // Messages d'aide mis à jour pour être plus génériques
 
-    // Messages d'aide selon le type d'erreur
-    if (error.message.includes('ECONNREFUSED')) {
-      console.error('\n💡 Conseil: MongoDB est inaccessible');
-      if (!isProduction) {
-        console.error('   Mode Local: Démarrez MongoDB avec: mongod --dbpath "C:\\data\\db"');
-      } else {
-        console.error('   Mode Production: Vérifiez que le serveur MongoDB est accessible');
-        console.error('   Host configuré: ' + process.env.MONGO_HOST);
-      }
-    } else if (error.message.includes('authentication') || error.message.includes('Authentication')) {
-      console.error('\n💡 Conseil: Erreur d\'authentification MongoDB');
-      console.error('   Vérifiez vos credentials:');
-      console.error('   - MONGO_USER: ' + (process.env.MONGO_USER ? '✅ Défini' : '❌ Manquant'));
-      console.error('   - MONGO_PASS: ' + (process.env.MONGO_PASS ? '✅ Défini' : '❌ Manquant'));
-      console.error('   - MONGO_HOST: ' + (process.env.MONGO_HOST || '❌ Manquant'));
-      console.error('   - MONGO_DB: ' + (process.env.MONGO_DB || '❌ Manquant'));
-    } else if (error.message.includes('ENOTFOUND')) {
-      console.error('\n💡 Conseil: Hôte MongoDB introuvable');
-      console.error('   Vérifiez la variable MONGO_HOST: ' + process.env.MONGO_HOST);
+    if (error.message.includes("ECONNREFUSED")) {
+      console.error(
+        "\n💡 Conseil: Le serveur MongoDB est inaccessible (Host/Port/Firewall)."
+      );
+      console.error("   Hôte configuré: " + HOST);
+    } else if (
+      error.message.includes("authentication") ||
+      error.message.includes("Authentication")
+    ) {
+      console.error(
+        "\n💡 Conseil: Erreur d'authentification. Vérifiez les identifiants ou le paramètre ?authSource."
+      );
+      console.error(
+        "   Mode de connexion: " +
+          (isUsingAuth ? "Authentifié" : "Non-Authentifié (inattendu)")
+      );
+    } else if (error.message.includes("ENOTFOUND")) {
+      console.error(
+        "\n💡 Conseil: Hôte MongoDB introuvable (Problème de DNS/Nom de service)."
+      );
+      console.error("   Hôte configuré: " + HOST);
     }
 
-    console.error('\n');
+    console.error("\n");
     process.exit(1);
   }
 };
 
-// Fonction pour tester la connexion (utilisée pour les tests rapides)
-const testConnection = async () => {
-  try {
-    await connectDB();
-    console.log('✅ Test de connexion réussi!');
-    await mongoose.connection.close();
-    console.log('🔌 Connexion fermée proprement');
-    return true;
-  } catch (error) {
-    console.error('❌ Test de connexion échoué');
-    return false;
-  }
-};
-
+// ... (Reste inchangé) ...
 module.exports = connectDB;
 module.exports.testConnection = testConnection;

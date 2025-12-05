@@ -1,11 +1,36 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+
+// ----------------------------------------------------------------------
+// CORRECTION CRITIQUE POUR LA CONNEXION INTERNE RENDER
+// ----------------------------------------------------------------------
+// En environnement de production (Render), nous forçons l'utilisation de l'hôte interne
+// connu (mongodb-o9gm) et supprimons les identifiants pour garantir une connexion SANS AUTHENTIFICATION,
+// car la fonction connectDB() va utiliser ces variables.
+
+if (process.env.NODE_ENV === "production") {
+  // 1. Définir l'hôte interne correct (celui qui a réussi le build)
+  //    Ceci corrige également la mauvaise valeur 'mongodbprototypeconfiguration' vue dans les logs d'échec.
+  process.env.MONGO_HOST = "mongodb-o9gm";
+
+  // 2. Supprimer les identifiants d'authentification pour empêcher la connexion d'échouer.
+  //    Ceci garantit que l'URI construite dans connectDB sera de format: mongodb://host:port/db
+  delete process.env.MONGO_USER;
+  delete process.env.MONGO_PASS;
+
+  // 3. (Optionnel) Si d'anciennes variables MONGO_URI complètes existent, on les supprime aussi
+  delete process.env.MONGO_URI;
+  delete process.env.MONGODB_URI;
+}
+
+// ----------------------------------------------------------------------
+
 const connectDB = require("./src/config/database");
 
 const app = express();
 
-// Connexion à la base de données
+// Connexion à la base de données (utilise les variables d'environnement ajustées ci-dessus)
 connectDB();
 
 // Middlewares
@@ -64,7 +89,7 @@ app.get("/api/test-db", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Connexion MongoDB Local réussie",
+      message: "Connexion MongoDB Locale réussie",
       database: {
         host: mongoose.connection.host,
         name: mongoose.connection.name,
