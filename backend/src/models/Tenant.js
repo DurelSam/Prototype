@@ -67,7 +67,7 @@ const tenantSchema = new mongoose.Schema({
 });
 
 // Index pour optimiser les recherches
-tenantSchema.index({ companyName: 1 });
+// Note: companyName a déjà un index via "unique: true" (ligne 8)
 tenantSchema.index({ subscriptionStatus: 1 });
 
 // Middleware pour mettre à jour updatedAt

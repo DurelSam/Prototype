@@ -178,7 +178,8 @@ const communicationSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index pour optimiser les recherches
+// Index composés pour optimiser les recherches
+// Note: tenant_id a déjà un index via "index: true" (ligne 8) utilisé par les index composés ci-dessous
 communicationSchema.index({ tenant_id: 1, status: 1 });
 communicationSchema.index({ tenant_id: 1, receivedAt: -1 });
 communicationSchema.index({ slaDueDate: 1, status: 1 });

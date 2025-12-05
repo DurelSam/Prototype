@@ -90,6 +90,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Index pour les recherches fréquentes
+// Note: tenant_id a déjà un index via "index: true" (ligne 11) utilisé par l'index composé ci-dessous
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ tenant_id: 1, role: 1 });

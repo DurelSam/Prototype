@@ -72,6 +72,8 @@ const notificationSchema = new mongoose.Schema({
 });
 
 // Index composés pour optimiser les requêtes
+// Note: recipient_id, tenant_id et isRead ont déjà des index simples (lignes 8, 15, 51)
+// Ces index simples sont utilisés par MongoDB pour les index composés ci-dessous
 notificationSchema.index({ recipient_id: 1, isRead: 1, createdAt: -1 });
 notificationSchema.index({ tenant_id: 1, createdAt: -1 });
 notificationSchema.index({ type: 1, isRead: 1 });
