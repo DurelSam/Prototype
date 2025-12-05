@@ -1,9 +1,10 @@
 /**
- * Script de BUILD/INITIALISATION de la Base de Données (Adapté à Render - Pas d'Auth Interne)
+ * Script de BUILD/INITIALISATION de la Base de Données (Adapté à Render - Connexion Interne)
  *
- * ⚠️  ATTENTION: Ce script va SUPPRIMER TOUTE la base de données si ALLOW_DB_RESET est défini !
+ * Ce script est configuré pour se connecter au service MongoDB en tant que Service Privé Render,
+ * ce qui signifie qu'il n'utilise PAS d'identifiants d'authentification pour la connexion.
  *
- * MODIFICATION CLÉ: Connexion SANS AUTHENTIFICATION entre services Render.
+ * ⚠️ ATTENTION: Nécessite les variables d'environnement MONGO_DB, SUPERUSER_EMAIL, et SUPERUSER_PASS.
  */
 
 require("dotenv").config();
@@ -20,7 +21,7 @@ const Notification = require("./src/models/Notification");
 const SUPERUSER_EMAIL = process.env.SUPERUSER_EMAIL;
 const SUPERUSER_PASS = process.env.SUPERUSER_PASS;
 
-// NOUVELLE CONFIGURATION : Utilisation de l'hôte et du port fournis
+// NOUVELLE CONFIGURATION : Utilisation de l'hôte et du port fournis par Render (sans authentification)
 const INTERNAL_HOST = "mongodb-o9gm"; // Le nom d'hôte interne du service MongoDB
 const PORT = "27017";
 const TARGET_DB_NAME = process.env.MONGO_DB; // Nom de la DB applicative, doit être dans les secrets Render
@@ -45,21 +46,21 @@ async function buildDatabase() {
       `🌍 Mode détecté: ${isProduction ? "PRODUCTION" : "DÉVELOPPEMENT"}`
     );
     console.log(`📡 Hôte Interne utilisé: ${INTERNAL_HOST}:${PORT}`);
-    console.log(`📦 Base de données ciblée: ${TARGET_DB_NAME}`); // 1. Vérification du nom de la DB (doit être défini dans les secrets du Backend)
+    console.log(`📦 Base de données ciblée: ${TARGET_DB_NAME}`); // 1. Vérification des variables d'environnement
 
     if (!TARGET_DB_NAME) {
       throw new Error(
         "La variable d'environnement MONGO_DB est manquante. Connexion impossible."
       );
     }
-    console.log("✅ Nom de la DB trouvé."); // 2. Vérification des identifiants SuperUser (toujours nécessaires pour l'application)
+    console.log("✅ Nom de la DB trouvé.");
 
     if (!SUPERUSER_EMAIL || !SUPERUSER_PASS) {
       throw new Error(
         "Les variables SUPERUSER_EMAIL et SUPERUSER_PASS sont manquantes. Création du SuperUser impossible."
       );
     }
-    console.log("✅ Identifiants SuperUser trouvés."); // 3. VÉROUILLAGE CRITIQUE EN PRODUCTION
+    console.log("✅ Identifiants SuperUser trouvés."); // 2. VÉROUILLAGE CRITIQUE EN PRODUCTION
 
     if (isProduction && !ALLOW_DB_RESET) {
       throw new Error(
@@ -78,7 +79,6 @@ async function buildDatabase() {
 
     console.log("\n📡 Connexion à MongoDB SANS AUTHENTIFICATION...");
     await mongoose.connect(mongoUri, {
-      // Aucune authentification requise ici
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
     });
@@ -95,7 +95,7 @@ async function buildDatabase() {
       console.log("\n" + "=".repeat(70));
       console.log("ÉTAPE 1/5: SUPPRESSION SAUTÉE (PAS D'AUTORISATION)");
       console.log("=".repeat(70));
-    } // ÉTAPE 2 & 3: Créer les collections et les index
+    } // ÉTAPE 2 & 3: CRÉATION DES COLLECTIONS ET INDEX (Correction de l'erreur "already exists")
 
     console.log("\n" + "=".repeat(70));
     console.log("ÉTAPE 2 & 3/5: CRÉATION DES COLLECTIONS ET INDEX");
@@ -109,7 +109,25 @@ async function buildDatabase() {
     ];
 
     for (const { name, model } of collections) {
-      await mongoose.connection.createCollection(name);
+      if (ALLOW_DB_RESET) {
+        // Tentative de suppression explicite après le dropDatabase() pour plus de robustesse
+        try {
+          await mongoose.connection.dropCollection(name);
+          console.log(
+            `🧹 Collection précédente supprimée explicitement : ${name}`
+          );
+        } catch (e) {
+          // Code 26 signifie que la collection n'existait pas (erreur acceptable)
+          if (e.code !== 26) {
+            console.warn(
+              `Avertissement : Erreur lors de la suppression de ${name} : ${e.message}`
+            );
+          }
+        }
+      }
+
+      // Utilise Model.init() qui est plus robuste que createCollection()
+      await model.init();
       console.log(`✅ Collection créée/vérifiée: ${name}`);
       await model.createIndexes();
       console.log(`✅ Index créés pour: ${name}`);
