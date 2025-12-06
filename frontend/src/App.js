@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -14,13 +14,21 @@ import Analytics from './pages/Analytics';
 import Subscription from './pages/Subscription';
 import './App.css';
 
+function HomeRedirect() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) return <div>Loading...</div>;
+
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
+}
+
 function App() {
   return (
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Default route - redirects to login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* Default route - redirects based on auth status */}
+          <Route path="/" element={<HomeRedirect />} />
 
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
