@@ -1,4 +1,10 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+} from "react";
 import axios from "axios";
 
 const AuthContext = createContext();
@@ -14,21 +20,17 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // Utilisation de l'API_URL (définie via les secrets Render en production)
 
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-  console.log(`See me well ${process.env.REACT_APP_API_URL}`);
+  console.log(`See me well ${process.env.REACT_APP_API_URL}`); // Vérifier si l'utilisateur est connecté au chargement // NOTE: Utilisation de useCallback pour stabiliser cette fonction et la lister dans useEffect
 
-  // Vérifier si l'utilisateur est connecté au chargement
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     const token = localStorage.getItem("authToken");
 
     if (token) {
       try {
+        // Utilisation de API_URL
         const response = await axios.get(`${API_URL}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -49,9 +51,12 @@ export const AuthProvider = ({ children }) => {
     }
 
     setLoading(false);
-  };
+  }, [API_URL]); // <-- API_URL est la seule dépendance externe et stable // Lancement de la vérification de l'authentification au premier rendu
 
-  // Login
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]); // <-- CORRECTION: 'checkAuth' est listé comme dépendance // Login
+
   const login = async (email, password) => {
     try {
       setError(null);
@@ -61,9 +66,8 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.data.success) {
-        const { token, user } = response.data;
+        const { token, user } = response.data; // Sauvegarder le token et les données utilisateur
 
-        // Sauvegarder le token et les données utilisateur
         localStorage.setItem("authToken", token);
         localStorage.setItem("userData", JSON.stringify(user));
 
@@ -76,18 +80,16 @@ export const AuthProvider = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }; // Register
 
-  // Register
   const register = async (userData) => {
     try {
       setError(null);
       const response = await axios.post(`${API_URL}/auth/register`, userData);
 
       if (response.data.success) {
-        const { token, user } = response.data;
+        const { token, user } = response.data; // Sauvegarder le token et les données utilisateur
 
-        // Sauvegarder le token et les données utilisateur
         localStorage.setItem("authToken", token);
         localStorage.setItem("userData", JSON.stringify(user));
 
@@ -100,9 +102,8 @@ export const AuthProvider = ({ children }) => {
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  };
+  }; // Logout
 
-  // Logout
   const logout = async () => {
     try {
       const token = localStorage.getItem("authToken");
