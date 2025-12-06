@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setError(null);
+      console.log(`SUPER SUPER SUPER IMPORTANT ${API_URL}/login`);
       const response = await axios.post(`${API_URL}/login`, {
         email,
         password,
