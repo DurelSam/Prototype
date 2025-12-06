@@ -1,12 +1,12 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import React, { createContext, useState, useEffect, useContext } from "react";
+import axios from "axios";
 
 const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
@@ -16,7 +16,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  console.log(`See me well ${process.env.REACT_APP_API_URL}`);
 
   // Vérifier si l'utilisateur est connecté au chargement
   useEffect(() => {
@@ -24,23 +25,26 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
 
     if (token) {
       try {
         const response = await axios.get(`${API_URL}/auth/me`, {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         });
 
         if (response.data.success) {
           setUser(response.data.user);
         }
       } catch (error) {
-        console.error('Erreur lors de la vérification de l\'authentification:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userData');
+        console.error(
+          "Erreur lors de la vérification de l'authentification:",
+          error
+        );
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userData");
       }
     }
 
@@ -53,21 +57,22 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       const response = await axios.post(`${API_URL}/auth/login`, {
         email,
-        password
+        password,
       });
 
       if (response.data.success) {
         const { token, user } = response.data;
 
         // Sauvegarder le token et les données utilisateur
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userData', JSON.stringify(user));
+        localStorage.setItem("authToken", token);
+        localStorage.setItem("userData", JSON.stringify(user));
 
         setUser(user);
         return { success: true, user };
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Erreur lors de la connexion';
+      const errorMessage =
+        error.response?.data?.message || "Erreur lors de la connexion";
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
@@ -83,14 +88,15 @@ export const AuthProvider = ({ children }) => {
         const { token, user } = response.data;
 
         // Sauvegarder le token et les données utilisateur
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userData', JSON.stringify(user));
+        localStorage.setItem("authToken", token);
+        localStorage.setItem("userData", JSON.stringify(user));
 
         setUser(user);
         return { success: true, user };
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Erreur lors de l\'inscription';
+      const errorMessage =
+        error.response?.data?.message || "Erreur lors de l'inscription";
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
@@ -99,21 +105,25 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = async () => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
 
       if (token) {
-        await axios.post(`${API_URL}/auth/logout`, {}, {
-          headers: {
-            Authorization: `Bearer ${token}`
+        await axios.post(
+          `${API_URL}/auth/logout`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
+        );
       }
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
+      console.error("Erreur lors de la déconnexion:", error);
     } finally {
       // Supprimer le token et les données utilisateur
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userData");
       setUser(null);
     }
   };
@@ -126,16 +136,12 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'Admin',
-    isManager: user?.role === 'Manager' || user?.role === 'Admin',
-    isEmployee: user?.role === 'Employee'
+    isAdmin: user?.role === "Admin",
+    isManager: user?.role === "Manager" || user?.role === "Admin",
+    isEmployee: user?.role === "Employee",
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export default AuthContext;
