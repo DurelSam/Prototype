@@ -31,7 +31,7 @@ const connectDB = require("./src/config/database");
 const app = express();
 
 // Connexion à la base de données (utilise les variables d'environnement ajustées ci-dessus)
-// connectDB();
+connectDB();
 
 // Middlewares
 app.use(
