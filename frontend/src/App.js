@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -18,25 +19,25 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Default route - redirects to dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Default route - redirects to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* All routes (no authentication required for now) */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/communications" element={<Communications />} />
-          <Route path="/communications/:id" element={<CommunicationDetails />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/integrations" element={<Integrations />} />
-          <Route path="/users" element={<UserManagement />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/subscription" element={<Subscription />} />
+          {/* Protected routes - authentication required */}
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/communications" element={<ProtectedRoute><Communications /></ProtectedRoute>} />
+          <Route path="/communications/:id" element={<ProtectedRoute><CommunicationDetails /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
 
-          {/* 404 route - redirects to dashboard */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* 404 route - redirects to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
     </Router>

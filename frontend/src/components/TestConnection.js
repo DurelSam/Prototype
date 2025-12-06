@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import API_CONFIG from '../config/api.config';
 
 function TestConnection() {
   const [backendStatus, setBackendStatus] = useState('');
@@ -17,11 +18,11 @@ function TestConnection() {
 
     try {
       // Test 1: Backend Health Check
-      const healthResponse = await axios.get('http://localhost:5000/api/health');
+      const healthResponse = await axios.get(`${API_CONFIG.baseUrl}/api/health`);
       setBackendStatus(`✅ Backend: ${healthResponse.data.message}`);
 
       // Test 2: MongoDB Connection
-      const dbResponse = await axios.get('http://localhost:5000/api/test-db');
+      const dbResponse = await axios.get(`${API_CONFIG.baseUrl}/api/test-db`);
       setDbStatus(`✅ MongoDB: ${dbResponse.data.message}`);
       setDbDetails(dbResponse.data);
 
@@ -111,9 +112,9 @@ function TestConnection() {
           <div style={styles.errorHints}>
             <p style={styles.hintTitle}>💡 Vérifications:</p>
             <ul style={styles.hintList}>
-              <li>Le backend est démarré sur http://localhost:5000</li>
+              <li>Le backend est démarré sur {API_CONFIG.baseUrl}</li>
               <li>Le mot de passe MongoDB est configuré dans backend/.env</li>
-              <li>Votre IP est autorisée dans MongoDB Atlas Network Access</li>
+              <li>La connexion réseau au backend est autorisée</li>
             </ul>
           </div>
         </div>
@@ -121,9 +122,9 @@ function TestConnection() {
 
       <div style={styles.info}>
         <p><strong>🔧 Configuration:</strong></p>
-        <p>Backend URL: http://localhost:5000</p>
-        <p>API URL: http://localhost:5000/api</p>
-        <p>MongoDB: Atlas Cloud (Cluster0)</p>
+        <p>Backend URL: {API_CONFIG.baseUrl}</p>
+        <p>API URL: {API_CONFIG.apiUrl}</p>
+        <p>Environnement: {process.env.NODE_ENV || 'development'}</p>
       </div>
     </div>
   );
