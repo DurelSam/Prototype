@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -12,12 +13,13 @@ import Integrations from './pages/Integrations';
 import UserManagement from './pages/UserManagement';
 import Analytics from './pages/Analytics';
 import Subscription from './pages/Subscription';
+import NotFound from './pages/NotFound';
 import './App.css';
 
 function HomeRedirect() {
   const { isAuthenticated, loading } = useAuth();
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="loading-screen">Chargement...</div>;
 
   return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
 }
@@ -27,25 +29,27 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Default route - redirects based on auth status */}
+          {/* Route par défaut */}
           <Route path="/" element={<HomeRedirect />} />
 
-          {/* Public routes */}
+          {/* Routes Publiques */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected routes - authentication required */}
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/communications" element={<ProtectedRoute><Communications /></ProtectedRoute>} />
-          <Route path="/communications/:id" element={<ProtectedRoute><CommunicationDetails /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-          <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+          {/* GROUPE DE ROUTES PROTÉGÉES avec Layout (Sidebar + Header) */}
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/communications" element={<Communications />} />
+            <Route path="/communications/:id" element={<CommunicationDetails />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/integrations" element={<Integrations />} />
+            <Route path="/users" element={<UserManagement />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/subscription" element={<Subscription />} />
+          </Route>
 
-          {/* 404 route - redirects to login */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* Gestion intelligente des 404 */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
     </Router>

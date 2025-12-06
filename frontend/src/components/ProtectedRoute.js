@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function ProtectedRoute({ children }) {
@@ -9,7 +9,7 @@ function ProtectedRoute({ children }) {
     return (
       <div style={styles.loadingContainer}>
         <div style={styles.spinner}></div>
-        <p style={styles.loadingText}>Loading...</p>
+        <p style={styles.loadingText}>Chargement...</p>
       </div>
     );
   }
@@ -18,7 +18,8 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  // Si connecté -> Affiche les enfants (s'il y en a) OU l'Outlet (pour les routes imbriquées)
+  return children ? children : <Outlet />;
 }
 
 const styles = {
