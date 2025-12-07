@@ -11,7 +11,12 @@
       "Bash(start /B mongod --dbpath \"C:\\data\\db\" --logpath \"C:\\data\\mongodb.log\")",
       "Bash(timeout:*)",
       "Bash(npm run init-db:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git reset:*)",
+      "Bash(git restore:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
