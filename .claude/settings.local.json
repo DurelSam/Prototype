@@ -10,7 +10,8 @@
       "Bash(if not exist \"C:\\data\\db\" mkdir \"C:\\data\\db\")",
       "Bash(start /B mongod --dbpath \"C:\\data\\db\" --logpath \"C:\\data\\mongodb.log\")",
       "Bash(timeout:*)",
-      "Bash(npm run init-db:*)"
+      "Bash(npm run init-db:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

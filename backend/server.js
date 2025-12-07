@@ -27,11 +27,21 @@ if (process.env.NODE_ENV === "production") {
 // ----------------------------------------------------------------------
 
 const connectDB = require("./src/config/database");
+const outlookSyncService = require("./src/services/outlookSyncService");
 
 const app = express();
 
 // Connexion à la base de données (utilise les variables d'environnement ajustées ci-dessus)
 connectDB();
+
+// Initialiser le cron job de synchronisation Outlook (toutes les 10 minutes)
+// Démarrage du cron job seulement en production ou si explicitement activé
+if (
+  process.env.NODE_ENV === "production" ||
+  process.env.ENABLE_OUTLOOK_SYNC === "true"
+) {
+  outlookSyncService.scheduledSync(10); // Sync toutes les 10 minutes
+}
 
 // Middlewares
 app.use(
@@ -116,8 +126,12 @@ app.get("/api/test-db", async (req, res) => {
 
 // Routes API
 app.use("/api/auth", require("./src/routes/authRoutes"));
+app.use("/api/auth/outlook", require("./src/routes/outlookRoutes"));
+app.use(
+  "/api/auth/communications",
+  require("./src/routes/communicationRoutes")
+);
 // app.use('/api/tenants', require('./src/routes/tenantRoutes'));
-// app.use('/api/communications', require('./src/routes/communicationRoutes'));
 
 // Gestion des erreurs 404
 app.use((req, res) => {

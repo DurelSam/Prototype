@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faUsers,
+  faEdit,
+  faTrash,
+  faEnvelope
+} from '@fortawesome/free-solid-svg-icons';
 import '../styles/UserManagement.css';
 
 function UserManagement() {
@@ -304,7 +311,9 @@ function UserManagement() {
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">👥</div>
+            <div className="empty-icon">
+              <FontAwesomeIcon icon={faUsers} />
+            </div>
             <h3>No Users Found</h3>
             <p>Try adjusting your search or filters</p>
           </div>
@@ -357,14 +366,14 @@ function UserManagement() {
                           onClick={() => handleEditUser(user)}
                           title="Edit user"
                         >
-                          ✏️
+                          <FontAwesomeIcon icon={faEdit} />
                         </button>
                         <button
                           className="action-btn delete-btn"
                           onClick={() => handleDeleteUser(user.id)}
                           title="Delete user"
                         >
-                          🗑️
+                          <FontAwesomeIcon icon={faTrash} />
                         </button>
                         {!user.lastLogin && (
                           <button
@@ -372,7 +381,7 @@ function UserManagement() {
                             onClick={() => handleResendInvite(user.id)}
                             title="Resend invitation"
                           >
-                            📧
+                            <FontAwesomeIcon icon={faEnvelope} />
                           </button>
                         )}
                       </div>

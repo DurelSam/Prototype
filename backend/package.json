@@ -10,13 +10,16 @@
     "init-db": "node init-mongodb.js",
     "seed-superuser": "node seed-superuser.js",
     "build": "node build-production.js",
-    "build:force": "node build-production.js --force"
+    "build:force": "node build-production.js --force",
+    "build:local": "node build-local.js",
+    "build:local:force": "set ALLOW_DB_RESET=YES_I_CONFIRM && node build-local.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

@@ -1,31 +1,190 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap");
+
 .App {
   text-align: center;
+  font-family: "Inter", sans-serif;
+  overflow: hidden;
+  position: relative;
+  min-height: 100vh;
+  background-color: #000000; /* Noir particulier dominant, aligné sur les images du dashboard */
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
+/* Fond avec gradient subtil dark pour profondeur, inspiré des fonds noirs uniformes des dashboards */
 .App-header {
-  background-color: #282c34;
+  background: linear-gradient(135deg, #000000, #111827, #000000);
+  background-size: 200% 200%;
+  animation: subtleGradient 20s ease infinite;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  color: #ffffff; /* Texte blanc principal, comme les titres et nombres dans les images */
+  position: relative;
+  z-index: 1;
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5); /* Profondeur intérieure subtile pour matcher les cards sombres */
 }
 
+/* Particules flottantes subtiles avec teinte bleue/cyan pour rappeler les accents des charts */
+.App-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(
+      circle at 30% 70%,
+      rgba(59, 130, 246, 0.1) 0%,
+      transparent 50%
+    ),
+    /* Bleu comme la ligne du chart */
+      radial-gradient(
+        circle at 70% 30%,
+        rgba(20, 184, 166, 0.1) 0%,
+        transparent 50%
+      ); /* Cyan comme les bars et gauges */
+  animation: floatParticles 30s infinite linear;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: overlay;
+}
+
+/* Logo avec rotation douce et glow bleu/cyan pour s'aligner aux couleurs des graphs */
+.App-logo {
+  height: 40vmin;
+  max-height: 300px;
+  pointer-events: none;
+  animation: App-logo-spin infinite 40s linear,
+    logoPulse 6s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.3)) /* Bleu accent */
+    drop-shadow(0 0 40px rgba(20, 184, 166, 0.2)); /* Cyan accent */
+  z-index: 2;
+}
+
+/* Titre avec animation d'apparition élégante, texte blanc avec ombre subtile */
+h1,
+.App-header p {
+  opacity: 0;
+  animation: fadeInUp 1.5s ease-out forwards;
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.2); /* Ombre bleue pour matcher les accents */
+  letter-spacing: 1px;
+  z-index: 2;
+}
+
+h1 {
+  font-family: "Inter", sans-serif;
+  font-weight: 700; /* Bold comme les titres des dashboards */
+  font-size: calc(2.5rem + 4vw);
+  color: #ffffff; /* Blanc pur */
+  animation-delay: 0.6s;
+  margin: 2rem 0 1rem;
+}
+
+.App-header p {
+  font-size: calc(1rem + 1vw);
+  animation-delay: 1s;
+  max-width: 600px;
+  line-height: 1.6;
+  color: #9ca3af; /* Gris clair pour sous-titres, comme dans les images */
+}
+
+/* Lien / bouton avec effet dark card-like, accents bleu/cyan */
 .App-link {
-  color: #61dafb;
+  margin-top: 3rem;
+  padding: 1rem 3rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(
+    135deg,
+    #111827,
+    #1f2937
+  ); /* Gris sombres comme les cards des images */
+  border: 1px solid rgba(59, 130, 246, 0.3); /* Bordure bleue subtile */
+  border-radius: 8px; /* Coins arrondis comme les cards et badges */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); /* Ombre subtile pour profondeur */
+  transition: all 0.4s ease;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.App-link::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(20, 184, 166, 0.2),
+    transparent
+  ); /* Shine cyan au hover */
+  transition: left 0.6s ease;
+}
+
+.App-link:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.4); /* Glow bleu au hover */
+  border-color: #3b82f6;
+}
+
+.App-link:hover::before {
+  left: 100%;
+}
+
+/* Animations clés élégantes et subtiles, conservées pour fluidité */
+@keyframes subtleGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes floatParticles {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(-20px) translateX(20px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.8;
+  }
+}
+
+@keyframes logoPulse {
+  from {
+    filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.3))
+      drop-shadow(0 0 40px rgba(20, 184, 166, 0.2));
+  }
+  to {
+    filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.5))
+      drop-shadow(0 0 60px rgba(20, 184, 166, 0.3));
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes App-logo-spin {
@@ -37,8 +196,16 @@
   }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+/* Responsive pour maintenir l'alignement sur petits écrans */
+@media (max-width: 768px) {
+  .App-logo {
+    height: 30vmin;
+  }
+  h1 {
+    font-size: 3rem;
+  }
+  .App-link {
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
   }
 }

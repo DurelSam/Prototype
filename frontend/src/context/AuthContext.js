@@ -20,17 +20,15 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // Utilisation de l'API_URL (définie via les secrets Render en production)
+  const [error, setError] = useState(null);
 
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-  console.log(`See me well ${process.env.REACT_APP_API_URL}`); // Vérifier si l'utilisateur est connecté au chargement // NOTE: Utilisation de useCallback pour stabiliser cette fonction et la lister dans useEffect
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem("authToken");
 
     if (token) {
       try {
-        // Utilisation de API_URL
         const response = await axios.get(`${API_URL}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -41,47 +39,41 @@ export const AuthProvider = ({ children }) => {
           setUser(response.data.user);
         }
       } catch (error) {
-        console.error(
-          "Erreur lors de la vérification de l'authentification:",
-          error
-        );
+        console.error("Erreur auth check:", error);
         localStorage.removeItem("authToken");
         localStorage.removeItem("userData");
+        setUser(null);
       }
     }
-
+    // C'est ici qu'on libère l'application
     setLoading(false);
-  }, [API_URL]); // <-- API_URL est la seule dépendance externe et stable // Lancement de la vérification de l'authentification au premier rendu
+  }, [API_URL]);
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]); // <-- CORRECTION: 'checkAuth' est listé comme dépendance // Login
+  }, [checkAuth]);
 
   const login = async (email, password) => {
     try {
       setError(null);
-      console.log(`SUPER SUPER SUPER IMPORTANT ${API_URL}/auth/login`);
       const response = await axios.post(`${API_URL}/auth/login`, {
         email,
         password,
       });
 
       if (response.data.success) {
-        const { token, user } = response.data; // Sauvegarder le token et les données utilisateur
-
+        const { token, user } = response.data;
         localStorage.setItem("authToken", token);
         localStorage.setItem("userData", JSON.stringify(user));
-
         setUser(user);
         return { success: true, user };
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Erreur lors de la connexion";
+      const errorMessage = error.response?.data?.message || "Erreur connexion";
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }; // Register
+  };
 
   const register = async (userData) => {
     try {
@@ -89,41 +81,35 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post(`${API_URL}/auth/register`, userData);
 
       if (response.data.success) {
-        const { token, user } = response.data; // Sauvegarder le token et les données utilisateur
-
+        const { token, user } = response.data;
         localStorage.setItem("authToken", token);
         localStorage.setItem("userData", JSON.stringify(user));
-
         setUser(user);
         return { success: true, user };
       }
     } catch (error) {
       const errorMessage =
-        error.response?.data?.message || "Erreur lors de l'inscription";
+        error.response?.data?.message || "Erreur inscription";
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }; // Logout
+  };
 
   const logout = async () => {
     try {
       const token = localStorage.getItem("authToken");
-
       if (token) {
         await axios.post(
           `${API_URL}/auth/logout`,
           {},
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
       }
     } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error);
+      console.error("Erreur déconnexion:", error);
     } finally {
-      // Supprimer le token et les données utilisateur
       localStorage.removeItem("authToken");
       localStorage.removeItem("userData");
       setUser(null);
@@ -142,6 +128,28 @@ export const AuthProvider = ({ children }) => {
     isManager: user?.role === "Manager" || user?.role === "Admin",
     isEmployee: user?.role === "Employee",
   };
+
+  // --- CORRECTION MAJEURE ICI ---
+  // On n'affiche RIEN (ou un spinner) tant qu'on ne sait pas si l'user est connecté.
+  // Cela empêche la redirection intempestive vers /login au rechargement de page.
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          backgroundColor: "#f8f9fa",
+        }}
+      >
+        <div style={{ fontSize: "1.2rem", color: "#666" }}>
+          Chargement de la session...
+        </div>
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

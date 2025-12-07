@@ -45,3 +45,8 @@ temp/
 # Package lock files (optionnel)
 # package-lock.json
 # yarn.lock
+
+# Sensitive credentials files
+AZURE backend infos.txt
+*credentials*.txt
+*secret*.txt

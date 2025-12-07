@@ -213,7 +213,7 @@ exports.login = async (req, res) => {
 // @access  Private
 exports.getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId)
+    const user = await User.findById(req.user._id)
       .populate('tenant_id', 'companyName subscriptionStatus settings')
       .select('-password');
 

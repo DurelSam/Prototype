@@ -1,478 +1,549 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import '../styles/Integrations.css';
+/* src/pages/Integrations.js */
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faEnvelope,
+  faCommentDots,
+  faSync,
+  faRobot,
+  faLock,
+  faChartBar,
+  faPlug,
+  faArrowLeft,
+  faTimes,
+  faKey,
+  faPhone,
+} from "@fortawesome/free-solid-svg-icons";
+import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import "../styles/Integrations.css";
 
 function Integrations() {
   const navigate = useNavigate();
+  const location = useLocation(); // Nécessaire pour lire les paramètres d'URL (success/error)
   const [activeService, setActiveService] = useState(null);
+  const { user } = useAuth();
 
-  // Integration status (mock data)
-  const [integrations, setIntegrations] = useState({
+  // API Configuration
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const token = localStorage.getItem("authToken");
+
+  // Données Mock avec statut et stats enrichies
+  const initialIntegrations = {
     outlook: {
+      id: 1,
+      name: "Microsoft Outlook Email",
+      icon: faEnvelope,
       connected: false,
-      email: '',
+      email: null,
       lastSync: null,
-      messagesCount: 0
+      messagesCount: 0,
+      syncStatus: "Inactive",
     },
     whatsapp: {
+      id: 2,
+      name: "WhatsApp Business API",
+      icon: faCommentDots,
       connected: false,
-      phoneNumber: '',
+      phoneNumber: "+1 555-123-4567",
       lastSync: null,
-      messagesCount: 0
-    }
-  });
+      messagesCount: 0,
+      syncStatus: "Inactive",
+    },
+  };
 
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [integrations, setIntegrations] = useState(initialIntegrations);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [message, setMessage] = useState({ type: "", text: "" });
 
-  // Outlook Form State
-  const [outlookForm, setOutlookForm] = useState({
-    email: '',
-    password: '',
-    clientId: '',
-    clientSecret: ''
-  });
-
-  // WhatsApp Form State
+  // États des formulaires
   const [whatsappForm, setWhatsappForm] = useState({
-    phoneNumber: '',
-    apiKey: '',
-    webhookUrl: ''
+    phoneNumber: "",
+    apiKey: "",
   });
 
-  const handleOutlookChange = (e) => {
-    setOutlookForm({
-      ...outlookForm,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleWhatsAppChange = (e) => {
-    setWhatsappForm({
-      ...whatsappForm,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleOutlookConnect = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-
+  // ---------------------------------------------------------------------------
+  // 1. FONCTION CENTRALE DE RÉCUPÉRATION (Définie ici pour être accessible partout)
+  // ---------------------------------------------------------------------------
+  const fetchOutlookStats = React.useCallback(async () => {
     try {
-      // TODO: API call to connect Outlook
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      setIntegrations({
-        ...integrations,
-        outlook: {
-          connected: true,
-          email: outlookForm.email,
-          lastSync: new Date(),
-          messagesCount: 0
-        }
+      const response = await axios.get(`${API_URL}/auth/outlook/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      setMessage({ type: 'success', text: 'Outlook connected successfully!' });
-      setActiveService(null);
-      setOutlookForm({ email: '', password: '', clientId: '', clientSecret: '' });
+      if (response.data.success) {
+        setIntegrations((prev) => ({
+          ...prev,
+          outlook: {
+            ...prev.outlook,
+            connected: response.data.isConnected, // C'est ici que le badge passe au VERT
+            email: response.data.email || user?.email || null,
+            lastSync: response.data.lastSync
+              ? new Date(response.data.lastSync)
+              : null,
+            messagesCount: response.data.messagesCount || 0,
+            syncStatus: response.data.isConnected ? "Active" : "Inactive",
+          },
+        }));
+      }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to connect Outlook. Please try again.' });
-    } finally {
+      console.error("Error fetching Outlook stats:", error);
+      // On ne bloque pas l'interface ici, on log juste l'erreur
+    }
+  }, [API_URL, token, user?.email]);
+
+  // ---------------------------------------------------------------------------
+  // 2. EFFET : Chargement initial des données
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await fetchOutlookStats();
       setLoading(false);
+    };
+
+    if (token) {
+      init();
+    }
+  }, [token, fetchOutlookStats]);
+
+  // ---------------------------------------------------------------------------
+  // 3. EFFET : Gestion du retour OAuth (Le Callback Microsoft)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const success = params.get("success");
+    const error = params.get("error");
+    const email = params.get("email");
+
+    if (success) {
+      // 1. Afficher le message de succès
+      setMessage({
+        type: "success",
+        text: `Compte Outlook connecté avec succès ! (${email || "Vérifié"})`,
+      });
+
+      // 2. Nettoyer l'URL (pour enlever ?success=true et faire propre)
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      // 3. FORCER LA MISE À JOUR DU BADGE IMMÉDIATEMENT
+      fetchOutlookStats();
+    } else if (error) {
+      setMessage({
+        type: "error",
+        text: `Erreur de connexion : ${decodeURIComponent(error)}`,
+      });
+    }
+  }, [location, fetchOutlookStats]);
+
+  // ---------------------------------------------------------------------------
+  // HANDLERS (Gestion des actions)
+  // ---------------------------------------------------------------------------
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setWhatsappForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleConnect = async (service, e) => {
+    if (e) e.preventDefault();
+    setLoading(true); // Petit chargement visuel pendant la redirection
+    setMessage({ type: "", text: "" });
+
+    if (service === "outlook") {
+      try {
+        // Demander l'URL à notre Backend
+        const response = await axios.get(`${API_URL}/auth/outlook/url`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.data.success && response.data.authUrl) {
+          // Redirection vers Microsoft
+          window.location.href = response.data.authUrl;
+        }
+      } catch (error) {
+        console.error("Error connecting Outlook:", error);
+        setMessage({
+          type: "error",
+          text:
+            error.response?.data?.message ||
+            "Failed to initiate Outlook connection",
+        });
+        setLoading(false);
+      }
+    } else if (service === "whatsapp") {
+      // Simulation pour WhatsApp (À implémenter plus tard)
+      setTimeout(() => {
+        const phone = whatsappForm.phoneNumber;
+        setIntegrations((prev) => ({
+          ...prev,
+          whatsapp: {
+            ...prev.whatsapp,
+            connected: true,
+            phoneNumber: phone,
+            lastSync: new Date(),
+            messagesCount: 50,
+            syncStatus: "Active",
+          },
+        }));
+        setMessage({
+          type: "success",
+          text: `Successfully connected WhatsApp for ${phone}!`,
+        });
+        setActiveService(null);
+        setLoading(false);
+      }, 1500);
     }
   };
 
-  const handleWhatsAppConnect = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage({ type: '', text: '' });
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    setMessage({ type: "", text: "" });
 
     try {
-      // TODO: API call to connect WhatsApp
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      setIntegrations({
-        ...integrations,
-        whatsapp: {
-          connected: true,
-          phoneNumber: whatsappForm.phoneNumber,
-          lastSync: new Date(),
-          messagesCount: 0
+      const response = await axios.post(
+        `${API_URL}/auth/outlook/sync`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
         }
-      });
+      );
 
-      setMessage({ type: 'success', text: 'WhatsApp connected successfully!' });
-      setActiveService(null);
-      setWhatsappForm({ phoneNumber: '', apiKey: '', webhookUrl: '' });
+      if (response.data.success) {
+        // Rafraîchir les stats après la synchronisation
+        await fetchOutlookStats(); // On réutilise notre fonction centrale
+
+        setMessage({
+          type: "success",
+          text:
+            response.data.message || "Synchronization completed successfully!",
+        });
+      }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to connect WhatsApp. Please try again.' });
+      console.error("Error syncing Outlook:", error);
+      setMessage({
+        type: "error",
+        text: error.response?.data?.message || "Failed to sync Outlook emails",
+      });
     } finally {
-      setLoading(false);
+      setSyncing(false);
     }
   };
 
   const handleDisconnect = async (service) => {
-    if (!window.confirm(`Are you sure you want to disconnect ${service}?`)) {
-      return;
-    }
-
     setLoading(true);
-    setMessage({ type: '', text: '' });
+    setMessage({ type: "", text: "" });
 
-    try {
-      // TODO: API call to disconnect
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (service === "outlook") {
+      try {
+        const response = await axios.post(
+          `${API_URL}/auth/outlook/disconnect`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-      setIntegrations({
-        ...integrations,
-        [service]: {
-          connected: false,
-          email: '',
-          phoneNumber: '',
-          lastSync: null,
-          messagesCount: 0
+        if (response.data.success) {
+          setIntegrations((prev) => ({
+            ...prev,
+            outlook: {
+              ...prev.outlook,
+              connected: false,
+              email: null,
+              lastSync: null,
+              messagesCount: 0,
+              syncStatus: "Inactive",
+            },
+          }));
+          setMessage({
+            type: "success", // Changé en success (vert) car c'est une action réussie
+            text: "Outlook integration disconnected successfully.",
+          });
         }
-      });
-
-      setMessage({ type: 'success', text: `${service.charAt(0).toUpperCase() + service.slice(1)} disconnected successfully!` });
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' });
-    } finally {
-      setLoading(false);
+      } catch (error) {
+        console.error("Error disconnecting Outlook:", error);
+        setMessage({
+          type: "error",
+          text: error.response?.data?.message || "Failed to disconnect Outlook",
+        });
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Mock WhatsApp Disconnect
+      setTimeout(() => {
+        setIntegrations((prev) => ({
+          ...prev,
+          [service]: {
+            ...prev[service],
+            connected: false,
+            lastSync: new Date(),
+            messagesCount: 0,
+            syncStatus: "Inactive",
+          },
+        }));
+        setMessage({
+          type: "success",
+          text: `${service.toUpperCase()} integration disconnected.`,
+        });
+        setLoading(false);
+      }, 1000);
     }
   };
 
-  const handleSync = async (service) => {
-    setLoading(true);
-    setMessage({ type: '', text: '' });
+  const allIntegrations = Object.values(integrations);
 
-    try {
-      // TODO: API call to sync
-      await new Promise(resolve => setTimeout(resolve, 1500));
+  const renderIntegrationCard = (integration, index) => {
+    const isConnected = integration.connected;
 
-      setIntegrations({
-        ...integrations,
-        [service]: {
-          ...integrations[service],
-          lastSync: new Date(),
-          messagesCount: integrations[service].messagesCount + Math.floor(Math.random() * 10)
-        }
-      });
+    return (
+      <div
+        key={integration.id}
+        className="integration-card"
+        style={{ animationDelay: `${index * 0.15}s` }}
+      >
+        <div className="card-header">
+          <span
+            className="service-icon"
+            data-service={
+              integration.name.toLowerCase().includes("whatsapp")
+                ? "whatsapp"
+                : "outlook"
+            }
+          >
+            <FontAwesomeIcon icon={integration.icon} />
+          </span>
+          <h2 className="service-name">{integration.name}</h2>
+          <span
+            className={`status-badge ${
+              isConnected ? "connected" : "disconnected"
+            }`}
+          >
+            {isConnected ? "Connected" : "Inactive"}
+          </span>
+        </div>
 
-      setMessage({ type: 'success', text: 'Sync completed successfully!' });
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Sync failed. Please try again.' });
-    } finally {
-      setLoading(false);
-    }
+        <p className="card-info">
+          {isConnected
+            ? `Integrated with: ${
+                integration.email || integration.phoneNumber
+              }. All communications are being synced.`
+            : `Integration is required to start syncing data from ${integration.name}.`}
+        </p>
+
+        <div className="card-stats">
+          <div className="stat-item">
+            <span className="stat-value">
+              {integration.messagesCount.toLocaleString()}
+            </span>
+            <span className="stat-label">Messages Synced</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-value">
+              {integration.lastSync
+                ? new Date(integration.lastSync).toLocaleTimeString()
+                : "N/A"}
+            </span>
+            <span className="stat-label">Last Sync Time</span>
+          </div>
+          <div className="stat-item">
+            <span
+              className="stat-value"
+              style={{ color: isConnected ? "#10b981" : "#ef4444" }}
+            >
+              {integration.syncStatus}
+            </span>
+            <span className="stat-label">Sync Status</span>
+          </div>
+        </div>
+
+        <div className="card-actions">
+          {isConnected ? (
+            <>
+              {integration.name.toLowerCase().includes("outlook") && (
+                <button
+                  className="action-button sync-btn"
+                  onClick={handleSyncNow}
+                  disabled={syncing}
+                >
+                  <FontAwesomeIcon icon={faSync} spin={syncing} />
+                  {syncing ? " Syncing..." : " Sync Now"}
+                </button>
+              )}
+              <button
+                className="action-button disconnect-btn"
+                onClick={() =>
+                  handleDisconnect(
+                    integration.name.toLowerCase().includes("whatsapp")
+                      ? "whatsapp"
+                      : "outlook"
+                  )
+                }
+              >
+                Disconnect
+              </button>
+            </>
+          ) : (
+            <button
+              className="action-button connect-btn"
+              onClick={() => {
+                const service = integration.name
+                  .toLowerCase()
+                  .includes("whatsapp")
+                  ? "whatsapp"
+                  : "outlook";
+
+                if (service === "outlook") {
+                  handleConnect("outlook");
+                } else {
+                  setActiveService(service);
+                }
+              }}
+            >
+              Connect Now
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
-  const formatLastSync = (date) => {
-    if (!date) return 'Never';
+  const renderWhatsappForm = () => (
+    <div className="integration-form-section">
+      <div className="form-header">
+        <h2 className="form-title">Set Up WhatsApp</h2>
+        <button className="close-btn" onClick={() => setActiveService(null)}>
+          <FontAwesomeIcon icon={faTimes} />
+        </button>
+      </div>
+      {message.type && (
+        <div className={`message ${message.type}`}>{message.text}</div>
+      )}
+      <form
+        onSubmit={(e) => handleConnect("whatsapp", e)}
+        className="form-grid"
+      >
+        <div className="form-group">
+          <label htmlFor="whatsapp-phoneNumber">Phone Number</label>
+          <div className="form-input-wrapper">
+            <span className="form-input-icon">
+              <FontAwesomeIcon icon={faPhone} />
+            </span>
+            <input
+              type="tel"
+              id="whatsapp-phoneNumber"
+              name="phoneNumber"
+              value={whatsappForm.phoneNumber}
+              onChange={handleFormChange}
+              className="form-input"
+              placeholder="+1 555 123 4567"
+              required
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label htmlFor="whatsapp-apiKey">API Key</label>
+          <div className="form-input-wrapper">
+            <span className="form-input-icon">
+              <FontAwesomeIcon icon={faKey} />
+            </span>
+            <input
+              type="password"
+              id="whatsapp-apiKey"
+              name="apiKey"
+              value={whatsappForm.apiKey}
+              onChange={handleFormChange}
+              className="form-input"
+              placeholder="****************"
+              required
+            />
+          </div>
+        </div>
+        <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+          <label>Webhook URL (Optional)</label>
+          <div className="form-input-wrapper">
+            <span className="form-input-icon">
+              <FontAwesomeIcon icon={faSync} />
+            </span>
+            <input
+              type="url"
+              className="form-input"
+              placeholder="https://your-api.com/webhook"
+            />
+          </div>
+        </div>
+        <button type="submit" className="form-submit-btn">
+          <FontAwesomeIcon icon={faPlug} /> Connect WhatsApp
+        </button>
+      </form>
+    </div>
+  );
 
-    const now = new Date();
-    const diff = now - date;
-    const minutes = Math.floor(diff / 60000);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-
-    const days = Math.floor(hours / 24);
-    return `${days} day${days > 1 ? 's' : ''} ago`;
-  };
+  if (loading) {
+    return (
+      <div className="integrations-page">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading Integrations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="integrations-page">
       <div className="integrations-header">
-        <button className="back-button" onClick={() => navigate('/dashboard')}>
-          ← Back to Dashboard
+        <button className="back-button" onClick={() => navigate("/dashboard")}>
+          <FontAwesomeIcon icon={faArrowLeft} /> Back to Dashboard
         </button>
-        <h1 className="page-title">Integrations</h1>
+        <h1 className="page-title">Platform Integrations</h1>
       </div>
 
-      {message.text && (
-        <div className={`message ${message.type}`}>
-          {message.text}
-        </div>
+      {activeService === "whatsapp" && renderWhatsappForm()}
+
+      {message.type && !activeService && (
+        <div className={`message ${message.type}`}>{message.text}</div>
       )}
 
       <div className="integrations-grid">
-        {/* Outlook Integration Card */}
-        <div className={`integration-card ${integrations.outlook.connected ? 'connected' : ''}`}>
-          <div className="card-header">
-            <div className="service-info">
-              <div className="service-icon outlook">📧</div>
-              <div>
-                <h2 className="service-name">Outlook</h2>
-                <p className="service-description">Sync your Outlook emails</p>
-              </div>
-            </div>
-            <div className={`status-badge ${integrations.outlook.connected ? 'connected' : 'disconnected'}`}>
-              {integrations.outlook.connected ? 'Connected' : 'Not Connected'}
-            </div>
-          </div>
-
-          {integrations.outlook.connected ? (
-            <div className="card-body">
-              <div className="connection-details">
-                <div className="detail-item">
-                  <span className="detail-label">Email:</span>
-                  <span className="detail-value">{integrations.outlook.email}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Last Sync:</span>
-                  <span className="detail-value">{formatLastSync(integrations.outlook.lastSync)}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Messages:</span>
-                  <span className="detail-value">{integrations.outlook.messagesCount}</span>
-                </div>
-              </div>
-
-              <div className="card-actions">
-                <button
-                  className="sync-button"
-                  onClick={() => handleSync('outlook')}
-                  disabled={loading}
-                >
-                  🔄 Sync Now
-                </button>
-                <button
-                  className="disconnect-button"
-                  onClick={() => handleDisconnect('outlook')}
-                  disabled={loading}
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="card-body">
-              {activeService === 'outlook' ? (
-                <form onSubmit={handleOutlookConnect} className="integration-form">
-                  <div className="form-group">
-                    <label htmlFor="outlook-email">Email Address</label>
-                    <input
-                      type="email"
-                      id="outlook-email"
-                      name="email"
-                      value={outlookForm.email}
-                      onChange={handleOutlookChange}
-                      placeholder="your@email.com"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="outlook-password">Password</label>
-                    <input
-                      type="password"
-                      id="outlook-password"
-                      name="password"
-                      value={outlookForm.password}
-                      onChange={handleOutlookChange}
-                      placeholder="••••••••"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="outlook-clientId">Client ID (Optional)</label>
-                    <input
-                      type="text"
-                      id="outlook-clientId"
-                      name="clientId"
-                      value={outlookForm.clientId}
-                      onChange={handleOutlookChange}
-                      placeholder="For OAuth authentication"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="outlook-clientSecret">Client Secret (Optional)</label>
-                    <input
-                      type="password"
-                      id="outlook-clientSecret"
-                      name="clientSecret"
-                      value={outlookForm.clientSecret}
-                      onChange={handleOutlookChange}
-                      placeholder="For OAuth authentication"
-                    />
-                  </div>
-
-                  <div className="form-actions">
-                    <button type="submit" className="connect-button" disabled={loading}>
-                      {loading ? 'Connecting...' : 'Connect'}
-                    </button>
-                    <button
-                      type="button"
-                      className="cancel-button"
-                      onClick={() => setActiveService(null)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  className="setup-button"
-                  onClick={() => setActiveService('outlook')}
-                >
-                  Set Up Outlook
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* WhatsApp Integration Card */}
-        <div className={`integration-card ${integrations.whatsapp.connected ? 'connected' : ''}`}>
-          <div className="card-header">
-            <div className="service-info">
-              <div className="service-icon whatsapp">💬</div>
-              <div>
-                <h2 className="service-name">WhatsApp Business</h2>
-                <p className="service-description">Integrate WhatsApp messages</p>
-              </div>
-            </div>
-            <div className={`status-badge ${integrations.whatsapp.connected ? 'connected' : 'disconnected'}`}>
-              {integrations.whatsapp.connected ? 'Connected' : 'Not Connected'}
-            </div>
-          </div>
-
-          {integrations.whatsapp.connected ? (
-            <div className="card-body">
-              <div className="connection-details">
-                <div className="detail-item">
-                  <span className="detail-label">Phone Number:</span>
-                  <span className="detail-value">{integrations.whatsapp.phoneNumber}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Last Sync:</span>
-                  <span className="detail-value">{formatLastSync(integrations.whatsapp.lastSync)}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="detail-label">Messages:</span>
-                  <span className="detail-value">{integrations.whatsapp.messagesCount}</span>
-                </div>
-              </div>
-
-              <div className="card-actions">
-                <button
-                  className="sync-button"
-                  onClick={() => handleSync('whatsapp')}
-                  disabled={loading}
-                >
-                  🔄 Sync Now
-                </button>
-                <button
-                  className="disconnect-button"
-                  onClick={() => handleDisconnect('whatsapp')}
-                  disabled={loading}
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="card-body">
-              {activeService === 'whatsapp' ? (
-                <form onSubmit={handleWhatsAppConnect} className="integration-form">
-                  <div className="form-group">
-                    <label htmlFor="whatsapp-phone">Phone Number</label>
-                    <input
-                      type="tel"
-                      id="whatsapp-phone"
-                      name="phoneNumber"
-                      value={whatsappForm.phoneNumber}
-                      onChange={handleWhatsAppChange}
-                      placeholder="+1234567890"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="whatsapp-apiKey">API Key</label>
-                    <input
-                      type="text"
-                      id="whatsapp-apiKey"
-                      name="apiKey"
-                      value={whatsappForm.apiKey}
-                      onChange={handleWhatsAppChange}
-                      placeholder="Your WhatsApp Business API key"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="whatsapp-webhook">Webhook URL (Optional)</label>
-                    <input
-                      type="url"
-                      id="whatsapp-webhook"
-                      name="webhookUrl"
-                      value={whatsappForm.webhookUrl}
-                      onChange={handleWhatsAppChange}
-                      placeholder="https://your-webhook-url.com"
-                    />
-                  </div>
-
-                  <div className="info-box">
-                    <p><strong>Note:</strong> You need a WhatsApp Business API account to use this integration.
-                    Visit the <a href="https://developers.facebook.com/docs/whatsapp" target="_blank" rel="noopener noreferrer">WhatsApp Business API documentation</a> for more information.</p>
-                  </div>
-
-                  <div className="form-actions">
-                    <button type="submit" className="connect-button" disabled={loading}>
-                      {loading ? 'Connecting...' : 'Connect'}
-                    </button>
-                    <button
-                      type="button"
-                      className="cancel-button"
-                      onClick={() => setActiveService(null)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  className="setup-button"
-                  onClick={() => setActiveService('whatsapp')}
-                >
-                  Set Up WhatsApp
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {allIntegrations.map(renderIntegrationCard)}
       </div>
 
-      {/* Info Section */}
       <div className="info-section">
         <h3>About Integrations</h3>
-        <p>Connect your communication platforms to centralize all your messages in one place.
-        Our AI will analyze your communications and provide insights to help you stay organized and productive.</p>
+        <p>
+          Connect your communication platforms to centralize all your messages
+          in one place. Our AI will analyze your communications and provide
+          insights to help you stay organized and productive.
+        </p>
 
         <div className="features-list">
           <div className="feature-item">
-            <span className="feature-icon">✅</span>
-            <span>Automatic synchronization</span>
+            <span className="feature-icon">
+              <FontAwesomeIcon icon={faSync} />
+            </span>
+            <span>Automatic Synchronization</span>
           </div>
           <div className="feature-item">
-            <span className="feature-icon">🤖</span>
-            <span>AI-powered analysis</span>
+            <span className="feature-icon">
+              <FontAwesomeIcon icon={faRobot} />
+            </span>
+            <span>AI-Powered Analysis</span>
           </div>
           <div className="feature-item">
-            <span className="feature-icon">🔒</span>
-            <span>Secure and encrypted</span>
+            <span className="feature-icon">
+              <FontAwesomeIcon icon={faLock} />
+            </span>
+            <span>Secure & Encrypted Data</span>
           </div>
           <div className="feature-item">
-            <span className="feature-icon">📊</span>
-            <span>Real-time insights</span>
+            <span className="feature-icon">
+              <FontAwesomeIcon icon={faChartBar} />
+            </span>
+            <span>Real-time Insights</span>
           </div>
         </div>
       </div>

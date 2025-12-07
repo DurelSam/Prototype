@@ -1,78 +1,91 @@
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState } from "react";
+import { Outlet, Link, useLocation } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faChartPie,
+  faComments,
+  faUsers,
+  faChartLine,
+  faPlug,
+  faCreditCard,
+  faCog,
+  faBars,
+  faChevronLeft,
+} from "@fortawesome/free-solid-svg-icons";
+import "../styles/Layout.css";
 
 function Layout() {
+  // État pour savoir si la sidebar est réduite ou ouverte
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const location = useLocation();
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  // Liste des liens pour garder le code propre
+  const navItems = [
+    { path: "/dashboard", label: "Dashboard", icon: faChartPie },
+    { path: "/communications", label: "Communications", icon: faComments },
+    { path: "/users", label: "Users", icon: faUsers },
+    { path: "/analytics", label: "Analytics", icon: faChartLine },
+    { path: "/integrations", label: "Integrations", icon: faPlug },
+    { path: "/subscription", label: "Subscription", icon: faCreditCard },
+    { path: "/settings", label: "Settings", icon: faCog },
+  ];
+
   return (
-    <div style={styles.container}>
+    <div
+      className={`app-container ${
+        isSidebarCollapsed ? "sidebar-collapsed" : ""
+      }`}
+    >
       {/* HEADER */}
-      <header style={styles.header}>
-        <h1>SaaS Multi-tenant Platform</h1>
+      <header className="app-header">
+        <div className="header-content">
+          {/* Bouton Toggle intégré au Header ou au début de la sidebar visuellement */}
+          <button className="sidebar-toggle" onClick={toggleSidebar}>
+            <FontAwesomeIcon
+              icon={isSidebarCollapsed ? faBars : faChevronLeft}
+            />
+          </button>
+          <h1>SaaS Platform</h1>
+        </div>
       </header>
 
-      <div style={styles.mainContent}>
+      <div className="main-content">
         {/* SIDEBAR */}
-        <aside style={styles.sidebar}>
-          <nav style={styles.nav}>
-            <a href="/dashboard" style={styles.navLink}>Dashboard</a>
-            <a href="/communications" style={styles.navLink}>Communications</a>
-            <a href="/users" style={styles.navLink}>Users</a>
-            <a href="/analytics" style={styles.navLink}>Analytics</a>
-            <a href="/integrations" style={styles.navLink}>Integrations</a>
-            <a href="/subscription" style={styles.navLink}>Subscription</a>
-            <a href="/settings" style={styles.navLink}>Settings</a>
+        <aside className="sidebar">
+          <nav className="nav">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`nav-link ${
+                  location.pathname === item.path ? "active" : ""
+                }`}
+              >
+                <div className="nav-icon">
+                  <FontAwesomeIcon icon={item.icon} />
+                </div>
+                <span className="nav-text">{item.label}</span>
+
+                {/* Tooltip pour le mode réduit */}
+                {isSidebarCollapsed && (
+                  <div className="nav-tooltip">{item.label}</div>
+                )}
+              </Link>
+            ))}
           </nav>
         </aside>
 
         {/* CONTENU PRINCIPAL */}
-        <main style={styles.content}>
+        <main className="content">
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-  },
-  header: {
-    backgroundColor: '#1f2937',
-    color: '#fff',
-    padding: '1rem 2rem',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  },
-  mainContent: {
-    display: 'flex',
-    flex: 1,
-  },
-  sidebar: {
-    width: '250px',
-    backgroundColor: '#f3f4f6',
-    padding: '1.5rem 1rem',
-    boxShadow: '2px 0 4px rgba(0,0,0,0.05)',
-  },
-  nav: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  navLink: {
-    padding: '0.75rem 1rem',
-    color: '#374151',
-    textDecoration: 'none',
-    borderRadius: '6px',
-    transition: 'all 0.2s',
-    fontSize: '14px',
-    fontWeight: '500',
-  },
-  content: {
-    flex: 1,
-    padding: '2rem',
-    backgroundColor: '#fff',
-  },
-};
 
 export default Layout;

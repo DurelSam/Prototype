@@ -1,0 +1,125 @@
+/* src/animations/dashboardAnimations.css */
+
+/* --- Keyframes --- */
+
+/* Apparition fluide vers le haut (Standard) */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Effet de zoom léger (pour les icônes ou KPIs) */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Effet de balayage brillant (Shimmer) pour les graphiques au chargement */
+@keyframes shimmerLoad {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* --- Classes utilitaires d'animation --- */
+
+/* Classe de base pour l'entrée */
+.animate-entry {
+  opacity: 0; /* Caché par défaut avant l'animation */
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale {
+  opacity: 0;
+  animation: scaleIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Gestion des délais (Staggering) pour l'effet de cascade */
+.delay-1 {
+  animation-delay: 0.1s;
+}
+.delay-2 {
+  animation-delay: 0.2s;
+}
+.delay-3 {
+  animation-delay: 0.3s;
+}
+.delay-4 {
+  animation-delay: 0.4s;
+}
+.delay-5 {
+  animation-delay: 0.5s;
+}
+.delay-6 {
+  animation-delay: 0.6s;
+}
+
+/* --- Améliorations des interactions --- */
+
+/* Effet de glow pulsant au survol des cartes KPI */
+.kpi-card:hover .kpi-icon {
+  animation: pulseGlow 1.5s infinite;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+/* Animation spécifique pour les conteneurs de graphiques */
+.chart-card {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Petit effet de ligne de scan tech lors de l'apparition du graph */
+.chart-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(59, 130, 246, 0.8),
+    transparent
+  );
+  animation: scanLine 1.5s ease-out forwards;
+  opacity: 0;
+  animation-delay: 0.8s; /* Se lance après l'apparition */
+}
+
+@keyframes scanLine {
+  0% {
+    top: 0;
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
