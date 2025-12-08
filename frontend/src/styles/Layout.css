@@ -1,214 +1,195 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap");
+/* src/styles/Layout.css */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+* {
+  box-sizing: border-box; /* Crucial pour les calculs de largeur */
+}
 
 .app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh; /* Force la hauteur exacte de l'écran */
   background-color: #000000;
   font-family: "Inter", sans-serif;
-  overflow: hidden;
-  position: relative;
+  overflow: hidden; /* Empêche le scroll global sur body */
 }
 
-/* ... (Garder les styles .app-container::before existants) ... */
-
-/* HEADER MODIFIÉ POUR ACCUEILLIR LE BOUTON */
+/* HEADER */
 .app-header {
-  background: linear-gradient(135deg, #000000, #111827);
-  background-size: 200% 200%;
-  animation: subtleGradient 20s ease infinite;
-  color: #ffffff;
-  padding: 0 2rem; /* Padding ajusté */
-  height: 70px; /* Hauteur fixe pour alignement */
+  flex: 0 0 70px; /* Hauteur fixe, ne rétrécit pas, ne grandit pas */
+  background: linear-gradient(to right, #000000, #111827);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
   display: flex;
   align-items: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  padding: 0 1.5rem;
+  z-index: 50;
   position: relative;
-  z-index: 10; /* Au-dessus de la sidebar */
-  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 1.5rem;
   width: 100%;
 }
 
 .app-header h1 {
-  font-weight: 700;
-  font-size: 1.5rem; /* Un peu plus petit pour l'élégance */
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
   margin: 0;
-  color: #ffffff;
-  text-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+  letter-spacing: -0.01em;
 }
 
-/* --- BOUTON TOGGLE (STYLE TECH) --- */
+/* BOUTON TOGGLE */
 .sidebar-toggle {
-  background: rgba(31, 41, 55, 0.5);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #fff;
-  width: 40px;
-  height: 40px;
+  background: rgba(31, 41, 55, 0.4);
+  border: 1px solid rgba(75, 85, 99, 0.4);
+  color: #e5e7eb;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(5px);
+  transition: all 0.2s ease;
 }
 
 .sidebar-toggle:hover {
-  background: rgba(59, 130, 246, 0.2);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
-  transform: scale(1.05);
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #fff;
 }
 
-/* --- SIDEBAR ANIMÉE --- */
+/* MAIN LAYOUT (Sidebar + Content) */
 .main-content {
   display: flex;
-  flex: 1;
+  flex-direction: row; /* Force l'alignement horizontal */
+  flex: 1; /* Prend tout l'espace restant sous le header */
+  overflow: hidden; /* Contient les scrolls enfants */
   position: relative;
-  z-index: 1;
-  height: calc(100vh - 70px); /* Hauteur restante */
 }
 
+/* SIDEBAR */
 .sidebar {
-  width: 250px; /* Largeur ouverte par défaut */
-  background-color: #0b0f19; /* Plus sombre encore */
-  padding: 1.5rem 1rem;
-  box-shadow: 2px 0 15px rgba(0, 0, 0, 0.5);
-  border-right: 1px solid rgba(59, 130, 246, 0.1);
+  width: 260px;
+  background-color: #05080f; /* Noir profond légèrement teinté */
+  border-right: 1px solid #1f2937;
   display: flex;
   flex-direction: column;
-
-  /* ANIMATION CLEF DE LA SIDEBAR */
-  transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); /* Courbe fluide "Tech" */
-  overflow: visible; /* Pour les tooltips */
-  position: relative;
-  z-index: 20;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 40;
+  overflow-y: auto; /* Scroll si le menu est trop long */
+  padding: 1.5rem 1rem;
 }
 
-/* ÉTAT RÉDUIT (COLLAPSED) */
+/* État réduit */
 .app-container.sidebar-collapsed .sidebar {
-  width: 80px; /* Largeur réduite (juste les icônes) */
+  width: 80px;
+  padding: 1.5rem 0.75rem;
 }
 
-/* NAVIGATION LINKS */
+/* CONTENT AREA (Zone de droite) */
+.content {
+  flex: 1; /* Prend tout l'espace restant */
+  min-width: 0; /* FIX CRITIQUE : Empêche le contenu de pousser la sidebar */
+  background-color: #000000;
+  overflow-y: auto; /* Le scroll se fait ICI, pas sur le body */
+  overflow-x: hidden;
+  position: relative;
+  /* Note: J'ai retiré le padding ici pour laisser les pages gérer leurs bords (utile pour les full-width) */
+}
+
+/* Navigation Links */
 .nav-link {
   display: flex;
   align-items: center;
-  padding: 0.8rem 1rem;
+  padding: 0.75rem 1rem;
   color: #9ca3af;
   text-decoration: none;
   border-radius: 8px;
-  margin-bottom: 0.5rem;
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-  position: relative;
-  white-space: nowrap; /* Empêche le texte de passer à la ligne */
+  margin-bottom: 0.25rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
   overflow: hidden;
+  height: 48px; /* Hauteur fixe pour l'alignement */
 }
 
 .nav-link:hover,
 .nav-link.active {
-  background: rgba(31, 41, 55, 0.6);
-  color: #ffffff;
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.1);
+  background: rgba(30, 41, 59, 0.5);
+  color: #fff;
 }
 
 .nav-link.active {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), transparent);
-  border-left: 3px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-/* ICÔNES */
 .nav-icon {
   width: 24px;
   display: flex;
   justify-content: center;
-  align-items: center;
+  flex-shrink: 0;
   font-size: 1.1rem;
-  flex-shrink: 0; /* L'icône ne s'écrase jamais */
-  transition: all 0.3s ease;
 }
 
-.nav-link:hover .nav-icon {
-  color: #3b82f6; /* Bleu accent au survol */
-  filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5));
-}
-
-/* TEXTE DU LIEN */
 .nav-text {
   margin-left: 1rem;
   font-size: 0.95rem;
+  font-weight: 500;
   opacity: 1;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.2s;
 }
 
-/* ANIMATION DU TEXTE EN MODE RÉDUIT */
 .app-container.sidebar-collapsed .nav-text {
   opacity: 0;
   width: 0;
-  margin-left: 0;
-  pointer-events: none;
-  transform: translateX(-10px); /* Petit effet de glissement */
+  margin: 0;
 }
 
 .app-container.sidebar-collapsed .nav-link {
-  justify-content: center; /* Centre l'icône */
-  padding: 0.8rem 0; /* Réduit le padding */
+  justify-content: center;
+  padding: 0.75rem 0;
 }
 
-/* --- TOOLTIP (Au survol en mode réduit) --- */
+/* Tooltips pour sidebar réduite */
 .nav-tooltip {
   position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%) translateX(10px);
+  left: 70px; /* Ajusté pour coller à la sidebar réduite */
   background: #1f2937;
   color: #fff;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.85rem;
-  white-space: nowrap;
-  opacity: 0;
   pointer-events: none;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateX(10px);
+  transition: all 0.2s;
   z-index: 100;
-  transition: all 0.2s ease;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border: 1px solid #374151;
 }
 
-.app-container.sidebar-collapsed .nav-link:hover .nav-tooltip {
+.nav-link:hover .nav-tooltip {
   opacity: 1;
-  transform: translateY(-50%) translateX(15px);
+  transform: translateX(0);
 }
 
-/* CONTENT ZONE ADJUSTMENT */
-.content {
-  flex: 1;
-  padding: 2rem;
-  background-color: #000000;
-  overflow-y: auto; /* Scroll indépendant du contenu */
-  height: 100%;
+/* Scrollbar Styling pour Chrome/Edge/Safari */
+.content::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
+  width: 8px;
 }
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .sidebar {
-    position: absolute;
-    height: 100%;
-    left: -250px; /* Caché par défaut sur mobile */
-  }
-
-  .app-container.sidebar-collapsed .sidebar {
-    left: 0; /* Ouvert sur mobile quand "collapsed" n'est pas actif (inversion logique possible selon pref) */
-    width: 250px;
-  }
-
-  /* Note: Pour mobile, on voudrait souvent un overlay complet, 
-     mais ici on garde la logique "mini" pour desktop */
+.content::-webkit-scrollbar-track,
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.content::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: #374151;
+  border-radius: 4px;
 }
