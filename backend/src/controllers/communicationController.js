@@ -441,7 +441,7 @@ exports.assignUser = async (req, res) => {
 };
 
 /**
- * @desc    Déclencher manuellement l'analyse IA
+ * @desc    Déclencher manuellement l'analyse IA avec Grok
  * @route   POST /api/communications/:id/analyze
  * @access  Private
  */
@@ -449,37 +449,54 @@ exports.triggerAiAnalysis = async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
+    const grokService = require('../services/grokService');
 
     const communication = await Communication.findOne({
       _id: id,
       tenant_id: user.tenant_id,
     });
+
     if (!communication) {
       return res
         .status(404)
         .json({ success: false, message: "Communication not found" });
     }
 
-    // TODO: Connecter ici le service IA réel plus tard
-    // Pour l'instant, on simule une mise à jour
+    console.log(`🤖 Analyse IA manuelle demandée pour: ${communication.subject}`);
+
+    // Analyser avec Grok
+    const analysis = await grokService.analyzeCommunication({
+      subject: communication.subject,
+      content: communication.content || communication.snippet,
+      sender: communication.sender,
+    });
+
+    // Mettre à jour la communication avec l'analyse
     communication.ai_analysis = {
-      summary: "Résumé généré à la demande (Simulation)",
-      sentiment: "Neutral",
-      urgency: "Medium",
-      processedAt: new Date(),
+      summary: analysis.summary,
+      sentiment: analysis.sentiment,
+      urgency: analysis.urgency,
+      keyPoints: analysis.keyPoints,
+      actionItems: analysis.actionItems,
+      entities: analysis.entities,
+      processedAt: analysis.processedAt,
     };
 
     await communication.save();
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Analyse IA relancée",
-        data: communication,
-      });
+    console.log(`✅ Analyse IA complétée pour: ${communication.subject}`);
+
+    res.status(200).json({
+      success: true,
+      message: "Analyse IA complétée avec succès",
+      data: communication,
+    });
   } catch (error) {
-    console.error("Erreur triggerAiAnalysis:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Erreur triggerAiAnalysis:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'analyse IA",
+      error: error.message
+    });
   }
 };

@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Communication = require("../models/Communication");
 const outlookService = require("./outlookService");
+const grokService = require("./grokService");
 
 /**
  * Service de Synchronisation Outlook
@@ -159,11 +160,14 @@ class OutlookSyncService {
             : [],
 
         ai_analysis: {
-          summary: "",
+          summary: "Analysis pending...",
           sentiment: "Pending",
           suggestedAction: "",
           category: "General",
           urgency: "Medium",
+          keyPoints: [],
+          actionItems: [],
+          entities: [],
           processedAt: null,
         },
 
@@ -189,6 +193,13 @@ class OutlookSyncService {
       console.log(
         `💾 Email enregistré : ${email.subject?.substring(0, 30)}...`
       );
+
+      // Lancer l'analyse IA en arrière-plan (non bloquante)
+      this.analyzeEmailAsync(communication._id, {
+        subject: communication.subject,
+        content: communication.content || communication.snippet,
+        sender: communication.sender,
+      });
 
       return { created: true, communication };
     } catch (error) {
@@ -313,6 +324,40 @@ class OutlookSyncService {
       console.error("❌ Erreur globale:", error);
       throw error;
     }
+  }
+
+  /**
+   * Analyse un email avec Grok de manière asynchrone (non bloquante)
+   * @param {String} communicationId - ID de la communication
+   * @param {Object} emailData - Données de l'email (subject, content, sender)
+   */
+  async analyzeEmailAsync(communicationId, emailData) {
+    // Exécuter en arrière-plan sans bloquer
+    setImmediate(async () => {
+      try {
+        console.log(`🤖 Début analyse IA pour: ${emailData.subject?.substring(0, 30)}...`);
+
+        const analysis = await grokService.analyzeCommunication(emailData);
+
+        // Mettre à jour la communication avec l'analyse
+        await Communication.findByIdAndUpdate(communicationId, {
+          ai_analysis: {
+            summary: analysis.summary,
+            sentiment: analysis.sentiment,
+            urgency: analysis.urgency,
+            keyPoints: analysis.keyPoints || [],
+            actionItems: analysis.actionItems || [],
+            entities: analysis.entities || [],
+            processedAt: new Date(),
+          },
+        });
+
+        console.log(`✅ Analyse IA terminée pour: ${emailData.subject?.substring(0, 30)}...`);
+      } catch (error) {
+        console.error(`❌ Erreur analyse IA pour ${emailData.subject}:`, error.message);
+        // Ne pas bloquer en cas d'erreur - l'analyse restera "pending"
+      }
+    });
   }
 
   /**
