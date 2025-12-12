@@ -28,6 +28,7 @@ if (process.env.NODE_ENV === "production") {
 
 const connectDB = require("./src/config/database");
 const outlookSyncService = require("./src/services/outlookSyncService");
+const emailSyncCron = require("./src/services/emailSyncCron");
 
 const app = express();
 
@@ -41,6 +42,15 @@ if (
   process.env.ENABLE_OUTLOOK_SYNC === "true"
 ) {
   outlookSyncService.scheduledSync(10); // Sync toutes les 10 minutes
+}
+
+// Initialiser le cron job de synchronisation Email (Outlook + IMAP/SMTP) toutes les 5 minutes
+// Démarrage en production ou si explicitement activé
+if (
+  process.env.NODE_ENV === "production" ||
+  process.env.ENABLE_EMAIL_SYNC === "true"
+) {
+  emailSyncCron.startEmailSyncCron(5); // Sync toutes les 5 minutes
 }
 
 // Middlewares
@@ -127,10 +137,12 @@ app.get("/api/test-db", async (req, res) => {
 // Routes API
 app.use("/api/auth", require("./src/routes/authRoutes"));
 app.use("/api/auth/outlook", require("./src/routes/outlookRoutes"));
+app.use("/api/email", require("./src/routes/emailRoutes")); // Routes IMAP/SMTP
 app.use(
   "/api/auth/communications",
   require("./src/routes/communicationRoutes")
 );
+app.use("/api/superuser", require("./src/routes/superUserRoutes"));
 // app.use('/api/tenants', require('./src/routes/tenantRoutes'));
 
 // Gestion des erreurs 404

@@ -9,6 +9,10 @@ import {
   faRobot,
   faArrowLeft,
   faDownload,
+  faReply,
+  faPaperPlane,
+  faTimes,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
 import "../styles/CommunicationDetails.css";
@@ -19,6 +23,16 @@ function CommunicationDetails() {
   const [communication, setCommunication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // États pour l'envoi d'emails
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyForm, setReplyForm] = useState({
+    to: "",
+    subject: "",
+    body: "",
+  });
+  const [sending, setSending] = useState(false);
+  const [sendMessage, setSendMessage] = useState({ type: "", text: "" });
 
   // API Configuration
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
@@ -74,9 +88,17 @@ function CommunicationDetails() {
                 : [],
             },
             status: data.status,
+            externalId: data.externalId, // Pour les réponses
           };
 
           setCommunication(mappedCommunication);
+
+          // Pré-remplir le formulaire de réponse
+          setReplyForm({
+            to: data.sender?.email || "",
+            subject: data.subject?.startsWith("Re:") ? data.subject : `Re: ${data.subject}`,
+            body: "",
+          });
         }
       } catch (err) {
         console.error("Error fetching communication:", err);
@@ -128,6 +150,78 @@ function CommunicationDetails() {
     return tempDiv.textContent || tempDiv.innerText || "";
   };
 
+  // Handlers pour l'envoi d'emails
+  const handleReply = () => {
+    setShowReplyForm(true);
+    setSendMessage({ type: "", text: "" });
+  };
+
+  const handleCloseReplyForm = () => {
+    setShowReplyForm(false);
+    setSendMessage({ type: "", text: "" });
+  };
+
+  const handleReplyFormChange = (e) => {
+    const { name, value } = e.target;
+    setReplyForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSendEmail = async (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!replyForm.to || !replyForm.subject || !replyForm.body) {
+      setSendMessage({ type: "error", text: "Please fill in all fields" });
+      return;
+    }
+
+    setSending(true);
+    setSendMessage({ type: "", text: "" });
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/email/send`,
+        {
+          to: replyForm.to,
+          subject: replyForm.subject,
+          text: replyForm.body,
+          html: `<p>${replyForm.body.replace(/\n/g, "<br>")}</p>`,
+          inReplyTo: communication.externalId, // Pour le threading
+          references: communication.externalId ? [communication.externalId] : [],
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data.success) {
+        setSendMessage({ type: "success", text: "Email sent successfully!" });
+        setTimeout(() => {
+          handleCloseReplyForm();
+          // Réinitialiser le formulaire
+          setReplyForm({
+            to: communication.from,
+            subject: communication.subject?.startsWith("Re:") ? communication.subject : `Re: ${communication.subject}`,
+            body: "",
+          });
+        }, 2000);
+      } else {
+        setSendMessage({ type: "error", text: response.data.message || "Failed to send email" });
+      }
+    } catch (error) {
+      console.error("Error sending email:", error);
+      setSendMessage({
+        type: "error",
+        text: error.response?.data?.message || "Failed to send email. Please check your email configuration.",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="communication-details-page">
@@ -175,6 +269,16 @@ function CommunicationDetails() {
         >
           <FontAwesomeIcon icon={faArrowLeft} /> Back to Communications Hub
         </button>
+
+        {/* Reply Button - Only show for emails */}
+        {(communication.type === "Outlook" || communication.type === "Email") && communication.from && (
+          <button
+            className="reply-button"
+            onClick={handleReply}
+          >
+            <FontAwesomeIcon icon={faReply} /> Reply
+          </button>
+        )}
       </div>
 
       <div
@@ -355,6 +459,90 @@ function CommunicationDetails() {
             )}
         </div>
       </div>
+
+      {/* Reply Form Modal */}
+      {showReplyForm && (
+        <div className="modal-overlay" onClick={handleCloseReplyForm}>
+          <div className="reply-form-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="close-button" onClick={handleCloseReplyForm}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+
+            <h2>Reply to Email</h2>
+            <p className="modal-subtitle">Send a reply using your configured email</p>
+
+            <form onSubmit={handleSendEmail}>
+              <div className="form-group">
+                <label htmlFor="to">To *</label>
+                <input
+                  type="email"
+                  name="to"
+                  id="to"
+                  value={replyForm.to}
+                  onChange={handleReplyFormChange}
+                  placeholder="recipient@example.com"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="subject">Subject *</label>
+                <input
+                  type="text"
+                  name="subject"
+                  id="subject"
+                  value={replyForm.subject}
+                  onChange={handleReplyFormChange}
+                  placeholder="Email subject"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="body">Message *</label>
+                <textarea
+                  name="body"
+                  id="body"
+                  value={replyForm.body}
+                  onChange={handleReplyFormChange}
+                  placeholder="Write your message here..."
+                  rows="10"
+                  required
+                />
+              </div>
+
+              {/* Success/Error Message */}
+              {sendMessage.text && (
+                <div className={`send-message ${sendMessage.type}`}>
+                  {sendMessage.text}
+                </div>
+              )}
+
+              {/* Form Actions */}
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={handleCloseReplyForm}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  disabled={sending}
+                >
+                  {sending ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} spin /> Sending...
+                    </>
+                  ) : (
+                    <>
+                      <FontAwesomeIcon icon={faPaperPlane} /> Send Email
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

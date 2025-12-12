@@ -31,11 +31,11 @@ router.get("/url", protect, getAuthUrl);
 router.get("/callback", handleCallback);
 
 /**
- * @route   POST /api/outlook/disconnect
+ * @route   DELETE /api/auth/outlook/disconnect
  * @desc    Déconnecte le compte Outlook (supprime les tokens)
  * @access  Private
  */
-router.post("/disconnect", protect, disconnectOutlook);
+router.delete("/disconnect", protect, disconnectOutlook);
 
 /**
  * @route   GET /api/outlook/status

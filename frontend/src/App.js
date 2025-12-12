@@ -23,6 +23,10 @@ import ScheduledReports from "./pages/ScheduledReports";
 import RolesPermissions from "./pages/RolesPermissions";
 import AutomationRules from "./pages/AutomationRules";
 import NotFound from "./pages/NotFound";
+// SuperUser pages
+import SuperUserDashboard from "./pages/SuperUserDashboard";
+import AdminManagement from "./pages/AdminManagement";
+import TenantManagement from "./pages/TenantManagement";
 import "./App.css";
 
 function HomeRedirect() {
@@ -71,6 +75,11 @@ function App() {
             <Route path="/scheduled-reports" element={<ScheduledReports />} />
             <Route path="/roles-permissions" element={<RolesPermissions />} />
             <Route path="/automation-rules" element={<AutomationRules />} />
+
+            {/* SuperUser Routes */}
+            <Route path="/superuser/dashboard" element={<SuperUserDashboard />} />
+            <Route path="/superuser/admins" element={<AdminManagement />} />
+            <Route path="/superuser/tenants" element={<TenantManagement />} />
           </Route>
 
           {/* Gestion intelligente des 404 */}

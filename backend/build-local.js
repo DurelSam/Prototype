@@ -145,11 +145,13 @@ async function buildDatabase() {
     console.log("=".repeat(70));
 
     const existingSuperUser = await User.findOne({ role: "SuperUser" });
+    let superUser;
 
     if (existingSuperUser) {
       console.log(
         `⚠️ Un SuperUser (${existingSuperUser.email}) existe déjà. Création sautée.`
       );
+      superUser = existingSuperUser;
     } else {
       const superUserData = {
         email: SUPERUSER_EMAIL,
@@ -165,7 +167,7 @@ async function buildDatabase() {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(superUserData.password, salt);
 
-      const superUser = await User.create({
+      superUser = await User.create({
         email: superUserData.email,
         password: hashedPassword,
         role: superUserData.role,
@@ -178,6 +180,207 @@ async function buildDatabase() {
       console.log(`   ID: ${superUser._id}`);
       console.log(`   Email: ${superUser.email}`);
       console.log(`   Role: ${superUser.role}`);
+    }
+
+    // ÉTAPE 4.5: Créer des Tenants et Utilisateurs de démonstration
+    console.log("\n" + "=".repeat(70));
+    console.log("ÉTAPE 4.5/5: CRÉATION DES DONNÉES DE DÉMONSTRATION");
+    console.log("=".repeat(70));
+
+    const existingTenants = await Tenant.countDocuments();
+
+    if (existingTenants > 0) {
+      console.log(
+        `⚠️ Des tenants existent déjà (${existingTenants}). Données de démo sautées.`
+      );
+    } else {
+      console.log("📦 Création des tenants de démonstration...\n");
+
+      // Définir les données de démonstration
+      const demoData = [
+        {
+          tenant: {
+            companyName: "Acme Corporation",
+            subscriptionStatus: "Active",
+            settings: { language: "en", slaHours: 24 },
+          },
+          upperAdmin: {
+            firstName: "John",
+            lastName: "Doe",
+            email: "john.doe@acme.com",
+            password: "password123",
+          },
+          users: [
+            {
+              firstName: "Alice",
+              lastName: "Manager",
+              email: "alice@acme.com",
+              password: "password123",
+              role: "Admin",
+            },
+            {
+              firstName: "Bob",
+              lastName: "Employee",
+              email: "bob@acme.com",
+              password: "password123",
+              role: "Employee",
+            },
+          ],
+        },
+        {
+          tenant: {
+            companyName: "TechStart Inc",
+            subscriptionStatus: "Trial",
+            settings: { language: "en", slaHours: 48 },
+          },
+          upperAdmin: {
+            firstName: "Sarah",
+            lastName: "Williams",
+            email: "sarah.williams@techstart.com",
+            password: "password123",
+          },
+          users: [
+            {
+              firstName: "Mike",
+              lastName: "Developer",
+              email: "mike@techstart.com",
+              password: "password123",
+              role: "Employee",
+            },
+          ],
+        },
+        {
+          tenant: {
+            companyName: "Global Services Ltd",
+            subscriptionStatus: "Active",
+            settings: { language: "fr", slaHours: 12 },
+          },
+          upperAdmin: {
+            firstName: "Marie",
+            lastName: "Dubois",
+            email: "marie.dubois@globalservices.com",
+            password: "password123",
+          },
+          users: [
+            {
+              firstName: "Pierre",
+              lastName: "Martin",
+              email: "pierre@globalservices.com",
+              password: "password123",
+              role: "Admin",
+            },
+            {
+              firstName: "Sophie",
+              lastName: "Bernard",
+              email: "sophie@globalservices.com",
+              password: "password123",
+              role: "Employee",
+            },
+          ],
+        },
+      ];
+
+      // Créer les tenants et leurs utilisateurs
+      for (const data of demoData) {
+        // 1. Créer le tenant
+        const tenant = await Tenant.create(data.tenant);
+        console.log(`✅ Tenant créé: ${tenant.companyName} (ID: ${tenant._id})`);
+
+        // 2. Créer l'UpperAdmin
+        const upperAdminPassword = await bcrypt.hash(data.upperAdmin.password, 10);
+        const upperAdmin = await User.create({
+          firstName: data.upperAdmin.firstName,
+          lastName: data.upperAdmin.lastName,
+          email: data.upperAdmin.email,
+          password: upperAdminPassword,
+          role: "UpperAdmin",
+          tenant_id: tenant._id,
+          isActive: true,
+        });
+        console.log(
+          `   👤 UpperAdmin: ${upperAdmin.firstName} ${upperAdmin.lastName} (${upperAdmin.email})`
+        );
+
+        // 3. Créer les utilisateurs supplémentaires
+        for (const userData of data.users) {
+          const userPassword = await bcrypt.hash(userData.password, 10);
+          const user = await User.create({
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            password: userPassword,
+            role: userData.role,
+            tenant_id: tenant._id,
+            isActive: true,
+          });
+          console.log(
+            `   👤 ${user.role}: ${user.firstName} ${user.lastName} (${user.email})`
+          );
+        }
+
+        // 4. Créer quelques communications de test pour ce tenant
+        const sampleCommunications = [
+          {
+            subject: "Quarterly Business Review Meeting",
+            content:
+              "Hi team, let's schedule our quarterly review for next week. Please confirm your availability.",
+            snippet: "Let's schedule our quarterly review for next week...",
+            sender: { name: "Client A", email: "client.a@example.com" },
+            source: "Outlook",
+            externalId: `demo-${tenant._id}-001`,
+            status: "To Validate",
+            ai_analysis: {
+              urgency: "Medium",
+              sentiment: "Neutral",
+            },
+            tenant_id: tenant._id,
+            receivedAt: new Date(),
+            slaDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // +24h
+          },
+          {
+            subject: "Urgent: Server Downtime",
+            content:
+              "Our main server experienced downtime this morning. Please investigate immediately.",
+            snippet: "Our main server experienced downtime this morning...",
+            sender: { name: "IT Support", email: "it@example.com" },
+            source: "Outlook",
+            externalId: `demo-${tenant._id}-002`,
+            status: "Escalated",
+            ai_analysis: {
+              urgency: "High",
+              sentiment: "Negative",
+            },
+            tenant_id: tenant._id,
+            receivedAt: new Date(),
+            slaDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // +24h
+          },
+          {
+            subject: "New Project Proposal",
+            content:
+              "I have a new project proposal that I'd like to discuss. When can we meet?",
+            snippet: "I have a new project proposal that I'd like to discuss...",
+            sender: { name: "Client B", email: "client.b@example.com" },
+            source: "Outlook",
+            externalId: `demo-${tenant._id}-003`,
+            status: "Closed",
+            ai_analysis: {
+              urgency: "Low",
+              sentiment: "Positive",
+            },
+            tenant_id: tenant._id,
+            receivedAt: new Date(),
+            slaDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // +24h
+            closedAt: new Date(),
+          },
+        ];
+
+        for (const comm of sampleCommunications) {
+          await Communication.create(comm);
+        }
+        console.log(`   📧 ${sampleCommunications.length} communications de test créées\n`);
+      }
+
+      console.log("✅ Toutes les données de démonstration ont été créées!");
     }
 
     // ÉTAPE 5: Vérification finale

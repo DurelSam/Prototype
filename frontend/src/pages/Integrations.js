@@ -17,6 +17,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import EmailTypeModal from "../components/EmailTypeModal";
+import ImapSmtpForm from "../components/ImapSmtpForm";
 import "../styles/Integrations.css";
 
 function Integrations() {
@@ -29,17 +31,22 @@ function Integrations() {
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
   const token = localStorage.getItem("authToken");
 
+  // États pour les modals IMAP/SMTP
+  const [showEmailTypeModal, setShowEmailTypeModal] = useState(false);
+  const [showImapSmtpForm, setShowImapSmtpForm] = useState(false);
+
   // Données Mock avec statut et stats enrichies
   const initialIntegrations = {
     outlook: {
       id: 1,
-      name: "Microsoft Outlook Email",
+      name: "Email", // Changé de "Microsoft Outlook Email" à "Email" (générique)
       icon: faEnvelope,
       connected: false,
       email: null,
       lastSync: null,
       messagesCount: 0,
       syncStatus: "Inactive",
+      provider: null, // 'outlook' ou 'imap_smtp'
     },
     whatsapp: {
       id: 2,
@@ -65,32 +72,89 @@ function Integrations() {
   });
 
   // ---------------------------------------------------------------------------
-  // 1. FONCTION CENTRALE DE RÉCUPÉRATION (Définie ici pour être accessible partout)
+  // 1. FONCTION CENTRALE DE RÉCUPÉRATION (Pour Outlook + IMAP/SMTP)
   // ---------------------------------------------------------------------------
-  const fetchOutlookStats = React.useCallback(async () => {
+  const fetchEmailStatus = React.useCallback(async () => {
     try {
-      const response = await axios.get(`${API_URL}/auth/outlook/stats`, {
+      // Récupérer le statut global email (Outlook + IMAP/SMTP)
+      const response = await axios.get(`${API_URL}/email/status`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.data.success) {
+        const { activeProvider, outlook, imapSmtp } = response.data.data;
+
+        let emailConfig = {
+          connected: false,
+          email: null,
+          lastSync: null,
+          messagesCount: 0,
+          syncStatus: "Inactive",
+          provider: activeProvider,
+        };
+
+        if (activeProvider === "outlook" && outlook.isConnected) {
+          emailConfig = {
+            ...emailConfig,
+            connected: true,
+            email: outlook.email || user?.email,
+            lastSync: outlook.lastSyncDate
+              ? new Date(outlook.lastSyncDate)
+              : null,
+            messagesCount: 0, // TODO: récupérer le count des communications
+            syncStatus: "Active",
+          };
+        } else if (activeProvider === "imap_smtp" && imapSmtp.isConnected) {
+          emailConfig = {
+            ...emailConfig,
+            connected: true,
+            email: imapSmtp.email,
+            lastSync: imapSmtp.lastSyncDate
+              ? new Date(imapSmtp.lastSyncDate)
+              : null,
+            messagesCount: 0, // TODO: récupérer le count des communications
+            syncStatus: "Active",
+          };
+        }
+
         setIntegrations((prev) => ({
           ...prev,
           outlook: {
             ...prev.outlook,
-            connected: response.data.isConnected, // C'est ici que le badge passe au VERT
-            email: response.data.email || user?.email || null,
-            lastSync: response.data.lastSync
-              ? new Date(response.data.lastSync)
-              : null,
-            messagesCount: response.data.messagesCount || 0,
-            syncStatus: response.data.isConnected ? "Active" : "Inactive",
+            ...emailConfig,
           },
         }));
       }
     } catch (error) {
-      console.error("Error fetching Outlook stats:", error);
-      // On ne bloque pas l'interface ici, on log juste l'erreur
+      console.error("Error fetching email status:", error);
+      // Fallback: essayer l'ancien endpoint Outlook
+      try {
+        const outlookResponse = await axios.get(
+          `${API_URL}/auth/outlook/stats`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        if (outlookResponse.data.success && outlookResponse.data.isConnected) {
+          setIntegrations((prev) => ({
+            ...prev,
+            outlook: {
+              ...prev.outlook,
+              connected: true,
+              email: outlookResponse.data.email || user?.email,
+              lastSync: outlookResponse.data.lastSync
+                ? new Date(outlookResponse.data.lastSync)
+                : null,
+              messagesCount: outlookResponse.data.messagesCount || 0,
+              syncStatus: "Active",
+              provider: "outlook",
+            },
+          }));
+        }
+      } catch (fallbackError) {
+        console.error("Error fetching Outlook stats fallback:", fallbackError);
+      }
     }
   }, [API_URL, token, user?.email]);
 
@@ -100,14 +164,14 @@ function Integrations() {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await fetchOutlookStats();
+      await fetchEmailStatus();
       setLoading(false);
     };
 
     if (token) {
       init();
     }
-  }, [token, fetchOutlookStats]);
+  }, [token, fetchEmailStatus]);
 
   // ---------------------------------------------------------------------------
   // 3. EFFET : Gestion du retour OAuth (Le Callback Microsoft)
@@ -122,21 +186,21 @@ function Integrations() {
       // 1. Afficher le message de succès
       setMessage({
         type: "success",
-        text: `Compte Outlook connecté avec succès ! (${email || "Vérifié"})`,
+        text: `Email account connected successfully! (${email || "Verified"})`,
       });
 
       // 2. Nettoyer l'URL (pour enlever ?success=true et faire propre)
       window.history.replaceState({}, document.title, window.location.pathname);
 
       // 3. FORCER LA MISE À JOUR DU BADGE IMMÉDIATEMENT
-      fetchOutlookStats();
+      fetchEmailStatus();
     } else if (error) {
       setMessage({
         type: "error",
-        text: `Erreur de connexion : ${decodeURIComponent(error)}`,
+        text: `Connection error: ${decodeURIComponent(error)}`,
       });
     }
-  }, [location, fetchOutlookStats]);
+  }, [location, fetchEmailStatus]);
 
   // ---------------------------------------------------------------------------
   // HANDLERS (Gestion des actions)
@@ -147,33 +211,63 @@ function Integrations() {
     setWhatsappForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleConnect = async (service, e) => {
-    if (e) e.preventDefault();
-    setLoading(true); // Petit chargement visuel pendant la redirection
+  // Handler pour le choix du type d'email (Outlook vs IMAP/SMTP)
+  const handleEmailTypeChoice = (type) => {
+    setShowEmailTypeModal(false);
+
+    if (type === "outlook") {
+      // Lancer la connexion Outlook OAuth2
+      handleConnectOutlook();
+    } else if (type === "imap_smtp") {
+      // Afficher le formulaire IMAP/SMTP
+      setShowImapSmtpForm(true);
+    }
+  };
+
+  // Handler pour la connexion Outlook OAuth2
+  const handleConnectOutlook = async () => {
+    setLoading(true);
     setMessage({ type: "", text: "" });
 
-    if (service === "outlook") {
-      try {
-        // Demander l'URL à notre Backend
-        const response = await axios.get(`${API_URL}/auth/outlook/url`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+    try {
+      const response = await axios.get(`${API_URL}/auth/outlook/url`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        if (response.data.success && response.data.authUrl) {
-          // Redirection vers Microsoft
-          window.location.href = response.data.authUrl;
-        }
-      } catch (error) {
-        console.error("Error connecting Outlook:", error);
-        setMessage({
-          type: "error",
-          text:
-            error.response?.data?.message ||
-            "Failed to initiate Outlook connection",
-        });
-        setLoading(false);
+      if (response.data.success && response.data.authUrl) {
+        window.location.href = response.data.authUrl;
       }
+    } catch (error) {
+      console.error("Error connecting Outlook:", error);
+      setMessage({
+        type: "error",
+        text:
+          error.response?.data?.message ||
+          "Failed to initiate Outlook connection",
+      });
+      setLoading(false);
+    }
+  };
+
+  // Handler pour le succès de la configuration IMAP/SMTP
+  const handleImapSmtpSuccess = () => {
+    fetchEmailStatus();
+    setMessage({
+      type: "success",
+      text: "IMAP/SMTP configuration saved successfully!",
+    });
+  };
+
+  const handleConnect = async (service, e) => {
+    if (e) e.preventDefault();
+    setMessage({ type: "", text: "" });
+
+    if (service === "email") {
+      // Afficher le modal de choix du type d'email
+      setShowEmailTypeModal(true);
+      setLoading(false);
     } else if (service === "whatsapp") {
+      setLoading(true);
       // Simulation pour WhatsApp (À implémenter plus tard)
       setTimeout(() => {
         const phone = whatsappForm.phoneNumber;
@@ -203,8 +297,9 @@ function Integrations() {
     setMessage({ type: "", text: "" });
 
     try {
+      // Utiliser le nouvel endpoint générique pour la synchronisation
       const response = await axios.post(
-        `${API_URL}/auth/outlook/sync`,
+        `${API_URL}/email/sync`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -213,7 +308,7 @@ function Integrations() {
 
       if (response.data.success) {
         // Rafraîchir les stats après la synchronisation
-        await fetchOutlookStats(); // On réutilise notre fonction centrale
+        await fetchEmailStatus();
 
         setMessage({
           type: "success",
@@ -222,10 +317,10 @@ function Integrations() {
         });
       }
     } catch (error) {
-      console.error("Error syncing Outlook:", error);
+      console.error("Error syncing emails:", error);
       setMessage({
         type: "error",
-        text: error.response?.data?.message || "Failed to sync Outlook emails",
+        text: error.response?.data?.message || "Failed to sync emails",
       });
     } finally {
       setSyncing(false);
@@ -236,15 +331,27 @@ function Integrations() {
     setLoading(true);
     setMessage({ type: "", text: "" });
 
-    if (service === "outlook") {
+    if (service === "email") {
       try {
-        const response = await axios.post(
-          `${API_URL}/auth/outlook/disconnect`,
-          {},
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        // Récupérer le provider actif pour savoir quoi déconnecter
+        const statusResponse = await axios.get(`${API_URL}/email/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const activeProvider = statusResponse.data.data?.activeProvider;
+
+        let disconnectEndpoint;
+        if (activeProvider === "outlook") {
+          disconnectEndpoint = `${API_URL}/auth/outlook/disconnect`;
+        } else if (activeProvider === "imap_smtp") {
+          disconnectEndpoint = `${API_URL}/email/imap-smtp/disconnect`;
+        } else {
+          throw new Error("No active email provider to disconnect");
+        }
+
+        const response = await axios.delete(disconnectEndpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         if (response.data.success) {
           setIntegrations((prev) => ({
@@ -256,18 +363,19 @@ function Integrations() {
               lastSync: null,
               messagesCount: 0,
               syncStatus: "Inactive",
+              provider: null,
             },
           }));
           setMessage({
-            type: "success", // Changé en success (vert) car c'est une action réussie
-            text: "Outlook integration disconnected successfully.",
+            type: "success",
+            text: "Email integration disconnected successfully.",
           });
         }
       } catch (error) {
-        console.error("Error disconnecting Outlook:", error);
+        console.error("Error disconnecting email:", error);
         setMessage({
           type: "error",
-          text: error.response?.data?.message || "Failed to disconnect Outlook",
+          text: error.response?.data?.message || "Failed to disconnect email",
         });
       } finally {
         setLoading(false);
@@ -339,7 +447,7 @@ function Integrations() {
             <span className="stat-value">
               {integration.messagesCount.toLocaleString()}
             </span>
-            <span className="stat-label">Messages Synced</span>
+            <span className="stat-label"> Messages Synced</span>
           </div>
           <div className="stat-item">
             <span className="stat-value">
@@ -347,7 +455,7 @@ function Integrations() {
                 ? new Date(integration.lastSync).toLocaleTimeString()
                 : "N/A"}
             </span>
-            <span className="stat-label">Last Sync Time</span>
+            <span className="stat-label"> Last Sync Time</span>
           </div>
           <div className="stat-item">
             <span
@@ -356,14 +464,14 @@ function Integrations() {
             >
               {integration.syncStatus}
             </span>
-            <span className="stat-label">Sync Status</span>
+            <span className="stat-label"> Sync Status</span>
           </div>
         </div>
 
         <div className="card-actions">
           {isConnected ? (
             <>
-              {integration.name.toLowerCase().includes("outlook") && (
+              {integration.name.toLowerCase().includes("email") && (
                 <button
                   className="action-button sync-btn"
                   onClick={handleSyncNow}
@@ -379,7 +487,7 @@ function Integrations() {
                   handleDisconnect(
                     integration.name.toLowerCase().includes("whatsapp")
                       ? "whatsapp"
-                      : "outlook"
+                      : "email"
                   )
                 }
               >
@@ -394,10 +502,10 @@ function Integrations() {
                   .toLowerCase()
                   .includes("whatsapp")
                   ? "whatsapp"
-                  : "outlook";
+                  : "email";
 
-                if (service === "outlook") {
-                  handleConnect("outlook");
+                if (service === "email") {
+                  handleConnect("email");
                 } else {
                   setActiveService(service);
                 }
@@ -547,6 +655,21 @@ function Integrations() {
           </div>
         </div>
       </div>
+
+      {/* Modals pour Email (Outlook vs IMAP/SMTP) */}
+      {showEmailTypeModal && (
+        <EmailTypeModal
+          onClose={() => setShowEmailTypeModal(false)}
+          onChoose={handleEmailTypeChoice}
+        />
+      )}
+
+      {showImapSmtpForm && (
+        <ImapSmtpForm
+          onClose={() => setShowImapSmtpForm(false)}
+          onSuccess={handleImapSmtpSuccess}
+        />
+      )}
     </div>
   );
 }

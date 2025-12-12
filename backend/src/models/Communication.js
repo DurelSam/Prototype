@@ -11,7 +11,8 @@ const communicationSchema = new mongoose.Schema(
 
     source: {
       type: String,
-      enum: ["Outlook", "WhatsApp"],
+      enum: ["outlook", "whatsapp", "gmail"],
+      set: (v) => v && v.toLowerCase(),
       required: [true, "La source est requise"],
     },
 
@@ -60,7 +61,7 @@ const communicationSchema = new mongoose.Schema(
 
     attachments: [
       {
-        url: { type: String, required: true },
+        url: { type: String, default: "" }, // plus required
         type: { type: String, default: "unknown" },
         filename: { type: String, default: "" },
         size: { type: Number, default: 0 },

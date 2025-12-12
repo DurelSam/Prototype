@@ -113,6 +113,7 @@ exports.handleCallback = async (req, res) => {
           ),
           "outlookConfig.isConnected": true,
           "outlookConfig.linkedEmail": outlookEmail,
+          activeEmailProvider: "outlook", // IMPORTANT: définir le provider actif
         },
       },
       { new: true }
@@ -158,6 +159,8 @@ exports.disconnectOutlook = async (req, res) => {
         "outlookConfig.refreshToken": null,
         "outlookConfig.expiry": null,
         "outlookConfig.isConnected": false,
+        "outlookConfig.linkedEmail": null,
+        activeEmailProvider: null, // IMPORTANT: réinitialiser le provider actif
       },
     });
 

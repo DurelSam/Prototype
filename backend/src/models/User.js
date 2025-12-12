@@ -78,6 +78,94 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    // Configuration IMAP/SMTP (pour Gmail, Yahoo, etc.)
+    imapSmtpConfig: {
+      // Email du compte IMAP/SMTP
+      email: {
+        type: String,
+        default: null,
+      },
+
+      // Mot de passe chiffré (AES-256)
+      password: {
+        type: String,
+        default: null,
+        select: false, // Sécurité : jamais retourner le mot de passe
+      },
+
+      // Configuration IMAP (réception)
+      imapHost: {
+        type: String,
+        default: null,
+      },
+      imapPort: {
+        type: Number,
+        default: 993,
+      },
+      imapSecure: {
+        type: Boolean,
+        default: true, // SSL/TLS
+      },
+
+      // Configuration SMTP (envoi)
+      smtpHost: {
+        type: String,
+        default: null,
+      },
+      smtpPort: {
+        type: Number,
+        default: 587,
+      },
+      smtpSecure: {
+        type: Boolean,
+        default: false, // STARTTLS
+      },
+
+      // Nom du provider (pour presets)
+      providerName: {
+        type: String,
+        enum: ['gmail', 'yahoo', 'outlook_imap', 'protonmail', 'custom'],
+        default: 'custom',
+      },
+
+      // Dossiers à synchroniser (choisis par l'utilisateur)
+      foldersToSync: {
+        type: [String],
+        default: ['INBOX', 'Sent'],
+      },
+
+      // Activer/Désactiver l'analyse AI Grok pour ce compte
+      enableAiAnalysis: {
+        type: Boolean,
+        default: true,
+      },
+
+      // Statut de connexion
+      isConnected: {
+        type: Boolean,
+        default: false,
+      },
+
+      // Date de dernière synchronisation
+      lastSyncDate: {
+        type: Date,
+        default: null,
+      },
+
+      // Date de dernière vérification de la boîte mail
+      lastMailboxCheck: {
+        type: Date,
+        default: null,
+      },
+    },
+
+    // Provider actif (pour savoir quel système d'email est actuellement utilisé)
+    activeEmailProvider: {
+      type: String,
+      enum: ['outlook', 'imap_smtp', null],
+      default: null,
+    },
+
     isActive: {
       type: Boolean,
       default: true,

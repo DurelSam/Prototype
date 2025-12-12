@@ -11,20 +11,35 @@ import {
   faCog,
   faBars,
   faChevronLeft,
+  faUserShield,
+  faBuilding,
 } from "@fortawesome/free-solid-svg-icons";
+import { useAuth } from "../context/AuthContext";
 import "../styles/Layout.css";
 
 function Layout() {
   // État pour savoir si la sidebar est réduite ou ouverte
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
+  const { user } = useAuth();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Liste des liens pour garder le code propre
-  const navItems = [
+  // Menu différent selon le rôle
+  const isSuperUser = user?.role === "SuperUser";
+
+  // Menu SuperUser
+  const superUserNavItems = [
+    { path: "/superuser/dashboard", label: "Dashboard", icon: faChartPie },
+    { path: "/superuser/admins", label: "Admin Management", icon: faUserShield },
+    { path: "/superuser/tenants", label: "Tenant Management", icon: faBuilding },
+    { path: "/settings", label: "Settings", icon: faCog },
+  ];
+
+  // Menu Normal (tous les autres rôles)
+  const normalNavItems = [
     { path: "/dashboard", label: "Dashboard", icon: faChartPie },
     { path: "/communications", label: "Communications", icon: faComments },
     { path: "/users", label: "Users", icon: faUsers },
@@ -33,6 +48,9 @@ function Layout() {
     { path: "/subscription", label: "Subscription", icon: faCreditCard },
     { path: "/settings", label: "Settings", icon: faCog },
   ];
+
+  // Sélectionner le bon menu
+  const navItems = isSuperUser ? superUserNavItems : normalNavItems;
 
   return (
     <div
