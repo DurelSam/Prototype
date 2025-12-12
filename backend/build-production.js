@@ -21,14 +21,22 @@ const Notification = require("./src/models/Notification");
 const SUPERUSER_EMAIL = process.env.SUPERUSER_EMAIL;
 const SUPERUSER_PASS = process.env.SUPERUSER_PASS;
 
-// CONFIGURATION MONGODB : Utilisation de l'hôte et du port fournis par Render (sans authentification)
-// Possibilité de configurer via variables d'environnement ou fallback sur valeurs par défaut
+// CONFIGURATION MONGODB : Authentification pour production
+const MONGO_USER = process.env.MONGO_USER;
+const MONGO_PASS = process.env.MONGO_PASS;
 const INTERNAL_HOST = process.env.MONGO_HOST || "mongodb-o9gm"; // Le nom d'hôte interne du service MongoDB
 const PORT = process.env.MONGO_PORT || "27017";
 const TARGET_DB_NAME = process.env.MONGO_DB; // Nom de la DB applicative, doit être dans les secrets Render
 
-// Construction de l'URI SANS AUTHENTIFICATION
-const mongoUri = `mongodb://${INTERNAL_HOST}:${PORT}/${TARGET_DB_NAME}`;
+// Construction de l'URI AVEC AUTHENTIFICATION
+// Format: mongodb://username:password@host:port/database
+let mongoUri;
+if (MONGO_USER && MONGO_PASS) {
+  mongoUri = `mongodb://${MONGO_USER}:${MONGO_PASS}@${INTERNAL_HOST}:${PORT}/${TARGET_DB_NAME}`;
+} else {
+  // Fallback sans authentification (pour compatibilité avec services internes Render)
+  mongoUri = `mongodb://${INTERNAL_HOST}:${PORT}/${TARGET_DB_NAME}`;
+}
 
 // Variables de contrôle de l'environnement
 const isProduction = process.env.NODE_ENV === "production";
@@ -52,6 +60,9 @@ async function buildDatabase() {
     );
     console.log(`📡 Hôte MongoDB utilisé: ${INTERNAL_HOST}:${PORT}`);
     console.log(`📦 Base de données ciblée: ${TARGET_DB_NAME}`);
+    console.log(
+      `🔐 Authentification MongoDB: ${MONGO_USER && MONGO_PASS ? "OUI (utilisateur: " + MONGO_USER + ")" : "NON (connexion directe)"}`
+    );
 
     // 1. Vérification des variables d'environnement
     if (!TARGET_DB_NAME) {
@@ -88,7 +99,9 @@ async function buildDatabase() {
     // CONNEXION ET OPÉRATIONS
     // ----------------------------------------------------
 
-    console.log("\n📡 Connexion à MongoDB (sans authentification)...");
+    console.log(
+      `\n📡 Connexion à MongoDB ${MONGO_USER && MONGO_PASS ? "avec authentification" : "(sans authentification)"}...`
+    );
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
@@ -227,6 +240,18 @@ async function buildDatabase() {
       console.error(
         "\n💡 Conseil: MongoDB est inaccessible. Vérifiez que l'hôte interne est correct. L'hôte utilisé est " +
           INTERNAL_HOST
+      );
+    } else if (
+      error.message.includes("authentication") ||
+      error.message.includes("Authentication")
+    ) {
+      console.error(
+        "\n💡 Conseil: Erreur d'authentification MongoDB. Vérifiez les variables d'environnement:"
+      );
+      console.error("   - MONGO_USER: " + (MONGO_USER ? "✅ Défini" : "❌ Manquant"));
+      console.error("   - MONGO_PASS: " + (MONGO_PASS ? "✅ Défini" : "❌ Manquant"));
+      console.error(
+        "\n📝 Ajoutez ces variables dans les secrets Render avec les identifiants MongoDB."
       );
     } else if (error.message.includes("manquante")) {
       console.error(
