@@ -21,13 +21,12 @@ const Notification = require("./src/models/Notification");
 const SUPERUSER_EMAIL = process.env.SUPERUSER_EMAIL;
 const SUPERUSER_PASS = process.env.SUPERUSER_PASS;
 
-// CONFIGURATION MONGODB : Connexion Interne Render (sans authentification)
-// Les Services Privés Render utilisent l'isolation réseau au lieu de l'authentification
-const INTERNAL_HOST = process.env.MONGO_HOST || "mongodb-o9gm"; // Le nom d'hôte interne du service MongoDB
-const PORT = process.env.MONGO_PORT || "27017";
+// NOUVELLE CONFIGURATION : Utilisation de l'hôte et du port fournis par Render (sans authentification)
+const INTERNAL_HOST = "mongodb-o9gm"; // Le nom d'hôte interne du service MongoDB
+const PORT = "27017";
 const TARGET_DB_NAME = process.env.MONGO_DB; // Nom de la DB applicative, doit être dans les secrets Render
 
-// Construction de l'URI SANS AUTHENTIFICATION (Service Privé Render)
+// Construction de l'URI SANS AUTHENTIFICATION
 const mongoUri = `mongodb://${INTERNAL_HOST}:${PORT}/${TARGET_DB_NAME}`;
 
 // Variables de contrôle de l'environnement
@@ -39,21 +38,16 @@ async function buildDatabase() {
   try {
     console.log("\n" + "=".repeat(70));
     console.log(
-      "🏗️  SCRIPT D'INITIALISATION DE LA BASE DE DONNÉES (MODE PRODUCTION)"
+      "🏗️  SCRIPT D'INITIALISATION DE LA BASE DE DONNÉES (MODE INTERNE)"
     );
-    console.log("=".repeat(70));
-
-    // ----------------------------------------------------
-    // VÉRIFICATIONS DE SÉCURITÉ ET D'ENVIRONNEMENT
-    // ----------------------------------------------------
+    console.log("=".repeat(70)); // ---------------------------------------------------- // VÉRIFICATIONS DE SÉCURITÉ ET D'ENVIRONNEMENT // ----------------------------------------------------
 
     console.log(
       `🌍 Mode détecté: ${isProduction ? "PRODUCTION" : "DÉVELOPPEMENT"}`
     );
-    console.log(`📡 Hôte MongoDB interne: ${INTERNAL_HOST}:${PORT}`);
-    console.log(`📦 Base de données ciblée: ${TARGET_DB_NAME}`);
+    console.log(`📡 Hôte Interne utilisé: ${INTERNAL_HOST}:${PORT}`);
+    console.log(`📦 Base de données ciblée: ${TARGET_DB_NAME}`); // 1. Vérification des variables d'environnement
 
-    // 1. Vérification des variables d'environnement
     if (!TARGET_DB_NAME) {
       throw new Error(
         "La variable d'environnement MONGO_DB est manquante. Connexion impossible."
@@ -66,9 +60,8 @@ async function buildDatabase() {
         "Les variables SUPERUSER_EMAIL et SUPERUSER_PASS sont manquantes. Création du SuperUser impossible."
       );
     }
-    console.log("✅ Identifiants SuperUser trouvés.");
+    console.log("✅ Identifiants SuperUser trouvés."); // 2. VÉROUILLAGE CRITIQUE EN PRODUCTION
 
-    // 2. VÉROUILLAGE CRITIQUE EN PRODUCTION
     if (isProduction && !ALLOW_DB_RESET) {
       throw new Error(
         "\n\n🚨 BLOCAGE SÉCURITÉ : La suppression de la base de données est interdite en mode PRODUCTION..."
@@ -77,25 +70,20 @@ async function buildDatabase() {
 
     if (ALLOW_DB_RESET) {
       console.log(
-        "\n⚠️  AVERTISSEMENT: La réinitialisation est autorisée. Destruction des données dans 3 secondes..."
+        "\n⚠️  AVERTISSEMENT: La réinitialisation est autorisée. Destruction des données dans 3 secondes..."
       );
       await new Promise((resolve) => setTimeout(resolve, 3000));
     } else {
       console.log("\n🔧 Initialisation sans réinitialisation.");
-    }
+    } // ---------------------------------------------------- // CONNEXION ET OPÉRATIONS // ----------------------------------------------------
 
-    // ----------------------------------------------------
-    // CONNEXION ET OPÉRATIONS
-    // ----------------------------------------------------
-
-    console.log("\n📡 Connexion à MongoDB (Service Privé Render)...");
+    console.log("\n📡 Connexion à MongoDB SANS AUTHENTIFICATION...");
     await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
     });
-    console.log("✅ Connecté à MongoDB: " + mongoose.connection.name);
+    console.log("✅ Connecté à MongoDB: " + mongoose.connection.name); // ÉTAPE 1: Supprimer la base de données (si autorisation donnée)
 
-    // ÉTAPE 1: Supprimer la base de données (si autorisation donnée)
     if (ALLOW_DB_RESET) {
       console.log("\n" + "=".repeat(70));
       console.log("ÉTAPE 1/5: SUPPRESSION DE LA BASE DE DONNÉES (AUTORISÉE)");
@@ -107,9 +95,8 @@ async function buildDatabase() {
       console.log("\n" + "=".repeat(70));
       console.log("ÉTAPE 1/5: SUPPRESSION SAUTÉE (PAS D'AUTORISATION)");
       console.log("=".repeat(70));
-    }
+    } // ÉTAPE 2 & 3: CRÉATION DES COLLECTIONS ET INDEX (Correction de l'erreur "already exists")
 
-    // ÉTAPE 2 & 3: CRÉATION DES COLLECTIONS ET INDEX
     console.log("\n" + "=".repeat(70));
     console.log("ÉTAPE 2 & 3/5: CRÉATION DES COLLECTIONS ET INDEX");
     console.log("=".repeat(70));
@@ -144,9 +131,8 @@ async function buildDatabase() {
       console.log(`✅ Collection créée/vérifiée: ${name}`);
       await model.createIndexes();
       console.log(`✅ Index créés pour: ${name}`);
-    }
+    } // ÉTAPE 4: Créer le SuperUser
 
-    // ÉTAPE 4: Créer le SuperUser
     console.log("\n" + "=".repeat(70));
     console.log("ÉTAPE 4/5: CRÉATION DU SUPERUSER");
     console.log("=".repeat(70));
@@ -182,38 +168,28 @@ async function buildDatabase() {
       });
 
       console.log("✅ SuperUser créé avec succès!");
-      console.log(`   ID: ${superUser._id}`);
-      console.log(`   Email: ${superUser.email}`);
-      console.log(`   Role: ${superUser.role}`);
-    }
+      console.log(`   ID: ${superUser._id}`);
+      console.log(`   Email: ${superUser.email}`);
+      console.log(`   Role: ${superUser.role}`);
+    } // ÉTAPE 5: Vérification finale
 
-    // ÉTAPE 5: Vérification finale
     console.log("\n" + "=".repeat(70));
     console.log("ÉTAPE 5/5: VÉRIFICATION FINALE");
     console.log("=".repeat(70));
 
     const userCount = await User.countDocuments();
-    const tenantCount = await Tenant.countDocuments();
-    const communicationCount = await Communication.countDocuments();
-    const notificationCount = await Notification.countDocuments();
-
     console.log(`📊 Statistiques de la base de données:`);
-    console.log(`   - Users: ${userCount}`);
-    console.log(`   - Tenants: ${tenantCount}`);
-    console.log(`   - Communications: ${communicationCount}`);
-    console.log(`   - Notifications: ${notificationCount}`);
-
+    console.log(`   - Users: ${userCount}`);
     console.log("\n" + "=".repeat(70));
-    console.log("🎉 BUILD PRODUCTION TERMINÉ AVEC SUCCÈS!");
+    console.log("🎉 BUILD TERMINÉ AVEC SUCCÈS!");
     console.log("=".repeat(70));
 
     console.log("\n🔐 Credentials SuperUser (depuis vos secrets Render):");
-    console.log("   Email: " + SUPERUSER_EMAIL);
-    console.log("   Mot de passe : [CONFIDENTIEL - NON AFFICHÉ]");
+    console.log("   Email: " + SUPERUSER_EMAIL);
+    console.log("   Mot de passe : [CONFIDENTIEL - NON AFFICHÉ]"); // Fermer la connexion
 
-    // Fermer la connexion
     await mongoose.connection.close();
-    console.log("\n👋 Connexion fermée proprement.\n");
+    console.log("👋 Connexion fermée proprement.\n");
 
     process.exit(0);
   } catch (error) {
@@ -225,11 +201,8 @@ async function buildDatabase() {
       error.message.includes("ENOTFOUND")
     ) {
       console.error(
-        "\n💡 Conseil: MongoDB est inaccessible. Vérifiez que le service MongoDB est bien déployé sur Render."
-      );
-      console.error(`   Hôte interne utilisé: ${INTERNAL_HOST}`);
-      console.error(
-        "\n📝 Vérifiez que les deux services (Web + MongoDB) sont bien déployés et sur le même réseau privé Render."
+        "\n💡 Conseil: MongoDB est inaccessible. Vérifiez que l'hôte interne est correct. L'hôte utilisé est " +
+          INTERNAL_HOST
       );
     } else if (error.message.includes("manquante")) {
       console.error(
@@ -248,5 +221,5 @@ async function buildDatabase() {
 }
 
 // Exécuter le build
-console.log("\n🚀 Démarrage du script de build production...\n");
+console.log("\n🚀 Démarrage du script de build...\n");
 buildDatabase();
