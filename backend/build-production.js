@@ -29,10 +29,10 @@ const PORT = process.env.MONGO_PORT || "27017";
 const TARGET_DB_NAME = process.env.MONGO_DB; // Nom de la DB applicative, doit être dans les secrets Render
 
 // Construction de l'URI AVEC AUTHENTIFICATION
-// Format: mongodb://username:password@host:port/database
+// Format: mongodb://username:password@host:port/database?authSource=admin
 let mongoUri;
 if (MONGO_USER && MONGO_PASS) {
-  mongoUri = `mongodb://${MONGO_USER}:${MONGO_PASS}@${INTERNAL_HOST}:${PORT}/${TARGET_DB_NAME}`;
+  mongoUri = `mongodb://${MONGO_USER}:${MONGO_PASS}@${INTERNAL_HOST}:${PORT}/${TARGET_DB_NAME}?authSource=admin`;
 } else {
   // Fallback sans authentification (pour compatibilité avec services internes Render)
   mongoUri = `mongodb://${INTERNAL_HOST}:${PORT}/${TARGET_DB_NAME}`;
