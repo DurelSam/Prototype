@@ -17,6 +17,7 @@ import {
   faArrowUp,
   faTimes,
 } from "@fortawesome/free-solid-svg-icons";
+import Pagination from "../components/Pagination";
 import "../styles/Communications.css";
 
 // --- SUB-COMPONENT: Escalation Dashboard (CEO View) ---
@@ -152,11 +153,17 @@ const CommunicationListTab = ({ navigate }) => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // États de pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   // API Configuration
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
   const token = localStorage.getItem("authToken");
 
-  // Fetch communications from API
+  // Fetch communications from API avec pagination
   useEffect(() => {
     const fetchCommunications = async () => {
       try {
@@ -167,7 +174,10 @@ const CommunicationListTab = ({ navigate }) => {
         if (filterType !== "All") params.append("source", filterType);
         if (filterPriority !== "All") params.append("priority", filterPriority);
         if (searchTerm) params.append("search", searchTerm);
-        params.append("limit", "100"); // Récupérer 100 communications max
+
+        // Paramètres de pagination
+        params.append("page", currentPage.toString());
+        params.append("limit", itemsPerPage.toString());
 
         // CORRECTION URL: Ajout de /auth/ pour correspondre à server.js
         const response = await fetch(
@@ -202,10 +212,18 @@ const CommunicationListTab = ({ navigate }) => {
           }));
 
           setCommunications(mappedData);
+
+          // Mettre à jour les données de pagination
+          if (result.pagination) {
+            setTotalPages(result.pagination.totalPages);
+            setTotalItems(result.pagination.total);
+          }
         }
       } catch (error) {
         console.error("Error fetching communications:", error);
         setCommunications([]);
+        setTotalPages(1);
+        setTotalItems(0);
       } finally {
         setLoading(false);
       }
@@ -214,7 +232,25 @@ const CommunicationListTab = ({ navigate }) => {
     if (token) {
       fetchCommunications();
     }
-  }, [API_URL, token, filterType, filterPriority, searchTerm]);
+  }, [API_URL, token, filterType, filterPriority, searchTerm, currentPage, itemsPerPage]);
+
+  // Reset à la page 1 quand les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, filterPriority, searchTerm]);
+
+  // Handlers pour la pagination
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    // Scroll to top pour meilleure UX
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    setCurrentPage(1); // Reset à la première page
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleCommunicationClick = (id) => navigate(`/communications/${id}`);
 
@@ -413,6 +449,17 @@ const CommunicationListTab = ({ navigate }) => {
           ))
         )}
       </div>
+
+      {/* Pagination Component */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
     </div>
   );
 };
