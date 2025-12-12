@@ -178,8 +178,15 @@ async function buildDatabase() {
     console.log("=".repeat(70));
 
     const userCount = await User.countDocuments();
+    const tenantCount = await Tenant.countDocuments();
+    const communicationCount = await Communication.countDocuments();
+    const notificationCount = await Notification.countDocuments();
+
     console.log(`📊 Statistiques de la base de données:`);
     console.log(`   - Users: ${userCount}`);
+    console.log(`   - Tenants: ${tenantCount}`);
+    console.log(`   - Communications: ${communicationCount}`);
+    console.log(`   - Notifications: ${notificationCount}`);
     console.log("\n" + "=".repeat(70));
     console.log("🎉 BUILD TERMINÉ AVEC SUCCÈS!");
     console.log("=".repeat(70));
