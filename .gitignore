@@ -51,8 +51,5 @@ AZURE backend infos.txt
 *credentials*.txt
 *secret*.txt
 
-# Documentation with sensitive info
-PROJECT_EVALUATION_*.md
-*_OPTIMIZATIONS.md
-*_VERIFICATION.md
-*_PLAN.md
+# Documentation with sensitive info (block all markdown files)
+*.md
