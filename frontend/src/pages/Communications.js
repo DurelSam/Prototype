@@ -15,7 +15,6 @@ import {
   faClock,
   faChartLine,
   faArrowUp,
-  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../components/Pagination";
 import "../styles/Communications.css";
@@ -146,11 +145,12 @@ const EscalationDashboardTab = () => {
 
 // --- SUB-COMPONENT: Communications Search & Filters Page ---
 const CommunicationListTab = ({ navigate }) => {
-  const [communications, setCommunications] = useState([]);
+  const [allCommunications, setAllCommunications] = useState([]);
+  const [filteredCommunications, setFilteredCommunications] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterPriority, setFilterPriority] = useState("All");
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filterDateRange, setFilterDateRange] = useState("All");
   const [loading, setLoading] = useState(true);
 
   // États de pagination
@@ -179,7 +179,8 @@ const CommunicationListTab = ({ navigate }) => {
         params.append("page", currentPage.toString());
         params.append("limit", itemsPerPage.toString());
 
-        // CORRECTION URL: Ajout de /auth/ pour correspondre à server.js
+        // Communications API avec filtrage RBAC côté backend
+        // ✅ FIX: Le bon endpoint est /auth/communications (voir server.js ligne 143)
         const response = await fetch(
           `${API_URL}/auth/communications?${params.toString()}`,
           {
@@ -211,7 +212,7 @@ const CommunicationListTab = ({ navigate }) => {
             },
           }));
 
-          setCommunications(mappedData);
+          setAllCommunications(mappedData);
 
           // Mettre à jour les données de pagination
           if (result.pagination) {
@@ -221,7 +222,7 @@ const CommunicationListTab = ({ navigate }) => {
         }
       } catch (error) {
         console.error("Error fetching communications:", error);
-        setCommunications([]);
+        setAllCommunications([]);
         setTotalPages(1);
         setTotalItems(0);
       } finally {
@@ -232,12 +233,82 @@ const CommunicationListTab = ({ navigate }) => {
     if (token) {
       fetchCommunications();
     }
-  }, [API_URL, token, filterType, filterPriority, searchTerm, currentPage, itemsPerPage]);
+  }, [
+    API_URL,
+    token,
+    filterType,
+    filterPriority,
+    searchTerm,
+    currentPage,
+    itemsPerPage,
+  ]);
+
+  // Apply client-side filtering for date range
+  useEffect(() => {
+    let filtered = [...allCommunications];
+
+    // Filter by date range
+    if (filterDateRange !== "All") {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      filtered = filtered.filter((comm) => {
+        const commDate = new Date(comm.date);
+
+        switch (filterDateRange) {
+          case "Today":
+            return commDate >= today;
+          case "Yesterday":
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return commDate >= yesterday && commDate < today;
+          case "Last7Days":
+            const last7Days = new Date(today);
+            last7Days.setDate(last7Days.getDate() - 7);
+            return commDate >= last7Days;
+          case "Last30Days":
+            const last30Days = new Date(today);
+            last30Days.setDate(last30Days.getDate() - 30);
+            return commDate >= last30Days;
+          case "ThisMonth":
+            const thisMonthStart = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              1
+            );
+            return commDate >= thisMonthStart;
+          case "LastMonth":
+            const lastMonthStart = new Date(
+              now.getFullYear(),
+              now.getMonth() - 1,
+              1
+            );
+            const lastMonthEnd = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              0,
+              23,
+              59,
+              59
+            );
+            return commDate >= lastMonthStart && commDate <= lastMonthEnd;
+          default:
+            return true;
+        }
+      });
+    }
+
+    setFilteredCommunications(filtered);
+
+    // Update total items for pagination based on filtered results
+    setTotalItems(filtered.length);
+    setTotalPages(Math.ceil(filtered.length / itemsPerPage));
+  }, [allCommunications, filterDateRange, itemsPerPage]);
 
   // Reset à la page 1 quand les filtres changent
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterType, filterPriority, searchTerm]);
+  }, [filterType, filterPriority, searchTerm, filterDateRange]);
 
   // Handlers pour la pagination
   const handlePageChange = (newPage) => {
@@ -253,6 +324,12 @@ const CommunicationListTab = ({ navigate }) => {
   };
 
   const handleCommunicationClick = (id) => navigate(`/communications/${id}`);
+
+  // Get paginated communications for current page
+  const paginatedCommunications = filteredCommunications.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const formatDate = (date) => {
     const diff = new Date() - date;
@@ -306,20 +383,21 @@ const CommunicationListTab = ({ navigate }) => {
   return (
     <div className="tab-content">
       <div className="controls-section">
-        <div className="search-box">
-          <span className="search-icon">
-            <FontAwesomeIcon icon={faSearch} />
-          </span>
-          <input
-            type="text"
-            placeholder="Search Subject, Sender, or Content..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
         <div className="filter-controls">
+          <div className="filter-group search-group">
+            <label>Search</label>
+            <div className="search-wrapper">
+              <FontAwesomeIcon icon={faSearch} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Subject, Sender, or Content..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+          </div>
+
           <div className="filter-group">
             <label>Source Type</label>
             <select
@@ -330,6 +408,7 @@ const CommunicationListTab = ({ navigate }) => {
               <option value="All">All Sources</option>
               <option value="Outlook">Outlook</option>
               <option value="WhatsApp">WhatsApp</option>
+              <option value="imap_smtp">IMAP/SMTP</option>
             </select>
           </div>
 
@@ -348,44 +427,30 @@ const CommunicationListTab = ({ navigate }) => {
             </select>
           </div>
 
-          <button
-            className="advanced-filters-toggle"
-            style={{
-              marginLeft: "auto",
-              padding: "0.6rem 1.2rem",
-              borderRadius: "6px",
-              border: "1px solid #3b82f6",
-              background: "rgba(59, 130, 246, 0.1)",
-              color: "#3b82f6",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-            }}
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          >
-            {showAdvancedFilters ? (
-              <>
-                <FontAwesomeIcon icon={faTimes} /> Hide
-              </>
-            ) : (
-              <>
-                <FontAwesomeIcon icon={faSearch} /> Advanced
-              </>
-            )}
-          </button>
+          <div className="filter-group">
+            <label>Date Range</label>
+            <select
+              value={filterDateRange}
+              onChange={(e) => setFilterDateRange(e.target.value)}
+              className="filter-select"
+            >
+              <option value="All">All Time</option>
+              <option value="Today">Today</option>
+              <option value="Yesterday">Yesterday</option>
+              <option value="Last7Days">Last 7 Days</option>
+              <option value="Last30Days">Last 30 Days</option>
+              <option value="ThisMonth">This Month</option>
+              <option value="LastMonth">Last Month</option>
+            </select>
+          </div>
         </div>
-
-        {showAdvancedFilters && (
-          <p style={{ color: "#9ca3af", marginTop: "1rem" }}>
-            * Advanced filtering options here (Date, Employee, Status) *
-          </p>
-        )}
       </div>
 
       <div className="communications-list">
-        {communications.length === 0 ? (
+        {paginatedCommunications.length === 0 ? (
           <div className="empty-state">No signals detected.</div>
         ) : (
-          communications.map((comm, index) => (
+          paginatedCommunications.map((comm, index) => (
             <div
               key={comm.id}
               className={`communication-card ${!comm.read ? "unread" : ""}`}

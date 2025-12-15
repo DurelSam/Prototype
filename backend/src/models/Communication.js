@@ -9,9 +9,25 @@ const communicationSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Utilisateur propriétaire de cette communication
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "L'ID de l'utilisateur est requis"],
+      index: true,
+    },
+
+    // Pour faciliter les requêtes Admin
+    // Si communication appartient à un Employee, stocker son managedBy
+    visibleToAdmins: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: [],
+    }],
+
     source: {
       type: String,
-      enum: ["outlook", "whatsapp", "gmail"],
+      enum: ["outlook", "whatsapp", "gmail", "imap_smtp"],
       set: (v) => v && v.toLowerCase(),
       required: [true, "La source est requise"],
     },
@@ -156,6 +172,8 @@ communicationSchema.index({ externalId: 1 });
 communicationSchema.index({ "ai_analysis.sentiment": 1 });
 communicationSchema.index({ "ai_analysis.urgency": 1 });
 communicationSchema.index({ isRead: 1 }); // Index sur le nouveau champ
+communicationSchema.index({ userId: 1 }); // Index pour filtrage par utilisateur
+communicationSchema.index({ visibleToAdmins: 1 }); // Index pour filtrage Admin
 
 // Middleware SLA
 communicationSchema.pre("save", function (next) {
@@ -164,6 +182,19 @@ communicationSchema.pre("save", function (next) {
     this.slaDueDate = new Date(
       this.receivedAt.getTime() + slaHours * 60 * 60 * 1000
     );
+  }
+  next();
+});
+
+// Middleware pour remplir visibleToAdmins automatiquement
+communicationSchema.pre('save', async function (next) {
+  if (this.isNew) {
+    const User = mongoose.model('User');
+    const user = await User.findById(this.userId);
+
+    if (user && user.role === 'Employee' && user.managedBy) {
+      this.visibleToAdmins = [user.managedBy];
+    }
   }
   next();
 });

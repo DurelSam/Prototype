@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Changement de gestionnaire</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .header {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      padding: 40px 20px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333333;
+      line-height: 1.6;
+    }
+    .content h2 {
+      color: #f5576c;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      border-left: 4px solid #2196f3;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 4px;
+    }
+    .info-box p {
+      margin: 10px 0;
+      color: #0d47a1;
+    }
+    .change-box {
+      background-color: #f8f9fa;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 4px;
+      border: 2px solid #e0e0e0;
+    }
+    .change-row {
+      display: table;
+      width: 100%;
+      margin: 15px 0;
+    }
+    .change-label {
+      font-weight: 600;
+      color: #666666;
+      margin-bottom: 5px;
+    }
+    .old-value {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 10px 15px;
+      border-radius: 4px;
+      margin: 5px 0;
+      text-decoration: line-through;
+    }
+    .new-value {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      padding: 10px 15px;
+      border-radius: 4px;
+      margin: 5px 0;
+      font-weight: 600;
+    }
+    .contact-box {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 4px;
+    }
+    .contact-box p {
+      margin: 10px 0;
+      color: #856404;
+    }
+    .contact-box strong {
+      color: #856404;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 14px 30px;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: 600;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 30px;
+      text-align: center;
+      color: #666666;
+      font-size: 13px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Notification Importante</h1>
+      <p style="margin: 10px 0 0 0; font-size: 16px;">Changement de gestionnaire</p>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <h2>Bonjour {{employeeFirstName}} {{employeeLastName}},</h2>
+
+      <p>Nous vous informons qu'un changement a été effectué concernant la gestion de votre compte.</p>
+
+      <!-- Info Box -->
+      <div class="info-box">
+        <p><strong>ℹ️ Qu'est-ce que cela signifie ?</strong></p>
+        <p>Votre compte a été transféré à un nouveau gestionnaire administrateur. Cette modification n'affecte pas vos accès ni vos données, mais votre nouveau gestionnaire sera désormais votre point de contact principal pour toute question ou assistance.</p>
+      </div>
+
+      <!-- Change Box -->
+      <div class="change-box">
+        <div class="change-row">
+          <div class="change-label">Ancien gestionnaire :</div>
+          <div class="old-value">{{oldAdminName}}</div>
+        </div>
+
+        <div style="text-align: center; margin: 15px 0; font-size: 24px; color: #666;">↓</div>
+
+        <div class="change-row">
+          <div class="change-label">Nouveau gestionnaire :</div>
+          <div class="new-value">{{newAdminName}}</div>
+        </div>
+      </div>
+
+      <!-- Contact Box -->
+      <div class="contact-box">
+        <p><strong>📧 Contact de votre nouveau gestionnaire :</strong></p>
+        <p style="font-size: 16px; font-weight: 600;">{{newAdminEmail}}</p>
+        <p style="font-size: 14px; margin-top: 10px;">Pour toute question ou assistance, n'hésitez pas à contacter votre nouveau gestionnaire.</p>
+      </div>
+
+      <p><strong>Ce qui reste inchangé :</strong></p>
+      <ul style="color: #555555; line-height: 1.8;">
+        <li>Vos identifiants de connexion (email et mot de passe)</li>
+        <li>Vos communications et historique</li>
+        <li>Vos paramètres et configurations</li>
+        <li>Vos accès à la plateforme</li>
+      </ul>
+
+      <p style="margin-top: 25px;">Vous pouvez continuer à utiliser la plateforme normalement. Aucune action n'est requise de votre part.</p>
+
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="{{loginUrl}}" class="cta-button">Accéder à mon compte</a>
+      </div>
+
+      <p style="color: #666666; font-size: 14px; margin-top: 30px;">
+        Si vous avez des questions concernant ce changement, veuillez contacter votre nouveau gestionnaire ou l'équipe d'administration.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p><strong>{{companyName}}</strong></p>
+      <p>Plateforme de Gestion des Communications</p>
+      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} Tous droits réservés</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import '../styles/IntegrationsCallback.css';
 
 function IntegrationsCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { checkAuth } = useAuth();
   const [status, setStatus] = useState('processing'); // processing, success, error
   const [message, setMessage] = useState('Processing OAuth callback...');
 
@@ -26,12 +28,22 @@ function IntegrationsCallback() {
     } else if (success === 'outlook_connected') {
       // Succès - Outlook connecté
       setStatus('success');
-      setMessage(`Outlook successfully connected${email ? ` for ${decodeURIComponent(email)}` : ''}!`);
+      setMessage(`Outlook successfully connected${email ? ` for ${decodeURIComponent(email)}` : ''}! Redirecting to dashboard...`);
 
-      // Rediriger vers /integrations après 2 secondes
-      setTimeout(() => {
-        navigate('/integrations');
-      }, 2000);
+      // ✅ Rafraîchir le contexte Auth pour mettre à jour hasConfiguredEmail
+      if (checkAuth && typeof checkAuth === 'function') {
+        checkAuth().then(() => {
+          // Rediriger vers /dashboard après le refresh
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 2000);
+        });
+      } else {
+        // Fallback si checkAuth n'est pas disponible
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 2000);
+      }
     } else {
       // Cas inattendu
       setStatus('error');

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bienvenue Administrateur</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 40px 20px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333333;
+      line-height: 1.6;
+    }
+    .content h2 {
+      color: #667eea;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .credentials-box {
+      background-color: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 4px;
+    }
+    .credentials-box p {
+      margin: 10px 0;
+      font-size: 15px;
+    }
+    .credentials-box strong {
+      color: #667eea;
+    }
+    .password-box {
+      background-color: #fff3cd;
+      border: 2px dashed #ffc107;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: bold;
+      color: #856404;
+      text-align: center;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 14px 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: 600;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .warning-box {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .warning-box p {
+      margin: 5px 0;
+      color: #856404;
+    }
+    .steps {
+      background-color: #f8f9fa;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 4px;
+    }
+    .steps ol {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    .steps li {
+      margin: 10px 0;
+      color: #555555;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 30px;
+      text-align: center;
+      color: #666666;
+      font-size: 13px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Bienvenue sur {{companyName}}</h1>
+      <p style="margin: 10px 0 0 0; font-size: 16px;">Votre compte Administrateur a été créé</p>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <h2>Bonjour {{adminFirstName}} {{adminLastName}},</h2>
+
+      <p>Nous sommes ravis de vous accueillir en tant qu'<strong>Administrateur</strong> de {{companyName}}.</p>
+
+      <p>Votre compte a été créé avec succès. Vous avez maintenant accès à la plateforme de gestion des communications et pouvez commencer à gérer votre équipe.</p>
+
+      <!-- Credentials Box -->
+      <div class="credentials-box">
+        <p><strong>Vos identifiants de connexion :</strong></p>
+        <p><strong>Email :</strong> {{adminEmail}}</p>
+        <p><strong>Mot de passe temporaire :</strong></p>
+        <div class="password-box">{{temporaryPassword}}</div>
+      </div>
+
+      <!-- Warning -->
+      <div class="warning-box">
+        <p><strong>⚠️ Important :</strong></p>
+        <p>Pour des raisons de sécurité, vous devrez changer ce mot de passe lors de votre première connexion.</p>
+      </div>
+
+      <!-- Steps -->
+      <div class="steps">
+        <p><strong>Prochaines étapes :</strong></p>
+        <ol>
+          <li><strong>Connectez-vous</strong> à la plateforme avec vos identifiants</li>
+          <li><strong>Configurez votre compte email</strong> (Outlook ou IMAP/SMTP) pour envoyer et recevoir des communications</li>
+          <li><strong>Changez votre mot de passe</strong> dans les paramètres de votre profil</li>
+          <li><strong>Créez des comptes Employés</strong> et commencez à gérer votre équipe</li>
+        </ol>
+      </div>
+
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="{{loginUrl}}" class="cta-button">Se connecter maintenant</a>
+      </div>
+
+      <p style="color: #666666; font-size: 14px; margin-top: 30px;">
+        Si vous avez des questions ou besoin d'assistance, n'hésitez pas à contacter votre UpperAdmin.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p><strong>{{companyName}}</strong></p>
+      <p>Plateforme de Gestion des Communications</p>
+      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} Tous droits réservés</p>
+    </div>
+  </div>
+</body>
+</html>

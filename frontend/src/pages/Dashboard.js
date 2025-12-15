@@ -35,7 +35,7 @@ import "../styles/Dashboard.css";
 import "../animations/dashboardAnimations.css";
 
 function Dashboard() {
-  const { user, logout, loading } = useAuth();
+  const { user, loading, isUpperAdmin, isAdmin, isEmployee, isAdminOrAbove } = useAuth();
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState("");
   const [activeTab, setActiveTab] = useState("home");
@@ -43,18 +43,13 @@ function Dashboard() {
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) {
-      setGreeting("Good morning");
+      setGreeting("Bonjour");
     } else if (hour < 18) {
-      setGreeting("Good afternoon");
+      setGreeting("Bon après-midi");
     } else {
-      setGreeting("Good evening");
+      setGreeting("Bonsoir");
     }
   }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
 
   // --- Données (Identiques à votre fichier) ---
   const teamPerformanceData = [
@@ -158,32 +153,32 @@ function Dashboard() {
   const quickActions = [
     {
       id: 1,
-      title: "Connect Outlook",
-      desc: "Sync your Outlook account",
+      title: "Connecter Outlook",
+      desc: "Synchroniser votre compte Outlook",
       icon: faEnvelope,
       action: () => navigate("/integrations"),
       color: "#3b82f6",
     },
     {
       id: 2,
-      title: "Connect WhatsApp",
-      desc: "Integrate WhatsApp Business",
+      title: "Connecter WhatsApp",
+      desc: "Intégrer WhatsApp Business",
       icon: faMobileAlt,
       action: () => navigate("/integrations"),
       color: "#14b8a6",
     },
     {
       id: 3,
-      title: "View Communications",
-      desc: "See all your messages with AI analysis",
+      title: "Voir Communications",
+      desc: "Consulter vos messages avec analyse IA",
       icon: faRobot,
       action: () => navigate("/communications"),
       color: "#3b82f6",
     },
     {
       id: 4,
-      title: "Settings",
-      desc: "Configure your account",
+      title: "Paramètres",
+      desc: "Configurer votre compte",
       icon: faCog,
       action: () => navigate("/settings"),
       color: "#6b7280",
@@ -193,28 +188,39 @@ function Dashboard() {
   const managementActions = [
     {
       id: 1,
-      title: "User Management",
-      desc: "Manage team members and roles",
+      title: "Gérer les Admins",
+      desc: "Créer et gérer vos Administrateurs",
       icon: faUsers,
-      action: () => navigate("/users"),
+      action: () => navigate("/admins"),
       color: "#3b82f6",
-      show: user?.role === "Admin",
+      show: isUpperAdmin,
     },
     {
       id: 2,
-      title: "Analytics",
-      desc: "View insights and reports",
-      icon: faChartBar,
-      action: () => navigate("/analytics"),
-      color: "#14b8a6",
+      title: "Gérer les Employés",
+      desc: "Créer et gérer vos Employés",
+      icon: faUsers,
+      action: () => navigate("/employees"),
+      color: "#3b82f6",
+      show: isAdmin,
     },
     {
       id: 3,
+      title: "Analytics",
+      desc: "Voir les statistiques et rapports",
+      icon: faChartBar,
+      action: () => navigate("/analytics"),
+      color: "#14b8a6",
+      show: isAdminOrAbove,
+    },
+    {
+      id: 4,
       title: "Subscription",
-      desc: "Manage your plan and billing",
+      desc: "Gérer votre plan et facturation",
       icon: faCreditCard,
       action: () => navigate("/subscription"),
       color: "#14b8a6",
+      show: isUpperAdmin,
     },
   ];
 
@@ -224,7 +230,7 @@ function Dashboard() {
         <div className="dashboard-overlay"></div>
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p>Loading...</p>
+          <p>Chargement...</p>
         </div>
       </div>
     );
@@ -235,41 +241,14 @@ function Dashboard() {
       <div className="dashboard-overlay"></div>
 
       <div className="dashboard-container">
-        {/* Header - Apparition immédiate (Delay 1) */}
-        <header className="dashboard-header animate-entry delay-1">
-          <div className="header-left">
-            <h1 className="app-title">SaaS Communications</h1>
-            <span className="company-name">{user?.tenant?.companyName}</span>
-          </div>
-          <div className="header-right">
-            <div className="user-info">
-              <div className="user-avatar">
-                {user?.firstName?.[0]?.toUpperCase() ||
-                  user?.email?.[0]?.toUpperCase()}
-              </div>
-              <div className="user-details">
-                <span className="user-name">
-                  {user?.firstName && user?.lastName
-                    ? `${user.firstName} ${user.lastName}`
-                    : user?.email}
-                </span>
-                <span className="user-role">{user?.role}</span>
-              </div>
-            </div>
-            <button className="logout-button" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </header>
-
-        {/* Welcome Section - Delay 2 */}
+        {/* Welcome Section - Delay 1 (header removed, moved to Layout) */}
         <section className="welcome-section animate-entry delay-2">
           <div className="welcome-card">
             <h2 className="welcome-title">
-              {greeting}, {user?.firstName || "User"}!
+              {greeting}, {user?.firstName || "Utilisateur"} !
             </h2>
             <p className="welcome-text">
-              Welcome to your communications management dashboard.
+              Bienvenue sur votre tableau de bord de gestion des communications.
             </p>
           </div>
         </section>
@@ -280,7 +259,7 @@ function Dashboard() {
             className={`tab-button ${activeTab === "home" ? "active" : ""}`}
             onClick={() => setActiveTab("home")}
           >
-            <FontAwesomeIcon icon={faTachometerAlt} /> Home
+            <FontAwesomeIcon icon={faTachometerAlt} /> Accueil
           </button>
           <button
             className={`tab-button ${
@@ -290,14 +269,17 @@ function Dashboard() {
           >
             <FontAwesomeIcon icon={faMessage} /> Communications
           </button>
-          <button
-            className={`tab-button ${
-              activeTab === "performance" ? "active" : ""
-            }`}
-            onClick={() => setActiveTab("performance")}
-          >
-            <FontAwesomeIcon icon={faChartBar} /> Team Performance
-          </button>
+          {/* Only show Team Performance for Admins and UpperAdmins */}
+          {isAdminOrAbove && (
+            <button
+              className={`tab-button ${
+                activeTab === "performance" ? "active" : ""
+              }`}
+              onClick={() => setActiveTab("performance")}
+            >
+              <FontAwesomeIcon icon={faChartBar} /> {isUpperAdmin ? "Performance Admins" : "Performance Employés"}
+            </button>
+          )}
         </div>
 
         {/* Home Dashboard */}
@@ -327,7 +309,7 @@ function Dashboard() {
             {/* Quick Actions - Delay 5 */}
             <section className="actions-section animate-entry delay-5">
               <h3 className="section-title">
-                <FontAwesomeIcon icon={faBell} /> Quick Actions
+                <FontAwesomeIcon icon={faBell} /> Actions Rapides
               </h3>
               <div className="action-cards">
                 {quickActions.map((action) => (
@@ -348,31 +330,33 @@ function Dashboard() {
               </div>
             </section>
 
-            {/* Management Section - Delay 6 */}
-            <section className="actions-section animate-entry delay-6">
-              <h3 className="section-title">
-                <FontAwesomeIcon icon={faUsers} /> Management
-              </h3>
-              <div className="action-cards">
-                {managementActions
-                  .filter((action) => action.show !== false)
-                  .map((action) => (
-                    <div key={action.id} className="action-card">
-                      <div
-                        className="action-icon"
-                        style={{ color: action.color }}
-                      >
-                        <FontAwesomeIcon icon={action.icon} />
+            {/* Management Section - Delay 6 - Only show if there are visible actions */}
+            {managementActions.filter((action) => action.show !== false).length > 0 && (
+              <section className="actions-section animate-entry delay-6">
+                <h3 className="section-title">
+                  <FontAwesomeIcon icon={faUsers} /> Gestion
+                </h3>
+                <div className="action-cards">
+                  {managementActions
+                    .filter((action) => action.show !== false)
+                    .map((action) => (
+                      <div key={action.id} className="action-card">
+                        <div
+                          className="action-icon"
+                          style={{ color: action.color }}
+                        >
+                          <FontAwesomeIcon icon={action.icon} />
+                        </div>
+                        <h4>{action.title}</h4>
+                        <p>{action.desc}</p>
+                        <button className="action-button" onClick={action.action}>
+                          Accéder
+                        </button>
                       </div>
-                      <h4>{action.title}</h4>
-                      <p>{action.desc}</p>
-                      <button className="action-button" onClick={action.action}>
-                        Manage {action.title.split(" ")[0]}
-                      </button>
-                    </div>
-                  ))}
-              </div>
-            </section>
+                    ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
@@ -662,22 +646,24 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Subscription Info - Delay 6 */}
-        <section className="subscription-section animate-entry delay-6">
-          <div className="subscription-card">
-            <div className="subscription-header">
-              <h3>Subscription</h3>
-              <span
-                className={`subscription-badge ${user?.tenant?.subscriptionStatus?.toLowerCase()}`}
-              >
-                {user?.tenant?.subscriptionStatus || "Trial"}
-              </span>
+        {/* Subscription Info - Delay 6 - Only for UpperAdmin */}
+        {isUpperAdmin && (
+          <section className="subscription-section animate-entry delay-6">
+            <div className="subscription-card">
+              <div className="subscription-header">
+                <h3>Abonnement</h3>
+                <span
+                  className={`subscription-badge ${user?.tenant?.subscriptionStatus?.toLowerCase()}`}
+                >
+                  {user?.tenant?.subscriptionStatus || "Essai"}
+                </span>
+              </div>
+              <p className="subscription-text">
+                Votre compte est actuellement en période d'essai.
+              </p>
             </div>
-            <p className="subscription-text">
-              Your account is currently on a trial period.
-            </p>
-          </div>
-        </section>
+          </section>
+        )}
       </div>
     </div>
   );

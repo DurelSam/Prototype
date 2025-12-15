@@ -2,7 +2,85 @@ const Communication = require("../models/Communication");
 const User = require("../models/User"); // Import nécessaire pour assignUser
 
 /**
- * @desc    Récupère toutes les communications du tenant de l'utilisateur
+ * Helper: Construit le filtre RBAC pour les communications
+ * @param {Object} user - Utilisateur authentifié
+ * @returns {Object} - Filtre MongoDB basé sur le rôle
+ */
+async function buildRbacFilter(user) {
+  const filter = { tenant_id: user.tenant_id };
+
+  if (user.role === 'Employee') {
+    // Employee voit uniquement ses propres communications
+    filter.userId = user._id;
+  } else if (user.role === 'Admin') {
+    // Admin voit les communications de ses Employees
+    // Récupérer les IDs de ses employees
+    const employees = await User.find({
+      managedBy: user._id,
+      role: 'Employee',
+    }).select('_id');
+
+    const employeeIds = employees.map(emp => emp._id);
+
+    // Voir soit ses propres communications, soit celles de ses employees
+    filter.$or = [
+      { userId: user._id }, // Ses propres communications (si l'Admin en a)
+      { userId: { $in: employeeIds } }, // Communications de ses employees
+      { visibleToAdmins: user._id }, // Communications transférées
+    ];
+  } else if (user.role === 'UpperAdmin') {
+    // UpperAdmin voit toutes les communications du tenant (pas de filtre supplémentaire)
+    // Le filtre tenant_id suffit
+  }
+
+  return filter;
+}
+
+/**
+ * Helper: Vérifie si l'utilisateur a accès à une communication spécifique
+ * @param {Object} communication - Document de communication
+ * @param {Object} user - Utilisateur authentifié
+ * @returns {Boolean} - true si l'utilisateur a accès
+ */
+async function canAccessCommunication(communication, user) {
+  // UpperAdmin voit tout dans son tenant
+  if (user.role === 'UpperAdmin') {
+    return communication.tenant_id.toString() === user.tenant_id.toString();
+  }
+
+  // Employee voit uniquement ses propres communications
+  if (user.role === 'Employee') {
+    return communication.userId && communication.userId.toString() === user._id.toString();
+  }
+
+  // Admin voit ses communications + celles de ses employees
+  if (user.role === 'Admin') {
+    // Ses propres communications
+    if (communication.userId && communication.userId.toString() === user._id.toString()) {
+      return true;
+    }
+
+    // Communications visibles pour lui
+    if (communication.visibleToAdmins && communication.visibleToAdmins.some(adminId => adminId.toString() === user._id.toString())) {
+      return true;
+    }
+
+    // Vérifier si la communication appartient à un de ses employees
+    if (communication.userId) {
+      const employee = await User.findOne({
+        _id: communication.userId,
+        managedBy: user._id,
+        role: 'Employee',
+      });
+      return !!employee;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * @desc    Récupère toutes les communications du tenant de l'utilisateur (avec filtrage RBAC)
  * @route   GET /api/communications
  * @access  Private
  * @query   source (Outlook, WhatsApp, All)
@@ -35,8 +113,8 @@ exports.getCommunications = async (req, res) => {
       limit = 50,
     } = req.query;
 
-    // Construire le filtre de base (toujours filtrer par tenant)
-    const filter = { tenant_id: user.tenant_id };
+    // Construire le filtre de base avec RBAC
+    const filter = await buildRbacFilter(user);
 
     // Ajouter les filtres optionnels
     if (source !== "All") {
@@ -103,7 +181,7 @@ exports.getCommunications = async (req, res) => {
 };
 
 /**
- * @desc    Récupère une communication spécifique par son ID
+ * @desc    Récupère une communication spécifique par son ID (avec vérification RBAC)
  * @route   GET /api/communications/:id
  * @access  Private
  */
@@ -135,6 +213,15 @@ exports.getCommunicationById = async (req, res) => {
       });
     }
 
+    // Vérification RBAC : l'utilisateur a-t-il accès à cette communication ?
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas accès à cette communication",
+      });
+    }
+
     res.status(200).json({
       success: true,
       data: communication,
@@ -150,7 +237,7 @@ exports.getCommunicationById = async (req, res) => {
 };
 
 /**
- * @desc    Met à jour le statut d'une communication
+ * @desc    Met à jour le statut d'une communication (avec vérification RBAC)
  * @route   PATCH /api/communications/:id/status
  * @access  Private
  * @body    { status: "Validated" | "Escalated" | "Closed" | "Archived" }
@@ -194,6 +281,15 @@ exports.updateStatus = async (req, res) => {
       });
     }
 
+    // Vérification RBAC
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas accès à cette communication",
+      });
+    }
+
     communication.status = status;
 
     if (status === "Validated") {
@@ -223,7 +319,7 @@ exports.updateStatus = async (req, res) => {
 };
 
 /**
- * @desc    Ajoute une note à une communication
+ * @desc    Ajoute une note à une communication (avec vérification RBAC)
  * @route   POST /api/communications/:id/notes
  * @access  Private
  * @body    { content: "Note content" }
@@ -260,6 +356,15 @@ exports.addNote = async (req, res) => {
       });
     }
 
+    // Vérification RBAC
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas accès à cette communication",
+      });
+    }
+
     communication.notes.push({
       user_id: user._id,
       content: content.trim(),
@@ -288,7 +393,7 @@ exports.addNote = async (req, res) => {
 };
 
 /**
- * @desc    Récupère les statistiques des communications
+ * @desc    Récupère les statistiques des communications (avec filtrage RBAC)
  * @route   GET /api/communications/stats
  * @access  Private
  */
@@ -303,7 +408,8 @@ exports.getStats = async (req, res) => {
       });
     }
 
-    const filter = { tenant_id: user.tenant_id };
+    // Construire le filtre RBAC
+    const filter = await buildRbacFilter(user);
 
     const byStatus = await Communication.aggregate([
       { $match: filter },
@@ -359,7 +465,7 @@ exports.getStats = async (req, res) => {
 // ============================================
 
 /**
- * @desc    Marquer une communication comme Lue / Non lue
+ * @desc    Marquer une communication comme Lue / Non lue (avec vérification RBAC)
  * @route   PATCH /api/communications/:id/read
  * @access  Private
  */
@@ -369,17 +475,30 @@ exports.markAsRead = async (req, res) => {
     const { isRead } = req.body; // true ou false
     const user = req.user;
 
-    const communication = await Communication.findOneAndUpdate(
-      { _id: id, tenant_id: user.tenant_id },
-      { isRead: isRead },
-      { new: true }
-    );
+    // Récupérer d'abord la communication pour vérifier l'accès
+    const communication = await Communication.findOne({
+      _id: id,
+      tenant_id: user.tenant_id,
+    });
 
     if (!communication) {
       return res
         .status(404)
         .json({ success: false, message: "Communication not found" });
     }
+
+    // Vérification RBAC
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas accès à cette communication",
+      });
+    }
+
+    // Mettre à jour
+    communication.isRead = isRead;
+    await communication.save();
 
     res.status(200).json({ success: true, data: communication });
   } catch (error) {
@@ -389,7 +508,7 @@ exports.markAsRead = async (req, res) => {
 };
 
 /**
- * @desc    Assigner un ticket à un utilisateur
+ * @desc    Assigner un ticket à un utilisateur (avec vérification RBAC)
  * @route   PATCH /api/communications/:id/assign
  * @access  Private
  */
@@ -415,17 +534,31 @@ exports.assignUser = async (req, res) => {
       }
     }
 
-    const communication = await Communication.findOneAndUpdate(
-      { _id: id, tenant_id: user.tenant_id },
-      { assignedTo: userId }, // Si null, ça désassigne
-      { new: true }
-    ).populate("assignedTo", "firstName lastName email");
+    // Récupérer d'abord la communication pour vérifier l'accès
+    const communication = await Communication.findOne({
+      _id: id,
+      tenant_id: user.tenant_id,
+    });
 
     if (!communication) {
       return res
         .status(404)
         .json({ success: false, message: "Communication not found" });
     }
+
+    // Vérification RBAC
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas accès à cette communication",
+      });
+    }
+
+    // Mettre à jour
+    communication.assignedTo = userId; // Si null, ça désassigne
+    await communication.save();
+    await communication.populate("assignedTo", "firstName lastName email");
 
     res
       .status(200)
@@ -441,7 +574,7 @@ exports.assignUser = async (req, res) => {
 };
 
 /**
- * @desc    Déclencher manuellement l'analyse IA avec Grok
+ * @desc    Déclencher manuellement l'analyse IA avec Grok (avec vérification RBAC)
  * @route   POST /api/communications/:id/analyze
  * @access  Private
  */
@@ -460,6 +593,15 @@ exports.triggerAiAnalysis = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Communication not found" });
+    }
+
+    // Vérification RBAC
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'avez pas accès à cette communication",
+      });
     }
 
     console.log(`🤖 Analyse IA manuelle demandée pour: ${communication.subject}`);

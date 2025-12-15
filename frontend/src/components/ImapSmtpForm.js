@@ -60,6 +60,27 @@ const PROVIDER_PRESETS = {
     smtpSecure: false,
     requiresAppPassword: false,
   },
+  protonmail: {
+    name: "ProtonMail",
+    imapHost: "127.0.0.1",
+    imapPort: 1143,
+    imapSecure: false,
+    smtpHost: "127.0.0.1",
+    smtpPort: 1025,
+    smtpSecure: false,
+    requiresAppPassword: false,
+  },
+  smartermail: {
+    name: "SmarterMail",
+    imapHost: "",
+    imapPort: 993,
+    imapSecure: true,
+    smtpHost: "",
+    smtpPort: 587,
+    smtpSecure: false,
+    requiresAppPassword: false,
+    setupGuideUrl: "https://www.smartertools.com/smartermail",
+  },
   custom: {
     name: "Custom Configuration",
     imapHost: "",
@@ -92,6 +113,7 @@ function ImapSmtpForm({ onClose, onSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [usernameFormat, setUsernameFormat] = useState(null); // Format qui a fonctionné au test
 
   // Mettre à jour les champs IMAP/SMTP quand le provider change
   useEffect(() => {
@@ -111,9 +133,19 @@ function ImapSmtpForm({ onClose, onSuccess }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // Nettoyer les hostnames (enlever http://, https://, etc.)
+    let cleanedValue = value;
+    if (name === 'imapHost' || name === 'smtpHost') {
+      cleanedValue = value
+        .replace(/^https?:\/\//, '') // Enlever http:// ou https://
+        .replace(/^ftp:\/\//, '')     // Enlever ftp://
+        .trim();
+    }
+
     setFormData({
       ...formData,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : cleanedValue,
     });
   };
 
@@ -172,14 +204,34 @@ function ImapSmtpForm({ onClose, onSuccess }) {
         setTestMessage(
           "Connection successful! You can now save the configuration."
         );
+        // Sauvegarder le format de username qui a fonctionné
+        if (response.data.usernameFormat) {
+          setUsernameFormat(response.data.usernameFormat);
+        }
       } else {
         setTestStatus("error");
         setTestMessage(response.data.message || "Connection failed");
       }
     } catch (error) {
       console.error("Error testing connection:", error);
+      console.error("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+
       setTestStatus("error");
-      setTestMessage(error.response?.data?.message || "Connection test failed");
+
+      let errorMessage = "Connection test failed";
+      if (error.response?.status === 401) {
+        errorMessage = "Authentication required - Please log in again";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setTestMessage(errorMessage);
     }
   };
 
@@ -202,6 +254,7 @@ function ImapSmtpForm({ onClose, onSuccess }) {
           ...formData,
           imapPort: parseInt(formData.imapPort),
           smtpPort: parseInt(formData.smtpPort),
+          usernameFormat: usernameFormat, // Passer le format qui a fonctionné au test
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -210,9 +263,14 @@ function ImapSmtpForm({ onClose, onSuccess }) {
 
       if (response.data.success) {
         alert(
-          "IMAP/SMTP configuration saved successfully! Synchronization started."
+          "IMAP/SMTP configuration saved successfully! Synchronization started. Redirecting..."
         );
-        onSuccess && onSuccess();
+
+        // ✅ Attendre que onSuccess se termine AVANT de fermer le modal
+        if (onSuccess) {
+          await onSuccess();
+        }
+
         onClose();
       } else {
         alert(response.data.message || "Configuration failed");
@@ -256,6 +314,8 @@ function ImapSmtpForm({ onClose, onSuccess }) {
               <option value="gmail">Gmail</option>
               <option value="yahoo">Yahoo Mail</option>
               <option value="outlook_imap">Outlook (IMAP)</option>
+              <option value="protonmail">ProtonMail</option>
+              <option value="smartermail">SmarterMail</option>
               <option value="custom">Custom Configuration</option>
             </select>
           </div>
@@ -340,8 +400,7 @@ function ImapSmtpForm({ onClose, onSuccess }) {
                     id="imapHost"
                     value={formData.imapHost}
                     onChange={handleChange}
-                    placeholder="imap.example.com"
-                    disabled={formData.providerName !== "custom"}
+                    placeholder="mail.example.com"
                     required
                   />
                 </div>
@@ -353,7 +412,6 @@ function ImapSmtpForm({ onClose, onSuccess }) {
                     id="imapPort"
                     value={formData.imapPort}
                     onChange={handleChange}
-                    disabled={formData.providerName !== "custom"}
                     required
                   />
                 </div>
@@ -370,8 +428,7 @@ function ImapSmtpForm({ onClose, onSuccess }) {
                     id="smtpHost"
                     value={formData.smtpHost}
                     onChange={handleChange}
-                    placeholder="smtp.example.com"
-                    disabled={formData.providerName !== "custom"}
+                    placeholder="mail.example.com"
                     required
                   />
                 </div>
@@ -383,7 +440,6 @@ function ImapSmtpForm({ onClose, onSuccess }) {
                     id="smtpPort"
                     value={formData.smtpPort}
                     onChange={handleChange}
-                    disabled={formData.providerName !== "custom"}
                     required
                   />
                 </div>

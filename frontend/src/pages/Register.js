@@ -11,13 +11,13 @@ function Register() {
     confirmPassword: '',
     firstName: '',
     lastName: '',
-    companyName: '',
-    role: 'Employee'
+    companyName: ''
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { register, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Redirect to dashboard if already authenticated
@@ -37,32 +37,58 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     // Validation
-    if (!formData.email || !formData.password || !formData.companyName) {
-      setError('Please fill in all required fields');
+    if (!formData.email || !formData.password || !formData.companyName || !formData.firstName || !formData.lastName) {
+      setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
     setLoading(true);
 
-    const { confirmPassword, ...userData } = formData;
-    const result = await register(userData);
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const { confirmPassword, ...userData } = formData;
 
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
-      setError(result.error);
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('Inscription réussie ! Un email de vérification a été envoyé à votre adresse. Veuillez vérifier votre boîte mail.');
+        setFormData({
+          email: '',
+          password: '',
+          confirmPassword: '',
+          firstName: '',
+          lastName: '',
+          companyName: ''
+        });
+        // Redirection vers login après 3 secondes
+        setTimeout(() => navigate('/login'), 3000);
+      } else {
+        setError(data.message || 'Erreur lors de l\'inscription');
+      }
+    } catch (error) {
+      setError('Erreur de connexion au serveur');
+      console.error('Erreur inscription:', error);
     }
 
     setLoading(false);
@@ -75,65 +101,67 @@ function Register() {
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="login-header">
             <h1>SaaS Communications</h1>
-            <h2>Sign Up</h2>
-            <p>Create your account in just a few moments</p>
+            <h2>Créer votre compte</h2>
+            <p>Inscription en tant que propriétaire d'entreprise (UpperAdmin)</p>
           </div>
 
           <div className="input-group">
-            <label htmlFor="companyName">Company Name *</label>
+            <label htmlFor="companyName">Nom de l'entreprise *</label>
             <input
               type="text"
               id="companyName"
               name="companyName"
               value={formData.companyName}
               onChange={handleChange}
-              placeholder="My Company"
+              placeholder="Ma Société"
               required
             />
           </div>
 
           <div className="input-row">
             <div className="input-group">
-              <label htmlFor="firstName">First Name</label>
+              <label htmlFor="firstName">Prénom *</label>
               <input
                 type="text"
                 id="firstName"
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
-                placeholder="John"
+                placeholder="Jean"
+                required
               />
             </div>
 
             <div className="input-group">
-              <label htmlFor="lastName">Last Name</label>
+              <label htmlFor="lastName">Nom *</label>
               <input
                 type="text"
                 id="lastName"
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
-                placeholder="Doe"
+                placeholder="Dupont"
+                required
               />
             </div>
           </div>
 
           <div className="input-group">
-            <label htmlFor="email">Email Address *</label>
+            <label htmlFor="email">Adresse email *</label>
             <input
               type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="your@email.com"
+              placeholder="votre@email.com"
               required
               autoComplete="email"
             />
           </div>
 
           <div className="input-group">
-            <label htmlFor="password">Password *</label>
+            <label htmlFor="password">Mot de passe *</label>
             <input
               type="password"
               id="password"
@@ -147,7 +175,7 @@ function Register() {
           </div>
 
           <div className="input-group">
-            <label htmlFor="confirmPassword">Confirm Password *</label>
+            <label htmlFor="confirmPassword">Confirmer le mot de passe *</label>
             <input
               type="password"
               id="confirmPassword"
@@ -160,20 +188,11 @@ function Register() {
             />
           </div>
 
-          <div className="input-group">
-            <label htmlFor="role">Role</label>
-            <select
-              id="role"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="select-input"
-            >
-              <option value="Employee">Employee</option>
-              <option value="Admin">Admin</option>
-              <option value="UpperAdmin">Upper Admin (Company Owner)</option>
-            </select>
-          </div>
+          {success && (
+            <div className="success-message" style={{backgroundColor: '#d4edda', color: '#155724', padding: '10px', borderRadius: '5px', marginBottom: '15px'}}>
+              {success}
+            </div>
+          )}
 
           {error && (
             <div className="error-message">
@@ -182,12 +201,12 @@ function Register() {
           )}
 
           <button type="submit" disabled={loading} className="login-button">
-            {loading ? 'Signing up...' : 'Sign Up'}
+            {loading ? 'Inscription en cours...' : 'S\'inscrire'}
           </button>
 
           <div className="login-footer">
             <p>
-              Already have an account? <Link to="/login">Login</Link>
+              Vous avez déjà un compte ? <Link to="/login">Se connecter</Link>
             </p>
           </div>
         </form>

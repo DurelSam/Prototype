@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema(
       unique: true, // Email unique globalement
       lowercase: true,
       trim: true,
+      immutable: true, // Email ne peut jamais être modifié
       match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, "Email invalide"],
     },
 
@@ -44,6 +45,52 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
+    },
+
+    // Pour les Employees : référence à l'Admin qui l'a créé
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      required: function () {
+        return this.role === "Employee";
+      },
+    },
+
+    // Pour les Employees : Admin qui le gère (peut être différent de createdBy)
+    managedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      required: function () {
+        return this.role === "Employee";
+      },
+    },
+
+    // Vérification email (uniquement pour UpperAdmin)
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Token de vérification email
+    emailVerificationToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    // Expiration du token de vérification
+    emailVerificationExpires: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
+    // Obligation de configurer un email
+    hasConfiguredEmail: {
+      type: Boolean,
+      default: false,
     },
 
     // Configuration Outlook
@@ -124,7 +171,7 @@ const userSchema = new mongoose.Schema(
       // Nom du provider (pour presets)
       providerName: {
         type: String,
-        enum: ['gmail', 'yahoo', 'outlook_imap', 'protonmail', 'custom'],
+        enum: ['gmail', 'yahoo', 'outlook_imap', 'protonmail', 'smartermail', 'custom'],
         default: 'custom',
       },
 
@@ -138,6 +185,13 @@ const userSchema = new mongoose.Schema(
       enableAiAnalysis: {
         type: Boolean,
         default: true,
+      },
+
+      // Format de username qui fonctionne ('simple' = juste username, 'full' = email complet)
+      usernameFormat: {
+        type: String,
+        enum: ['simple', 'full'],
+        default: 'full',
       },
 
       // Statut de connexion
@@ -196,6 +250,9 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ tenant_id: 1, role: 1 });
+userSchema.index({ createdBy: 1 });
+userSchema.index({ managedBy: 1 });
+userSchema.index({ emailVerificationToken: 1 });
 
 // Middleware pour mettre à jour updatedAt
 userSchema.pre("save", function (next) {
@@ -254,6 +311,25 @@ userSchema.methods.hasAdminRights = function () {
 // Méthode pour vérifier si Outlook est connecté
 userSchema.methods.hasOutlookConnected = function () {
   return this.outlookConfig && this.outlookConfig.isConnected;
+};
+
+// Méthode pour vérifier si l'email est configuré
+userSchema.methods.hasEmailConfigured = function () {
+  return (
+    this.hasConfiguredEmail &&
+    (this.activeEmailProvider === 'outlook' || this.activeEmailProvider === 'imap_smtp')
+  );
+};
+
+// Méthode pour vérifier si peut accéder à la plateforme
+userSchema.methods.canAccessPlatform = function () {
+  // UpperAdmin doit avoir vérifié son email
+  if (this.role === 'UpperAdmin') {
+    return this.emailVerified && this.hasEmailConfigured();
+  }
+
+  // Admin et Employee doivent avoir configuré leur email
+  return this.hasEmailConfigured();
 };
 
 const User = mongoose.model("User", userSchema);

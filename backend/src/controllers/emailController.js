@@ -35,8 +35,18 @@ exports.testConnection = async (req, res) => {
   try {
     const { email, password, imapHost, imapPort, imapSecure, smtpHost, smtpPort, smtpSecure } = req.body;
 
+    console.log('📧 Test de connexion IMAP/SMTP reçu:');
+    console.log('  Email:', email);
+    console.log('  IMAP Host:', imapHost);
+    console.log('  IMAP Port:', imapPort);
+    console.log('  IMAP Secure:', imapSecure);
+    console.log('  SMTP Host:', smtpHost);
+    console.log('  SMTP Port:', smtpPort);
+    console.log('  SMTP Secure:', smtpSecure);
+
     // Validation
     if (!email || !password || !imapHost || !imapPort || !smtpHost || !smtpPort) {
+      console.error('❌ Validation échouée - champs manquants');
       return res.status(400).json({
         success: false,
         message: 'Tous les champs sont requis',
@@ -59,6 +69,7 @@ exports.testConnection = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: 'Connexion réussie! Vous pouvez sauvegarder la configuration.',
+        usernameFormat: result.usernameFormat, // Retourner le format qui a fonctionné
       });
     } else {
       return res.status(400).json({
@@ -93,6 +104,7 @@ exports.configureImapSmtp = async (req, res) => {
       smtpSecure,
       foldersToSync,
       enableAiAnalysis,
+      usernameFormat, // Format username qui a fonctionné au test
     } = req.body;
 
     // Validation
@@ -117,30 +129,43 @@ exports.configureImapSmtp = async (req, res) => {
     };
 
     // Si provider connu, merger avec config prédéfinie
+    // IMPORTANT: Les valeurs de l'utilisateur ont la PRIORITÉ sur le preset
     if (providerName && providerName !== 'custom') {
       const providerConfig = imapSmtpService.getProviderConfig(providerName);
       if (providerConfig) {
         config = {
           ...config,
-          imapHost: providerConfig.imapHost,
-          imapPort: providerConfig.imapPort,
-          imapSecure: providerConfig.imapSecure,
-          smtpHost: providerConfig.smtpHost,
-          smtpPort: providerConfig.smtpPort,
-          smtpSecure: providerConfig.smtpSecure,
+          // Utiliser les valeurs de l'utilisateur si présentes, sinon fallback sur le preset
+          imapHost: config.imapHost || providerConfig.imapHost,
+          imapPort: config.imapPort || providerConfig.imapPort,
+          imapSecure: config.imapSecure !== undefined ? config.imapSecure : providerConfig.imapSecure,
+          smtpHost: config.smtpHost || providerConfig.smtpHost,
+          smtpPort: config.smtpPort || providerConfig.smtpPort,
+          smtpSecure: config.smtpSecure !== undefined ? config.smtpSecure : providerConfig.smtpSecure,
         };
       }
     }
 
     // Tester la connexion avant de sauvegarder
+    console.log('🧪 Configuration finale pour le test:');
+    console.log('  IMAP Host:', config.imapHost);
+    console.log('  IMAP Port:', config.imapPort);
+    console.log('  IMAP Secure:', config.imapSecure);
+    console.log('  SMTP Host:', config.smtpHost);
+    console.log('  SMTP Port:', config.smtpPort);
+    console.log('  SMTP Secure:', config.smtpSecure);
+
     const testResult = await imapSmtpService.testConnection(config);
 
     if (!testResult.success) {
+      console.error('❌ Test de connexion échoué:', testResult.message);
       return res.status(400).json({
         success: false,
         message: `Test de connexion échoué: ${testResult.message}`,
       });
     }
+
+    console.log('✅ Test de connexion réussi!');
 
     // Chiffrer le mot de passe
     const encryptedPassword = encryptionService.encrypt(password);
@@ -160,9 +185,11 @@ exports.configureImapSmtp = async (req, res) => {
         'imapSmtpConfig.providerName': config.providerName,
         'imapSmtpConfig.foldersToSync': foldersToSync || ['INBOX', 'Sent'],
         'imapSmtpConfig.enableAiAnalysis': enableAiAnalysis !== false,
+        'imapSmtpConfig.usernameFormat': usernameFormat || 'full', // Sauvegarder le format qui a fonctionné
         'imapSmtpConfig.isConnected': true,
         'imapSmtpConfig.lastSyncDate': null,
         activeEmailProvider: 'imap_smtp',
+        hasConfiguredEmail: true, // ✅ FIX: Marquer l'email comme configuré
       },
       { new: true }
     );
@@ -214,6 +241,7 @@ exports.disconnectImapSmtp = async (req, res) => {
       'imapSmtpConfig.isConnected': false,
       'imapSmtpConfig.lastSyncDate': null,
       activeEmailProvider: null,
+      hasConfiguredEmail: false, // ✅ FIX: Marquer l'email comme NON configuré
     });
 
     return res.status(200).json({

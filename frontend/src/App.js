@@ -10,13 +10,13 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
 import Communications from "./pages/Communications";
 import CommunicationDetails from "./pages/CommunicationDetails";
 import Settings from "./pages/Settings";
 import Integrations from "./pages/Integrations";
 import IntegrationsCallback from "./pages/IntegrationsCallback";
-import UserManagement from "./pages/UserManagement";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
 import ScheduledReports from "./pages/ScheduledReports";
@@ -27,6 +27,9 @@ import NotFound from "./pages/NotFound";
 import SuperUserDashboard from "./pages/SuperUserDashboard";
 import AdminManagement from "./pages/AdminManagement";
 import TenantManagement from "./pages/TenantManagement";
+// RBAC pages
+import Admins from "./pages/Admins";
+import Employees from "./pages/Employees";
 import "./App.css";
 
 function HomeRedirect() {
@@ -48,6 +51,7 @@ function App() {
           {/* Routes Publiques */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
           {/* Dashboard - Route protégée SANS Layout */}
           {/* <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} /> */}
@@ -69,12 +73,15 @@ function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/integrations/callback" element={<IntegrationsCallback />} />
-            <Route path="/users" element={<UserManagement />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/subscription" element={<Subscription />} />
             <Route path="/scheduled-reports" element={<ScheduledReports />} />
             <Route path="/roles-permissions" element={<RolesPermissions />} />
             <Route path="/automation-rules" element={<AutomationRules />} />
+
+            {/* RBAC Routes */}
+            <Route path="/admins" element={<Admins />} />
+            <Route path="/employees" element={<Employees />} />
 
             {/* SuperUser Routes */}
             <Route path="/superuser/dashboard" element={<SuperUserDashboard />} />

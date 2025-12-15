@@ -1,7 +1,19 @@
 /* src/styles/Communications.css */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
+/* ===================================================================
+   DESIGN SYSTEM TOKENS - 8-POINT SPACING SCALE
+   =================================================================== */
 :root {
+  /* Spacing Scale (8-point grid) */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+
+  /* Colors (unchanged) */
   --bg-dark: #000000;
   --bg-card: #111827;
   --bg-hover: #1f2937;
@@ -9,42 +21,56 @@
   --primary-blue: #3b82f6;
   --text-main: #ffffff;
   --text-muted: #9ca3af;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: 12px;
+
+  /* Component Heights */
+  --input-height: 50px;
+  --badge-size: 48px;
 }
 
+/* ===================================================================
+   BASE LAYOUT - PAGE CONTAINER
+   =================================================================== */
 .communications-page {
-  /* FIX: Ne pas utiliser 100vh car on est déjà dans un container */
   min-height: 100%;
   width: 100%;
-  padding: 2rem; /* Le padding est géré ici, pas dans Layout */
+  padding: var(--space-4);
   font-family: "Inter", sans-serif;
   color: var(--text-main);
   position: relative;
 }
 
-/* --- LE RESTE EST IDENTIQUE À MA PROPOSITION PRÉCÉDENTE --- */
-
+/* ===================================================================
+   HEADER SECTION - CONSISTENT VERTICAL RHYTHM
+   =================================================================== */
 .communications-header {
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-4);
   animation: fadeInDown 0.5s ease-out;
+  text-align: left !important; /* ✅ Aligner à gauche (override global App centering) */
 }
 
 .page-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #fff;
-  margin: 0;
+  color: var(--text-main);
+  margin: 0 0 var(--space-4) 0; /* ✅ Augmenté de space-3 (24px) à space-4 (32px) pour plus de padding */
+  line-height: 1.2;
+  text-align: left !important; /* ✅ Aligner explicitement le titre à gauche (override global App centering) */
 }
 
+/* Tab Navigation - Aligned baseline */
 .dashboard-tabs {
   display: flex;
-  gap: 2rem;
-  margin-top: 1.5rem;
+  gap: var(--space-4);
   border-bottom: 1px solid var(--border-color);
 }
 
 .tab-button {
-  padding: 1rem 0.2rem;
+  padding: var(--space-2) var(--space-1);
   background: transparent;
   border: none;
   color: var(--text-muted);
@@ -52,7 +78,11 @@
   cursor: pointer;
   position: relative;
   font-size: 0.95rem;
-  transition: color 0.3s;
+  transition: color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  line-height: 1.5;
 }
 
 .tab-button.active {
@@ -69,85 +99,160 @@
   background: var(--primary-blue);
 }
 
+.tab-button:hover:not(.active) {
+  color: var(--text-main);
+}
+
+/* ===================================================================
+   TAB CONTENT - CONSISTENT TOP SPACING
+   =================================================================== */
 .tab-content {
-  padding-top: 2rem;
+  padding-top: var(--space-4);
   animation: fadeInUp 0.4s ease-out;
 }
 
-/* CONTROLS & SEARCH */
+/* ===================================================================
+   CONTROLS SECTION - FILTER/SEARCH BAR
+   Layout: Flexbox with equal gaps, aligned inputs
+   =================================================================== */
 .controls-section {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.search-box {
-  position: relative;
-  margin-bottom: 1.5rem;
-}
-
-.search-icon {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-}
-
-.search-input {
-  width: 100%;
-  padding: 0.8rem 1rem 0.8rem 2.8rem;
-  background: #0b0f19;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: #fff;
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 .filter-controls {
   display: flex;
-  gap: 1rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
+  align-items: flex-end;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--space-1);
+  flex: 1 1 0px;
+  min-width: 0;
+}
+
+.filter-group.search-group {
+  flex: 2 1 240px;
 }
 
 .filter-group label {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  margin: 0;
 }
 
-.filter-select {
-  padding: 0.6rem 1rem;
+/* Search Input - Baseline aligned with filters */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: var(--space-2);
+  color: var(--text-muted);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  height: var(--input-height);
+  padding: 0 var(--space-2) 0 calc(var(--space-2) * 2.5);
   background: var(--bg-hover);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: #fff;
-  min-width: 160px;
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  line-height: 1.5;
 }
 
-/* LIST CARDS */
+.search-input::placeholder {
+  color: #6b7280;
+}
+
+.search-input:hover {
+  border-color: var(--primary-blue);
+  background: #1a2332;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Filter Select - Baseline aligned */
+.filter-select {
+  width: 100%;
+  height: var(--input-height);
+  padding: 0 var(--space-4) 0 var(--space-2);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  line-height: 1.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-2) center;
+  background-size: 12px;
+}
+
+.filter-select:hover {
+  border-color: var(--primary-blue);
+  background-color: #1a2332;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ===================================================================
+   COMMUNICATIONS LIST - VERTICAL RHYTHM
+   Layout: Flexbox column with consistent spacing
+   =================================================================== */
 .communications-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-2);
 }
 
+/* ===================================================================
+   COMMUNICATION CARD - GRID LAYOUT
+   Layout: CSS Grid with icon column + content column
+   Spacing: Internal padding and gaps follow 8-point scale
+   =================================================================== */
 .communication-card {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1.5rem;
+  grid-template-columns: var(--badge-size) 1fr;
+  gap: var(--space-2);
+  align-items: start;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-left: 4px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: var(--space-3);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -155,7 +260,7 @@
 .communication-card:hover {
   transform: translateY(-2px);
   background: #161e2e;
-  border-left-color: var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .communication-card.unread {
@@ -163,14 +268,16 @@
   background: #131b2b;
 }
 
+/* Type Badge - Fixed dimensions, centered icon */
 .comm-type-badge {
-  width: 44px;
-  height: 44px;
+  width: var(--badge-size);
+  height: var(--badge-size);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .comm-type-badge[data-type="outlook"] {
@@ -185,102 +292,253 @@
   border: 1px solid rgba(20, 184, 166, 0.2);
 }
 
+.comm-type-badge[data-type="imap_smtp"] {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+/* Content Column - Vertical rhythm with consistent spacing */
 .comm-content {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-1);
   min-width: 0;
 }
 
 .comm-header-row {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
 }
 
 .comm-subject {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-main);
+  line-height: 1.3;
 }
 
 .comm-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: 0.85rem;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .comm-preview {
   color: #9ca3af;
   font-size: 0.95rem;
   line-height: 1.5;
+  margin: var(--space-1) 0 0 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* Animations */
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Footer - AI Tags with consistent spacing */
+.comm-footer {
+  margin-top: var(--space-1);
 }
 
-/* === STYLES COMPLÉMENTAIRES POUR LA PAGINATION === */
-
-/* Smooth scroll pour toute la page */
-html {
-  scroll-behavior: smooth;
+.ai-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
 }
 
-/* Espacement pour le tab-content pour intégrer la pagination */
-.tab-content {
-  padding-bottom: 1rem;
-  position: relative;
+.ai-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid;
+  transition: all 0.2s ease;
+  line-height: 1.2;
 }
 
-/* Loading state pour la liste lors du changement de page */
-.communications-list.loading {
-  opacity: 0.6;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
+.ai-tag.sentiment {
+  background: rgba(17, 24, 39, 0.8);
+  color: #e5e7eb;
+  border-color: #374151;
 }
 
-/* Empty state amélioré */
-.empty-state {
-  text-align: center;
-  padding: 3rem 1.5rem;
-  color: var(--text-muted);
-  font-size: 1.1rem;
+.ai-tag.priority {
+  background: rgba(17, 24, 39, 0.5);
+  border-width: 1.5px;
+}
+
+/* ===================================================================
+   ESCALATION DASHBOARD - GRID LAYOUT
+   Layout: CSS Grid for KPI cards, consistent spacing
+   =================================================================== */
+.escalation-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* KPI Cards Grid - 3 columns on desktop */
+.escalation-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-3);
+  grid-auto-rows: auto;
+}
+
+.escalation-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  margin: 2rem 0;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: all 0.2s ease;
 }
 
-/* Loading container aligné sur le design */
+.escalation-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.escalation-card.level1-card {
+  border-left: 4px solid #f59e0b;
+}
+
+.escalation-card.level2-card {
+  border-left: 4px solid #ef4444;
+}
+
+.escalation-card.overdue-card {
+  border-left: 4px solid #7f1d1d;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.card-icon {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+}
+
+.card-value {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+/* Escalation Table - Spans full width */
+.escalation-table-section {
+  grid-column: 1 / -1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.escalation-table-section h3 {
+  margin: 0 0 var(--space-3) 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.3;
+}
+
+.escalation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.escalation-table thead {
+  border-bottom: 2px solid var(--border-color);
+}
+
+.escalation-table th {
+  text-align: left;
+  padding: var(--space-2);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.escalation-table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.escalation-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.status-badge.escalated1 {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-badge.escalated2 {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.status-badge.closed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* ===================================================================
+   LOADING & EMPTY STATES - CENTERED CONTENT
+   =================================================================== */
 .loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  gap: 1.5rem;
+  gap: var(--space-2);
 }
 
 .loading-spinner {
@@ -292,63 +550,147 @@ html {
   animation: spin 0.8s linear infinite;
 }
 
+.loading-container p {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-6) var(--space-3);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin: var(--space-3) 0;
+  line-height: 1.5;
+}
+
+/* ===================================================================
+   ANIMATIONS
+   =================================================================== */
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.loading-container p {
-  color: var(--text-muted);
-  font-size: 1rem;
-  font-weight: 500;
-}
+/* ===================================================================
+   RESPONSIVE BREAKPOINTS
+   Mobile-first approach with consistent spacing scale
+   =================================================================== */
 
-/* Responsive - Ajustements pour mobile */
+/* Tablet: 768px and below */
 @media (max-width: 768px) {
   .communications-page {
-    padding: 1rem;
+    padding: var(--space-2);
   }
 
   .communications-header {
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--space-3);
   }
 
   .page-title {
     font-size: 1.5rem;
+    margin-bottom: var(--space-2);
   }
 
   .dashboard-tabs {
-    gap: 1rem;
+    gap: var(--space-2);
   }
 
   .tab-button {
     font-size: 0.85rem;
-    padding: 0.8rem 0.1rem;
+    padding: var(--space-2) var(--space-1);
   }
 
   .controls-section {
-    padding: 1rem;
+    padding: var(--space-2);
+  }
+
+  .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .filter-group {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .filter-group.search-group {
+    flex: 1 1 100%;
   }
 
   .communications-list {
-    gap: 0.8rem;
+    gap: var(--space-2);
   }
 
   .communication-card {
-    padding: 1rem;
-    gap: 1rem;
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+
+  .ai-tags {
+    gap: var(--space-1);
+  }
+
+  .escalation-dashboard {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .escalation-table-section {
+    overflow-x: auto;
   }
 }
 
+/* Mobile: 480px and below */
 @media (max-width: 480px) {
   .communications-page {
-    padding: 0.75rem;
+    padding: var(--space-2);
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+
+  .tab-button {
+    font-size: 0.8rem;
+    padding: var(--space-1) 4px;
   }
 
   .communication-card {
     grid-template-columns: 1fr;
     text-align: center;
+    padding: var(--space-2);
   }
 
   .comm-type-badge {
@@ -358,4 +700,20 @@ html {
   .comm-content {
     align-items: center;
   }
+
+  .comm-header-row {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .ai-tag {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }

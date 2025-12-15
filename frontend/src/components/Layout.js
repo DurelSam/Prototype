@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartPie,
@@ -15,16 +15,23 @@ import {
   faBuilding,
 } from "@fortawesome/free-solid-svg-icons";
 import { useAuth } from "../context/AuthContext";
+import EmailConfigurationGuard from "./EmailConfigurationGuard";
 import "../styles/Layout.css";
 
 function Layout() {
   // État pour savoir si la sidebar est réduite ou ouverte
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
   };
 
   // Menu différent selon le rôle
@@ -42,7 +49,12 @@ function Layout() {
   const normalNavItems = [
     { path: "/dashboard", label: "Dashboard", icon: faChartPie },
     { path: "/communications", label: "Communications", icon: faComments },
-    { path: "/users", label: "Users", icon: faUsers },
+    // Menu Users adapté au rôle
+    ...(user?.role === "UpperAdmin"
+      ? [{ path: "/admins", label: "Admins", icon: faUsers }]
+      : user?.role === "Admin"
+      ? [{ path: "/employees", label: "Employees", icon: faUsers }]
+      : []), // Employee ne voit pas de menu Users
     { path: "/analytics", label: "Analytics", icon: faChartLine },
     { path: "/integrations", label: "Integrations", icon: faPlug },
     { path: "/subscription", label: "Subscription", icon: faCreditCard },
@@ -61,13 +73,34 @@ function Layout() {
       {/* HEADER */}
       <header className="app-header">
         <div className="header-content">
-          {/* Bouton Toggle intégré au Header ou au début de la sidebar visuellement */}
-          <button className="sidebar-toggle" onClick={toggleSidebar}>
-            <FontAwesomeIcon
-              icon={isSidebarCollapsed ? faBars : faChevronLeft}
-            />
-          </button>
-          <h1>SaaS Platform</h1>
+          {/* Left side - Toggle + Title grouped together */}
+          <div className="header-left">
+            <button className="sidebar-toggle" onClick={toggleSidebar}>
+              <FontAwesomeIcon
+                icon={isSidebarCollapsed ? faBars : faChevronLeft}
+              />
+            </button>
+            <h1>SaaS Platform</h1>
+          </div>
+
+          {/* User Profile Section - Right side */}
+          <div className="header-right">
+            <div className="user-avatar">
+              {user?.firstName?.[0]?.toUpperCase() ||
+                user?.email?.[0]?.toUpperCase()}
+            </div>
+            <div className="user-details">
+              <span className="user-name">
+                {user?.firstName && user?.lastName
+                  ? `${user.firstName} ${user.lastName}`
+                  : user?.email}
+              </span>
+              <span className="user-role">{user?.role}</span>
+            </div>
+            <button className="logout-button" onClick={handleLogout}>
+              Déconnexion
+            </button>
+          </div>
         </div>
       </header>
 
@@ -99,7 +132,14 @@ function Layout() {
 
         {/* CONTENU PRINCIPAL */}
         <main className="content">
-          <Outlet />
+          {/* Guard qui vérifie la configuration email, sauf pour la page d'intégrations */}
+          {location.pathname === '/integrations' || location.pathname.startsWith('/integrations/') ? (
+            <Outlet />
+          ) : (
+            <EmailConfigurationGuard>
+              <Outlet />
+            </EmailConfigurationGuard>
+          )}
         </main>
       </div>
     </div>

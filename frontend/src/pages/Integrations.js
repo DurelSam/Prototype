@@ -25,7 +25,7 @@ function Integrations() {
   const navigate = useNavigate();
   const location = useLocation(); // Nécessaire pour lire les paramètres d'URL (success/error)
   const [activeService, setActiveService] = useState(null);
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
 
   // API Configuration
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
@@ -93,6 +93,22 @@ function Integrations() {
           provider: activeProvider,
         };
 
+        // Récupérer le count des communications (pour tous les providers)
+        let communicationsCount = 0;
+        try {
+          const countResponse = await axios.get(
+            `${API_URL}/auth/communications?limit=1`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (countResponse.data.success && countResponse.data.pagination) {
+            communicationsCount = countResponse.data.pagination.total || 0;
+          }
+        } catch (countError) {
+          console.error("Error fetching communications count:", countError);
+        }
+
         if (activeProvider === "outlook" && outlook.isConnected) {
           emailConfig = {
             ...emailConfig,
@@ -101,7 +117,7 @@ function Integrations() {
             lastSync: outlook.lastSyncDate
               ? new Date(outlook.lastSyncDate)
               : null,
-            messagesCount: 0, // TODO: récupérer le count des communications
+            messagesCount: communicationsCount,
             syncStatus: "Active",
           };
         } else if (activeProvider === "imap_smtp" && imapSmtp.isConnected) {
@@ -112,7 +128,7 @@ function Integrations() {
             lastSync: imapSmtp.lastSyncDate
               ? new Date(imapSmtp.lastSyncDate)
               : null,
-            messagesCount: 0, // TODO: récupérer le count des communications
+            messagesCount: communicationsCount,
             syncStatus: "Active",
           };
         }
@@ -250,12 +266,36 @@ function Integrations() {
   };
 
   // Handler pour le succès de la configuration IMAP/SMTP
-  const handleImapSmtpSuccess = () => {
+  const handleImapSmtpSuccess = async () => {
+    console.log('🎯 handleImapSmtpSuccess: Démarrage');
+
     fetchEmailStatus();
     setMessage({
       type: "success",
-      text: "IMAP/SMTP configuration saved successfully!",
+      text: "IMAP/SMTP configuration saved successfully! Redirecting...",
     });
+
+    // ✅ Attendre 1 seconde pour que le backend finisse de sauvegarder
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // ✅ Rafraîchir le contexte Auth pour mettre à jour hasConfiguredEmail
+    if (checkAuth && typeof checkAuth === 'function') {
+      console.log('🔄 Appel de checkAuth()...');
+      try {
+        await checkAuth();
+        console.log('✅ checkAuth() réussi');
+      } catch (err) {
+        console.error('❌ checkAuth() échoué:', err);
+        // Ne pas rediriger si checkAuth échoue
+        return;
+      }
+    }
+
+    // ✅ Rediriger vers le dashboard après succès
+    console.log('🚀 Redirection vers /dashboard');
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 1000);
   };
 
   const handleConnect = async (service, e) => {
@@ -609,6 +649,30 @@ function Integrations() {
         </button>
         <h1 className="page-title">Platform Integrations</h1>
       </div>
+
+      {/* ✅ BANNIÈRE D'AVERTISSEMENT pour utilisateurs non configurés */}
+      {!user?.hasConfiguredEmail && (
+        <div className="message warning" style={{
+          backgroundColor: '#fff3cd',
+          color: '#856404',
+          border: '1px solid #ffc107',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <FontAwesomeIcon icon={faLock} style={{ fontSize: '24px' }} />
+          <div>
+            <strong>Configuration requise</strong>
+            <p style={{ margin: '4px 0 0 0' }}>
+              Vous devez configurer votre compte email ci-dessous pour accéder au reste de la plateforme.
+              Choisissez entre Outlook ou IMAP/SMTP pour commencer.
+            </p>
+          </div>
+        </div>
+      )}
 
       {activeService === "whatsapp" && renderWhatsappForm()}
 

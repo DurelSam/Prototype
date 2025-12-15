@@ -96,7 +96,9 @@ function CommunicationDetails() {
           // Pré-remplir le formulaire de réponse
           setReplyForm({
             to: data.sender?.email || "",
-            subject: data.subject?.startsWith("Re:") ? data.subject : `Re: ${data.subject}`,
+            subject: data.subject?.startsWith("Re:")
+              ? data.subject
+              : `Re: ${data.subject}`,
             body: "",
           });
         }
@@ -190,7 +192,9 @@ function CommunicationDetails() {
           text: replyForm.body,
           html: `<p>${replyForm.body.replace(/\n/g, "<br>")}</p>`,
           inReplyTo: communication.externalId, // Pour le threading
-          references: communication.externalId ? [communication.externalId] : [],
+          references: communication.externalId
+            ? [communication.externalId]
+            : [],
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -204,18 +208,25 @@ function CommunicationDetails() {
           // Réinitialiser le formulaire
           setReplyForm({
             to: communication.from,
-            subject: communication.subject?.startsWith("Re:") ? communication.subject : `Re: ${communication.subject}`,
+            subject: communication.subject?.startsWith("Re:")
+              ? communication.subject
+              : `Re: ${communication.subject}`,
             body: "",
           });
         }, 2000);
       } else {
-        setSendMessage({ type: "error", text: response.data.message || "Failed to send email" });
+        setSendMessage({
+          type: "error",
+          text: response.data.message || "Failed to send email",
+        });
       }
     } catch (error) {
       console.error("Error sending email:", error);
       setSendMessage({
         type: "error",
-        text: error.response?.data?.message || "Failed to send email. Please check your email configuration.",
+        text:
+          error.response?.data?.message ||
+          "Failed to send email. Please check your email configuration.",
       });
     } finally {
       setSending(false);
@@ -260,6 +271,16 @@ function CommunicationDetails() {
     });
   };
 
+  const isEmailType = (type) => {
+    const lowerType = type.toLowerCase();
+    return (
+      lowerType.includes("email") ||
+      lowerType.includes("outlook") ||
+      lowerType.includes("smtp") ||
+      lowerType.includes("imap")
+    );
+  };
+
   return (
     <div className="communication-details-page">
       <div className="details-header">
@@ -271,14 +292,12 @@ function CommunicationDetails() {
         </button>
 
         {/* Reply Button - Only show for emails */}
-        {(communication.type === "Outlook" || communication.type === "Email") && communication.from && (
-          <button
-            className="reply-button"
-            onClick={handleReply}
-          >
-            <FontAwesomeIcon icon={faReply} /> Reply
-          </button>
-        )}
+        {(communication.type === "Outlook" || communication.type === "Email") &&
+          communication.from && (
+            <button className="reply-button" onClick={handleReply}>
+              <FontAwesomeIcon icon={faReply} /> Reply
+            </button>
+          )}
       </div>
 
       <div
@@ -298,10 +317,7 @@ function CommunicationDetails() {
             >
               <FontAwesomeIcon
                 icon={
-                  communication.type === "Outlook" ||
-                  communication.type === "Email"
-                    ? faEnvelope
-                    : faCommentDots
+                  isEmailType(communication.type) ? faEnvelope : faCommentDots
                 }
               />{" "}
               {communication.type}
@@ -463,13 +479,18 @@ function CommunicationDetails() {
       {/* Reply Form Modal */}
       {showReplyForm && (
         <div className="modal-overlay" onClick={handleCloseReplyForm}>
-          <div className="reply-form-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="reply-form-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button className="close-button" onClick={handleCloseReplyForm}>
               <FontAwesomeIcon icon={faTimes} />
             </button>
 
             <h2>Reply to Email</h2>
-            <p className="modal-subtitle">Send a reply using your configured email</p>
+            <p className="modal-subtitle">
+              Send a reply using your configured email
+            </p>
 
             <form onSubmit={handleSendEmail}>
               <div className="form-group">
@@ -520,14 +541,14 @@ function CommunicationDetails() {
 
               {/* Form Actions */}
               <div className="form-actions">
-                <button type="button" className="btn-cancel" onClick={handleCloseReplyForm}>
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={handleCloseReplyForm}
+                >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="btn-submit"
-                  disabled={sending}
-                >
+                <button type="submit" className="btn-submit" disabled={sending}>
                   {sending ? (
                     <>
                       <FontAwesomeIcon icon={faSpinner} spin /> Sending...

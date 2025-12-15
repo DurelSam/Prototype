@@ -136,6 +136,7 @@ app.get("/api/test-db", async (req, res) => {
 
 // Routes API
 app.use("/api/auth", require("./src/routes/authRoutes"));
+app.use("/api/users", require("./src/routes/userRoutes")); // Routes gestion utilisateurs (RBAC)
 app.use("/api/auth/outlook", require("./src/routes/outlookRoutes"));
 app.use("/api/email", require("./src/routes/emailRoutes")); // Routes IMAP/SMTP
 app.use(

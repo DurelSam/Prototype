@@ -26,23 +26,39 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem("authToken");
+    console.log('🔐 checkAuth: Token présent?', !!token);
 
     if (token) {
       try {
+        console.log('📡 checkAuth: Requête vers /auth/me...');
         const response = await axios.get(`${API_URL}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
+        console.log('📡 checkAuth: Réponse reçue', response.data.success);
+
         if (response.data.success) {
+          console.log('✅ checkAuth: User mis à jour', {
+            email: response.data.user.email,
+            hasConfiguredEmail: response.data.user.hasConfiguredEmail,
+          });
           setUser(response.data.user);
         }
       } catch (error) {
-        console.error("Erreur auth check:", error);
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("userData");
-        setUser(null);
+        console.error("❌ checkAuth: Erreur", error.response?.status, error.response?.data?.message || error.message);
+
+        // ⚠️ ATTENTION: Ne supprimer le token QUE si c'est une erreur 401 (Unauthorized)
+        // Pas pour les erreurs réseau ou serveur (500, etc.)
+        if (error.response?.status === 401) {
+          console.warn('🚨 Token invalide, déconnexion');
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("userData");
+          setUser(null);
+        } else {
+          console.warn('⚠️ Erreur temporaire, token conservé');
+        }
       }
     }
     // C'est ici qu'on libère l'application
@@ -123,10 +139,20 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    checkAuth, // Pour rafraîchir l'état user
     isAuthenticated: !!user,
+    // Rôles RBAC
+    isSuperUser: user?.role === "SuperUser",
+    isUpperAdmin: user?.role === "UpperAdmin",
     isAdmin: user?.role === "Admin",
-    isManager: user?.role === "Manager" || user?.role === "Admin",
     isEmployee: user?.role === "Employee",
+    // Helpers combinés
+    isAdminOrAbove: ["Admin", "UpperAdmin", "SuperUser"].includes(user?.role),
+    isUpperAdminOrAbove: ["UpperAdmin", "SuperUser"].includes(user?.role),
+    // Vérifications de configuration
+    emailVerified: user?.emailVerified,
+    hasConfiguredEmail: user?.hasConfiguredEmail,
+    canAccessPlatform: user?.hasConfiguredEmail && (user?.role !== "UpperAdmin" || user?.emailVerified),
   };
 
   // --- CORRECTION MAJEURE ICI ---

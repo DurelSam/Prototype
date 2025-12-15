@@ -54,7 +54,7 @@ class OutlookService {
       response_mode: "query",
       scope: this.scopes,
       state: encodedState, // On injecte le state encodé ici
-      prompt: "consent", // Force la demande d'accès pour garantir le refresh_token
+      prompt: "select_account", // Force l'écran de sélection de compte (permet de choisir n'importe quel compte Microsoft)
     });
 
     return `${this.authorizeEndpoint}?${params.toString()}`;

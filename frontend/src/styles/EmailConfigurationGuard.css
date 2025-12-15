@@ -1,0 +1,250 @@
+/* Email Configuration Guard Modal */
+.email-config-guard {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.config-guard-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.95), rgba(118, 75, 162, 0.95));
+  backdrop-filter: blur(10px);
+}
+
+.config-guard-modal {
+  position: relative;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.config-guard-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  text-align: center;
+  border-radius: 16px 16px 0 0;
+}
+
+.config-guard-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.config-guard-icon.warning {
+  color: #ffd700;
+}
+
+.config-guard-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.config-guard-body {
+  padding: 30px;
+}
+
+.config-step {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.step-indicator {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.step-number {
+  font-size: 18px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.step-icon {
+  font-size: 24px;
+}
+
+.step-icon.success {
+  color: #28a745;
+}
+
+.step-icon.pending {
+  color: #ffc107;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.step-content p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.step-completed {
+  color: #28a745 !important;
+  font-weight: 500;
+}
+
+.step-pending {
+  color: #666;
+}
+
+.config-alert {
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 20px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.config-alert.info {
+  background: #e7f3ff;
+  border-left: 4px solid #2196f3;
+  color: #0d47a1;
+}
+
+.config-alert.success {
+  background: #e8f5e9;
+  border-left: 4px solid #4caf50;
+  color: #1b5e20;
+}
+
+.config-alert p {
+  margin: 0;
+}
+
+.config-guard-actions {
+  padding: 0 30px 30px 30px;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.config-guard-actions button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: #d0d0d0;
+}
+
+.config-guard-footer {
+  padding: 20px 30px;
+  background: #f8f9fa;
+  border-radius: 0 0 16px 16px;
+  text-align: center;
+}
+
+.config-guard-footer p {
+  margin: 0;
+  font-size: 13px;
+  color: #666;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .config-guard-modal {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .config-guard-header {
+    padding: 20px;
+  }
+
+  .config-guard-header h2 {
+    font-size: 20px;
+  }
+
+  .config-guard-body {
+    padding: 20px;
+  }
+
+  .config-step {
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+  }
+
+  .config-guard-actions {
+    flex-direction: column;
+  }
+
+  .config-guard-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}

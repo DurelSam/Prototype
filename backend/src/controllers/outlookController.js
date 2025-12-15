@@ -114,6 +114,7 @@ exports.handleCallback = async (req, res) => {
           "outlookConfig.isConnected": true,
           "outlookConfig.linkedEmail": outlookEmail,
           activeEmailProvider: "outlook", // IMPORTANT: définir le provider actif
+          hasConfiguredEmail: true, // ✅ FIX: Marquer l'email comme configuré
         },
       },
       { new: true }
@@ -161,6 +162,7 @@ exports.disconnectOutlook = async (req, res) => {
         "outlookConfig.isConnected": false,
         "outlookConfig.linkedEmail": null,
         activeEmailProvider: null, // IMPORTANT: réinitialiser le provider actif
+        hasConfiguredEmail: false, // ✅ FIX: Marquer l'email comme NON configuré
       },
     });
 

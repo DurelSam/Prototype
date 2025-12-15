@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
-// Middleware pour vérifier le token JWT
+// Middleware pour vérifier le token JWT et récupérer l'utilisateur
 exports.protect = async (req, res, next) => {
   try {
     let token;
@@ -22,32 +23,57 @@ exports.protect = async (req, res, next) => {
     }
 
     // Vérifier et décoder le token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        return res.status(401).json({
+          success: false,
+          message: "Token expiré. Veuillez vous reconnecter.",
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        message: "Non autorisé - Token invalide",
+      });
+    }
 
-    // Ajouter les informations de l'utilisateur à la requête
-    req.user = {
-      _id: decoded.userId,
-      tenant_id: decoded.tenantId, // Utiliser tenant_id pour cohérence avec les controllers
-      role: decoded.role,
-    };
+    // Récupérer l'utilisateur depuis la base de données
+    const user = await User.findById(decoded.userId).populate('tenant_id', 'companyName');
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non trouvé",
+      });
+    }
+
+    // Vérifier que le compte est actif
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "Votre compte a été désactivé",
+      });
+    }
+
+    // Ajouter l'utilisateur complet à la requête
+    req.user = user;
 
     next();
   } catch (error) {
     console.error("Erreur d'authentification:", error.message);
 
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({
-        success: false,
-        message: "Token expiré. Veuillez vous reconnecter.",
-      });
-    }
-
-    return res.status(401).json({
+    return res.status(500).json({
       success: false,
-      message: "Non autorisé - Token invalide",
+      message: "Erreur d'authentification",
+      error: error.message,
     });
   }
 };
+
+// Alias pour authenticate (pour utiliser dans les routes)
+exports.authenticate = exports.protect;
 
 // Middleware pour vérifier les rôles
 exports.authorize = (...roles) => {

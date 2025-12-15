@@ -9,6 +9,14 @@ const tenantSchema = new mongoose.Schema(
       unique: true,
     },
 
+    // UpperAdmin du tenant (référence)
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,  // Pas required car créé avant l'utilisateur
+      default: null,
+    },
+
     subscriptionStatus: {
       type: String,
       enum: ["Active", "Trial", "Cancelled", "Suspended"],
@@ -121,6 +129,7 @@ const tenantSchema = new mongoose.Schema(
 // Index pour optimiser les recherches
 tenantSchema.index({ subscriptionStatus: 1 });
 tenantSchema.index({ isActive: 1 });
+tenantSchema.index({ ownerId: 1 });
 
 // Middleware pour mettre à jour updatedAt
 tenantSchema.pre("save", function (next) {

@@ -27,13 +27,29 @@ class GrokService {
    * @returns {Object} Résultat d'analyse IA
    */
   async analyzeCommunication(communication) {
+    console.log("🔶 [GrokService] analyzeCommunication APPELÉE");
+    console.log("🔶 [GrokService] Communication reçue:", {
+      subject: communication.subject?.substring(0, 30),
+      contentLength: communication.content?.length,
+      senderEmail: communication.sender?.email,
+    });
+
     try {
       const { subject, content, sender } = communication;
 
+      console.log("🔶 [GrokService] Données extraites:", {
+        subject: subject?.substring(0, 30),
+        contentLength: content?.length,
+        sender: sender,
+      });
+
       // Construire le prompt pour Grok
       const prompt = this.buildAnalysisPrompt(subject, content, sender);
+      console.log("🔶 [GrokService] Prompt construit, longueur:", prompt.length);
 
       console.log("🤖 Envoi de la communication à Grok pour analyse...");
+      console.log("🔑 [GrokService] API Key présente:", !!this.client.apiKey);
+      console.log("🔑 [GrokService] Model:", this.model);
 
       const completion = await this.client.chat.completions.create({
         model: this.model,
@@ -54,9 +70,16 @@ class GrokService {
 
       const responseText = completion.choices[0].message.content;
       console.log("✅ Analyse Grok reçue");
+      console.log("📝 [GrokService] Réponse brute (premiers 200 chars):", responseText?.substring(0, 200));
 
       // Parser la réponse JSON de Grok
+      console.log("🔧 [GrokService] Parsing de la réponse...");
       const analysis = this.parseGrokResponse(responseText);
+      console.log("✅ [GrokService] Analyse parsée:", {
+        hasSummary: !!analysis.summary,
+        sentiment: analysis.sentiment,
+        urgency: analysis.urgency,
+      });
 
       return {
         summary: analysis.summary || "No summary available",
@@ -68,7 +91,17 @@ class GrokService {
         processedAt: new Date(),
       };
     } catch (error) {
-      console.error("❌ Erreur lors de l'analyse Grok:", error.message);
+      console.error("❌ [GrokService] Erreur lors de l'analyse Grok");
+      console.error("❌ [GrokService] Message:", error.message);
+      console.error("❌ [GrokService] Type:", error.constructor.name);
+      console.error("❌ [GrokService] Stack:", error.stack?.split('\n').slice(0, 3).join('\n'));
+      if (error.response) {
+        console.error("❌ [GrokService] Réponse API:", {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+        });
+      }
 
       // Retourner une analyse par défaut en cas d'erreur
       return {
