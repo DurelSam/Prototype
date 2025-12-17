@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bienvenue Administrateur</title>
+  <title>Welcome Administrator</title>
   <style>
     body {
       margin: 0;
@@ -116,58 +116,58 @@
   <div class="email-container">
     <!-- Header -->
     <div class="header">
-      <h1>Bienvenue sur {{companyName}}</h1>
-      <p style="margin: 10px 0 0 0; font-size: 16px;">Votre compte Administrateur a été créé</p>
+      <h1>Welcome to {{companyName}}</h1>
+      <p style="margin: 10px 0 0 0; font-size: 16px;">Your Administrator Account Has Been Created</p>
     </div>
 
     <!-- Content -->
     <div class="content">
-      <h2>Bonjour {{adminFirstName}} {{adminLastName}},</h2>
+      <h2>Hello {{adminFirstName}} {{adminLastName}},</h2>
 
-      <p>Nous sommes ravis de vous accueillir en tant qu'<strong>Administrateur</strong> de {{companyName}}.</p>
+      <p>We are delighted to welcome you as an <strong>Administrator</strong> of {{companyName}}.</p>
 
-      <p>Votre compte a été créé avec succès. Vous avez maintenant accès à la plateforme de gestion des communications et pouvez commencer à gérer votre équipe.</p>
+      <p>Your account has been created successfully. You now have access to the communications management platform and can start managing your team.</p>
 
       <!-- Credentials Box -->
       <div class="credentials-box">
-        <p><strong>Vos identifiants de connexion :</strong></p>
-        <p><strong>Email :</strong> {{adminEmail}}</p>
-        <p><strong>Mot de passe temporaire :</strong></p>
+        <p><strong>Your Login Credentials:</strong></p>
+        <p><strong>Email:</strong> {{adminEmail}}</p>
+        <p><strong>Temporary Password:</strong></p>
         <div class="password-box">{{temporaryPassword}}</div>
       </div>
 
       <!-- Warning -->
       <div class="warning-box">
-        <p><strong>⚠️ Important :</strong></p>
-        <p>Pour des raisons de sécurité, vous devrez changer ce mot de passe lors de votre première connexion.</p>
+        <p><strong>⚠️ Important:</strong></p>
+        <p>For security reasons, you will need to change this password upon your first login.</p>
       </div>
 
       <!-- Steps -->
       <div class="steps">
-        <p><strong>Prochaines étapes :</strong></p>
+        <p><strong>Next Steps:</strong></p>
         <ol>
-          <li><strong>Connectez-vous</strong> à la plateforme avec vos identifiants</li>
-          <li><strong>Configurez votre compte email</strong> (Outlook ou IMAP/SMTP) pour envoyer et recevoir des communications</li>
-          <li><strong>Changez votre mot de passe</strong> dans les paramètres de votre profil</li>
-          <li><strong>Créez des comptes Employés</strong> et commencez à gérer votre équipe</li>
+          <li><strong>Log in</strong> to the platform with your credentials</li>
+          <li><strong>Configure your email account</strong> (Outlook or IMAP/SMTP) to send and receive communications</li>
+          <li><strong>Change your password</strong> in your profile settings</li>
+          <li><strong>Create Employee accounts</strong> and start managing your team</li>
         </ol>
       </div>
 
       <!-- CTA Button -->
       <div style="text-align: center; margin: 30px 0;">
-        <a href="{{loginUrl}}" class="cta-button">Se connecter maintenant</a>
+        <a href="{{loginUrl}}" class="cta-button">Log In Now</a>
       </div>
 
       <p style="color: #666666; font-size: 14px; margin-top: 30px;">
-        Si vous avez des questions ou besoin d'assistance, n'hésitez pas à contacter votre UpperAdmin.
+        If you have any questions or need assistance, please contact your UpperAdmin.
       </p>
     </div>
 
     <!-- Footer -->
     <div class="footer">
       <p><strong>{{companyName}}</strong></p>
-      <p>Plateforme de Gestion des Communications</p>
-      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} Tous droits réservés</p>
+      <p>Communications Management Platform</p>
+      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} All Rights Reserved</p>
     </div>
   </div>
 </body>

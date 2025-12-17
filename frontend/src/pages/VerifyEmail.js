@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import backgroundImage from '../login-background-image.jpg';
 import '../styles/Login.css';
@@ -13,8 +13,14 @@ function VerifyEmail() {
   const [resendSuccess, setResendSuccess] = useState(false);
   const [resendEmail, setResendEmail] = useState('');
 
+  // Prevent multiple API calls (React 18 Strict Mode calls useEffect twice in dev)
+  const hasVerified = useRef(false);
+
   useEffect(() => {
-    verifyEmail();
+    if (!hasVerified.current) {
+      hasVerified.current = true;
+      verifyEmail();
+    }
   }, [token]);
 
   const verifyEmail = async () => {

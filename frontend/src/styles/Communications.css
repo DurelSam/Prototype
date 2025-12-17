@@ -12,6 +12,7 @@
   --space-4: 32px;
   --space-5: 40px;
   --space-6: 48px;
+  --space-7: 56px;
 
   /* Colors (unchanged) */
   --bg-dark: #000000;
@@ -48,7 +49,7 @@
    HEADER SECTION - CONSISTENT VERTICAL RHYTHM
    =================================================================== */
 .communications-header {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
   animation: fadeInDown 0.5s ease-out;
   text-align: left !important; /* ✅ Aligner à gauche (override global App centering) */
 }
@@ -57,7 +58,7 @@
   font-size: 2rem;
   font-weight: 700;
   color: var(--text-main);
-  margin: 0 0 var(--space-4) 0; /* ✅ Augmenté de space-3 (24px) à space-4 (32px) pour plus de padding */
+  padding-bottom: var(--space-1);
   line-height: 1.2;
   text-align: left !important; /* ✅ Aligner explicitement le titre à gauche (override global App centering) */
 }

@@ -3,6 +3,7 @@ const Tenant = require('../models/Tenant');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const systemEmailService = require('../services/systemEmailService');
 
 // ========================================
 // INSCRIPTION UPPER ADMIN
@@ -36,6 +37,10 @@ exports.registerUpperAdmin = async (req, res) => {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
+    console.log(`🔑 Token de vérification généré: ${verificationToken.substring(0, 10)}...`);
+    console.log(`⏰ Token expire le: ${verificationExpires.toISOString()}`);
+    console.log(`🕒 Date actuelle: ${new Date().toISOString()}`);
+
     // Créer le tenant (ownerId sera mis à jour après création du user)
     const tenant = await Tenant.create({
       companyName,
@@ -60,9 +65,21 @@ exports.registerUpperAdmin = async (req, res) => {
     tenant.ownerId = upperAdmin._id;
     await tenant.save();
 
-    // TODO: Envoyer email de vérification
-    // Pour le moment, on retourne le token dans la réponse (en dev uniquement)
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${verificationToken}`;
+    // Envoyer email de vérification
+    try {
+      await systemEmailService.sendVerificationEmail({
+        email: upperAdmin.email,
+        firstName: upperAdmin.firstName,
+        lastName: upperAdmin.lastName,
+        companyName: tenant.companyName,
+      }, verificationToken);
+
+      console.log(`✅ Email de vérification envoyé à: ${upperAdmin.email}`);
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email de vérification:', emailError.message);
+      // Ne pas bloquer l'inscription si l'email échoue
+      // L'utilisateur peut toujours demander un renvoi d'email
+    }
 
     res.status(201).json({
       success: true,
@@ -70,7 +87,6 @@ exports.registerUpperAdmin = async (req, res) => {
       data: {
         email: upperAdmin.email,
         companyName: tenant.companyName,
-        verificationUrl, // À retirer en production
       },
     });
 
@@ -92,18 +108,36 @@ exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.params;
 
-    // Trouver l'utilisateur avec ce token
-    const user = await User.findOne({
+    console.log(`🔍 Tentative de vérification avec token: ${token.substring(0, 10)}...`);
+    console.log(`🕒 Date actuelle: ${new Date(Date.now()).toISOString()}`);
+
+    // Trouver l'utilisateur avec ce token (sans vérifier l'expiration d'abord)
+    const userWithToken = await User.findOne({
       emailVerificationToken: token,
-      emailVerificationExpires: { $gt: Date.now() },
     }).select('+emailVerificationToken +emailVerificationExpires');
 
-    if (!user) {
+    if (!userWithToken) {
+      console.log('❌ Aucun utilisateur trouvé avec ce token');
       return res.status(400).json({
         success: false,
-        message: 'Token de vérification invalide ou expiré',
+        message: 'Token de vérification invalide',
       });
     }
+
+    console.log(`📧 Utilisateur trouvé: ${userWithToken.email}`);
+    console.log(`⏰ Token expire le: ${userWithToken.emailVerificationExpires ? new Date(userWithToken.emailVerificationExpires).toISOString() : 'NULL'}`);
+    console.log(`✅ Token valide: ${userWithToken.emailVerificationExpires && userWithToken.emailVerificationExpires > Date.now()}`);
+
+    // Vérifier si le token a expiré
+    if (!userWithToken.emailVerificationExpires || userWithToken.emailVerificationExpires <= Date.now()) {
+      console.log('❌ Token expiré');
+      return res.status(400).json({
+        success: false,
+        message: 'Token de vérification expiré',
+      });
+    }
+
+    const user = userWithToken;
 
     // Vérifier l'email
     user.emailVerified = true;
@@ -395,21 +429,130 @@ exports.logout = async (req, res) => {
 
 // ========================================
 // FORGOT PASSWORD & RESET PASSWORD
-// (À implémenter si nécessaire, même logique que vérification email)
 // ========================================
 
 exports.forgotPassword = async (req, res) => {
-  // TODO: Implémenter si nécessaire
-  res.status(501).json({
-    success: false,
-    message: 'Fonctionnalité à implémenter',
-  });
+  try {
+    const { email } = req.body;
+
+    // Validation
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email requis',
+      });
+    }
+
+    // Trouver utilisateur
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Par sécurité, retourner succès même si user inexistant
+    // (ne pas révéler si l'email existe dans la base)
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé',
+      });
+    }
+
+    // Générer token reset
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = resetExpires;
+    await user.save();
+
+    // Envoyer email
+    try {
+      await systemEmailService.sendPasswordResetEmail({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      }, resetToken);
+
+      console.log(`✅ Email de reset password envoyé à: ${user.email}`);
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email reset:', emailError.message);
+      // Supprimer token si email échoue
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save();
+
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors de l\'envoi de l\'email. Veuillez réessayer.',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé',
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur forgotPassword:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de la demande de réinitialisation',
+    });
+  }
 };
 
 exports.resetPassword = async (req, res) => {
-  // TODO: Implémenter si nécessaire
-  res.status(501).json({
-    success: false,
-    message: 'Fonctionnalité à implémenter',
-  });
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    // Validation
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nouveau mot de passe requis',
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le mot de passe doit contenir au moins 6 caractères',
+      });
+    }
+
+    // Trouver utilisateur avec token valide
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: Date.now() },
+    }).select('+password +passwordResetToken +passwordResetExpires');
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token de réinitialisation invalide ou expiré',
+      });
+    }
+
+    // Hasher nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Mettre à jour utilisateur
+    user.password = hashedPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    await user.save();
+
+    console.log(`✅ Mot de passe réinitialisé pour: ${user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.',
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur resetPassword:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur lors de la réinitialisation du mot de passe',
+    });
+  }
 };

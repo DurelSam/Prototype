@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify your email address</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 40px 20px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333333;
+      line-height: 1.6;
+    }
+    .content h2 {
+      color: #667eea;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .verification-box {
+      background-color: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      margin: 25px 0;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .verification-box p {
+      margin: 10px 0;
+      font-size: 15px;
+      color: #555555;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 16px 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 20px 0;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    .warning-box {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .warning-box p {
+      margin: 5px 0;
+      color: #856404;
+      font-size: 14px;
+    }
+    .info-box {
+      background-color: #e7f3ff;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .info-box p {
+      margin: 5px 0;
+      color: #0c5460;
+      font-size: 14px;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 30px;
+      text-align: center;
+      color: #666666;
+      font-size: 13px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    .security-notice {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 13px;
+      color: #999999;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Welcome to {{companyName}}</h1>
+      <p style="margin: 10px 0 0 0; font-size: 16px;">Verify your email address</p>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <h2>Hello {{firstName}} {{lastName}},</h2>
+
+      <p>Thank you for signing up for our communications management platform!</p>
+
+      <p>To complete the creation of your <strong>{{companyName}}</strong> account, please verify your email address by clicking the button below:</p>
+
+      <!-- Verification Box -->
+      <div class="verification-box">
+        <p><strong>Click the button to verify your email</strong></p>
+        <a href="{{verificationUrl}}" class="cta-button">Verify my email address</a>
+      </div>
+
+      <!-- Warning -->
+      <div class="warning-box">
+        <p><strong>⏱️ Important:</strong></p>
+        <p>This verification link expires in <strong>24 hours</strong>. After that, you will need to request a new verification link.</p>
+      </div>
+
+      <!-- Info -->
+      <div class="info-box">
+        <p><strong>ℹ️ Next steps:</strong></p>
+        <p>Once your email is verified, you can log in and start configuring your email account (Outlook or IMAP/SMTP) to manage your communications.</p>
+      </div>
+
+      <!-- Alternative Link -->
+      <p style="color: #666666; font-size: 14px; margin-top: 30px;">
+        If the button doesn't work, copy and paste this link into your browser:
+      </p>
+      <p style="word-break: break-all; color: #667eea; font-size: 13px; background-color: #f8f9fa; padding: 10px; border-radius: 4px;">
+        {{verificationUrl}}
+      </p>
+
+      <!-- Security Notice -->
+      <div class="security-notice">
+        <p><strong>🔒 Security notice:</strong></p>
+        <p>If you didn't create an account on our platform, please ignore this email. Your email address will not be used without your consent.</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p><strong>{{companyName}}</strong></p>
+      <p>Communications Management Platform</p>
+      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} All rights reserved</p>
+    </div>
+  </div>
+</body>
+</html>

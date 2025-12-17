@@ -40,11 +40,13 @@ export const AuthProvider = ({ children }) => {
         console.log('📡 checkAuth: Réponse reçue', response.data.success);
 
         if (response.data.success) {
+          // ✅ FIX: Le backend retourne response.data.data, pas response.data.user
+          const userData = response.data.data || response.data.user;
           console.log('✅ checkAuth: User mis à jour', {
-            email: response.data.user.email,
-            hasConfiguredEmail: response.data.user.hasConfiguredEmail,
+            email: userData.email,
+            hasConfiguredEmail: userData.hasConfiguredEmail,
           });
-          setUser(response.data.user);
+          setUser(userData);
         }
       } catch (error) {
         console.error("❌ checkAuth: Erreur", error.response?.status, error.response?.data?.message || error.message);

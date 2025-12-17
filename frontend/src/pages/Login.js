@@ -79,6 +79,20 @@ function Login() {
             />
           </div>
 
+          <div style={{ textAlign: 'right', marginTop: '8px', marginBottom: '16px' }}>
+            <Link
+              to="/forgot-password"
+              style={{
+                color: '#667eea',
+                fontSize: '14px',
+                textDecoration: 'none',
+                fontWeight: '500',
+              }}
+            >
+              Mot de passe oublié ?
+            </Link>
+          </div>
+
           {error && (
             <div className="error-message">
               {error}

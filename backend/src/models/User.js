@@ -87,6 +87,20 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    // Token de réinitialisation mot de passe
+    passwordResetToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    // Expiration du token de réinitialisation
+    passwordResetExpires: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
     // Obligation de configurer un email
     hasConfiguredEmail: {
       type: Boolean,

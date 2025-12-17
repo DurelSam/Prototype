@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Changement de gestionnaire</title>
+  <title>Manager Change</title>
   <style>
     body {
       margin: 0;
@@ -123,69 +123,69 @@
   <div class="email-container">
     <!-- Header -->
     <div class="header">
-      <h1>Notification Importante</h1>
-      <p style="margin: 10px 0 0 0; font-size: 16px;">Changement de gestionnaire</p>
+      <h1>Important Notification</h1>
+      <p style="margin: 10px 0 0 0; font-size: 16px;">Manager Change</p>
     </div>
 
     <!-- Content -->
     <div class="content">
-      <h2>Bonjour {{employeeFirstName}} {{employeeLastName}},</h2>
+      <h2>Hello {{employeeFirstName}} {{employeeLastName}},</h2>
 
-      <p>Nous vous informons qu'un changement a été effectué concernant la gestion de votre compte.</p>
+      <p>We are informing you that a change has been made regarding the management of your account.</p>
 
       <!-- Info Box -->
       <div class="info-box">
-        <p><strong>ℹ️ Qu'est-ce que cela signifie ?</strong></p>
-        <p>Votre compte a été transféré à un nouveau gestionnaire administrateur. Cette modification n'affecte pas vos accès ni vos données, mais votre nouveau gestionnaire sera désormais votre point de contact principal pour toute question ou assistance.</p>
+        <p><strong>ℹ️ What Does This Mean?</strong></p>
+        <p>Your account has been transferred to a new administrator manager. This change does not affect your access or data, but your new manager will now be your primary point of contact for any questions or assistance.</p>
       </div>
 
       <!-- Change Box -->
       <div class="change-box">
         <div class="change-row">
-          <div class="change-label">Ancien gestionnaire :</div>
+          <div class="change-label">Previous Manager:</div>
           <div class="old-value">{{oldAdminName}}</div>
         </div>
 
         <div style="text-align: center; margin: 15px 0; font-size: 24px; color: #666;">↓</div>
 
         <div class="change-row">
-          <div class="change-label">Nouveau gestionnaire :</div>
+          <div class="change-label">New Manager:</div>
           <div class="new-value">{{newAdminName}}</div>
         </div>
       </div>
 
       <!-- Contact Box -->
       <div class="contact-box">
-        <p><strong>📧 Contact de votre nouveau gestionnaire :</strong></p>
+        <p><strong>📧 Your New Manager's Contact:</strong></p>
         <p style="font-size: 16px; font-weight: 600;">{{newAdminEmail}}</p>
-        <p style="font-size: 14px; margin-top: 10px;">Pour toute question ou assistance, n'hésitez pas à contacter votre nouveau gestionnaire.</p>
+        <p style="font-size: 14px; margin-top: 10px;">For any questions or assistance, please contact your new manager.</p>
       </div>
 
-      <p><strong>Ce qui reste inchangé :</strong></p>
+      <p><strong>What Remains Unchanged:</strong></p>
       <ul style="color: #555555; line-height: 1.8;">
-        <li>Vos identifiants de connexion (email et mot de passe)</li>
-        <li>Vos communications et historique</li>
-        <li>Vos paramètres et configurations</li>
-        <li>Vos accès à la plateforme</li>
+        <li>Your login credentials (email and password)</li>
+        <li>Your communications and history</li>
+        <li>Your settings and configurations</li>
+        <li>Your platform access</li>
       </ul>
 
-      <p style="margin-top: 25px;">Vous pouvez continuer à utiliser la plateforme normalement. Aucune action n'est requise de votre part.</p>
+      <p style="margin-top: 25px;">You can continue using the platform normally. No action is required on your part.</p>
 
       <!-- CTA Button -->
       <div style="text-align: center; margin: 30px 0;">
-        <a href="{{loginUrl}}" class="cta-button">Accéder à mon compte</a>
+        <a href="{{loginUrl}}" class="cta-button">Access My Account</a>
       </div>
 
       <p style="color: #666666; font-size: 14px; margin-top: 30px;">
-        Si vous avez des questions concernant ce changement, veuillez contacter votre nouveau gestionnaire ou l'équipe d'administration.
+        If you have any questions regarding this change, please contact your new manager or the administration team.
       </p>
     </div>
 
     <!-- Footer -->
     <div class="footer">
       <p><strong>{{companyName}}</strong></p>
-      <p>Plateforme de Gestion des Communications</p>
-      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} Tous droits réservés</p>
+      <p>Communications Management Platform</p>
+      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} All Rights Reserved</p>
     </div>
   </div>
 </body>

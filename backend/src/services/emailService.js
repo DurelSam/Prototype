@@ -5,14 +5,14 @@ const outlookService = require('./outlookService');
 const User = require('../models/User');
 
 /**
- * Service d'envoi d'emails utilisant les configurations email des utilisateurs
- * Supporte IMAP/SMTP et Outlook
+ * Email sending service using user email configurations
+ * Supports IMAP/SMTP and Outlook
  */
 
 /**
- * Charger un template HTML depuis le système de fichiers
- * @param {string} templateName - Nom du template (sans .html)
- * @returns {Promise<string>} - Contenu HTML du template
+ * Load HTML template from file system
+ * @param {string} templateName - Template name (without .html)
+ * @returns {Promise<string>} - HTML template content
  */
 async function loadTemplate(templateName) {
   try {
@@ -20,16 +20,16 @@ async function loadTemplate(templateName) {
     const templateContent = await fs.readFile(templatePath, 'utf-8');
     return templateContent;
   } catch (error) {
-    console.error(`❌ Erreur chargement template ${templateName}:`, error.message);
-    throw new Error(`Template ${templateName} introuvable`);
+    console.error(`❌ Error loading template ${templateName}:`, error.message);
+    throw new Error(`Template ${templateName} not found`);
   }
 }
 
 /**
- * Remplacer les variables dans un template HTML
- * @param {string} template - Contenu du template
- * @param {Object} variables - Objet avec les variables à remplacer
- * @returns {string} - Template avec variables remplacées
+ * Replace variables in HTML template
+ * @param {string} template - Template content
+ * @param {Object} variables - Object with variables to replace
+ * @returns {string} - Template with replaced variables
  */
 function replaceVariables(template, variables) {
   let result = template;
@@ -68,9 +68,9 @@ async function sendViaImapSmtp(user, to, subject, htmlContent) {
       html: htmlContent,
     });
 
-    console.log(`✅ Email envoyé via IMAP/SMTP: ${to}`);
+    console.log(`✅ Email sent via IMAP/SMTP: ${to}`);
   } catch (error) {
-    console.error('❌ Erreur envoi email IMAP/SMTP:', error.message);
+    console.error('❌ Error sending email via IMAP/SMTP:', error.message);
     throw error;
   }
 }
@@ -91,150 +91,150 @@ async function sendViaOutlook(user, to, subject, htmlContent) {
       bodyType: 'HTML',
     });
 
-    console.log(`✅ Email envoyé via Outlook: ${to}`);
+    console.log(`✅ Email sent via Outlook: ${to}`);
   } catch (error) {
-    console.error('❌ Erreur envoi email Outlook:', error.message);
+    console.error('❌ Error sending email via Outlook:', error.message);
     throw error;
   }
 }
 
 /**
- * Envoyer un email en utilisant la configuration de l'expéditeur
- * @param {string} senderUserId - ID de l'utilisateur expéditeur
- * @param {string} to - Adresse email destinataire
- * @param {string} subject - Sujet de l'email
- * @param {string} htmlContent - Contenu HTML de l'email
+ * Send email using sender's configuration
+ * @param {string} senderUserId - Sender user ID
+ * @param {string} to - Recipient email address
+ * @param {string} subject - Email subject
+ * @param {string} htmlContent - HTML email content
  */
 async function sendEmail(senderUserId, to, subject, htmlContent) {
   try {
-    // Récupérer l'utilisateur expéditeur avec sa configuration email
+    // Get sender user with email configuration
     const sender = await User.findById(senderUserId).select('+imapSmtpConfig.password +outlookConfig.accessToken');
 
     if (!sender) {
-      throw new Error('Utilisateur expéditeur introuvable');
+      throw new Error('Sender user not found');
     }
 
-    // Vérifier que l'expéditeur a configuré son email
+    // Verify sender has configured email
     if (!sender.hasEmailConfigured()) {
-      throw new Error('L\'expéditeur n\'a pas configuré son email');
+      throw new Error('Sender has not configured email');
     }
 
-    // Envoyer selon le provider actif
+    // Send according to active provider
     if (sender.activeEmailProvider === 'imap_smtp') {
       await sendViaImapSmtp(sender, to, subject, htmlContent);
     } else if (sender.activeEmailProvider === 'outlook') {
       await sendViaOutlook(sender, to, subject, htmlContent);
     } else {
-      throw new Error('Provider email non supporté');
+      throw new Error('Email provider not supported');
     }
 
     return {
       success: true,
-      message: 'Email envoyé avec succès',
+      message: 'Email sent successfully',
     };
 
   } catch (error) {
-    console.error('❌ Erreur envoi email:', error.message);
+    console.error('❌ Error sending email:', error.message);
     throw error;
   }
 }
 
 /**
- * Envoyer un email de bienvenue à un nouvel Admin
- * @param {string} senderUserId - ID de l'UpperAdmin qui a créé l'Admin
- * @param {Object} adminData - Données de l'Admin créé
- * @param {string} temporaryPassword - Mot de passe temporaire généré
+ * Send welcome email to new Admin
+ * @param {string} senderUserId - UpperAdmin ID who created the Admin
+ * @param {Object} adminData - Created Admin data
+ * @param {string} temporaryPassword - Generated temporary password
  */
 async function sendAdminWelcomeEmail(senderUserId, adminData, temporaryPassword) {
   try {
-    // Charger le template
+    // Load template
     const template = await loadTemplate('admin-welcome');
 
-    // Préparer les variables
+    // Prepare variables
     const variables = {
       adminFirstName: adminData.firstName || 'Admin',
       adminLastName: adminData.lastName || '',
       adminEmail: adminData.email,
       temporaryPassword: temporaryPassword,
       loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      companyName: adminData.tenant_id?.companyName || 'Votre entreprise',
+      companyName: adminData.tenant_id?.companyName || 'Your Company',
       currentYear: new Date().getFullYear(),
     };
 
-    // Remplacer les variables
+    // Replace variables
     const htmlContent = replaceVariables(template, variables);
 
-    // Envoyer l'email
+    // Send email
     await sendEmail(
       senderUserId,
       adminData.email,
-      'Bienvenue - Votre compte Administrateur a été créé',
+      'Welcome - Your Administrator Account Has Been Created',
       htmlContent
     );
 
-    console.log(`✅ Email de bienvenue Admin envoyé à: ${adminData.email}`);
+    console.log(`✅ Admin welcome email sent to: ${adminData.email}`);
 
   } catch (error) {
-    console.error('❌ Erreur envoi email bienvenue Admin:', error.message);
-    // Ne pas lancer d'erreur pour ne pas bloquer la création de l'utilisateur
-    // L'admin peut toujours demander un renvoi d'email
+    console.error('❌ Error sending Admin welcome email:', error.message);
+    // Do not throw error to avoid blocking user creation
+    // Admin can always request email resend
   }
 }
 
 /**
- * Envoyer un email de bienvenue à un nouvel Employee
- * @param {string} senderUserId - ID de l'Admin qui a créé l'Employee
- * @param {Object} employeeData - Données de l'Employee créé
- * @param {string} temporaryPassword - Mot de passe temporaire généré
+ * Send welcome email to new Employee
+ * @param {string} senderUserId - Admin ID who created the Employee
+ * @param {Object} employeeData - Created Employee data
+ * @param {string} temporaryPassword - Generated temporary password
  */
 async function sendEmployeeWelcomeEmail(senderUserId, employeeData, temporaryPassword) {
   try {
-    // Charger le template
+    // Load template
     const template = await loadTemplate('employee-welcome');
 
-    // Préparer les variables
+    // Prepare variables
     const variables = {
       employeeFirstName: employeeData.firstName || 'Employee',
       employeeLastName: employeeData.lastName || '',
       employeeEmail: employeeData.email,
       temporaryPassword: temporaryPassword,
       loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      companyName: employeeData.tenant_id?.companyName || 'Votre entreprise',
+      companyName: employeeData.tenant_id?.companyName || 'Your Company',
       currentYear: new Date().getFullYear(),
     };
 
-    // Remplacer les variables
+    // Replace variables
     const htmlContent = replaceVariables(template, variables);
 
-    // Envoyer l'email
+    // Send email
     await sendEmail(
       senderUserId,
       employeeData.email,
-      'Bienvenue - Votre compte Employé a été créé',
+      'Welcome - Your Employee Account Has Been Created',
       htmlContent
     );
 
-    console.log(`✅ Email de bienvenue Employee envoyé à: ${employeeData.email}`);
+    console.log(`✅ Employee welcome email sent to: ${employeeData.email}`);
 
   } catch (error) {
-    console.error('❌ Erreur envoi email bienvenue Employee:', error.message);
-    // Ne pas lancer d'erreur pour ne pas bloquer la création de l'utilisateur
+    console.error('❌ Error sending Employee welcome email:', error.message);
+    // Do not throw error to avoid blocking user creation
   }
 }
 
 /**
- * Envoyer un email de notification de transfert à un Employee
- * @param {string} senderUserId - ID de l'UpperAdmin qui a effectué le transfert
- * @param {Object} employeeData - Données de l'Employee transféré
- * @param {Object} oldAdmin - Ancien Admin
- * @param {Object} newAdmin - Nouveau Admin
+ * Send transfer notification email to Employee
+ * @param {string} senderUserId - UpperAdmin ID who performed the transfer
+ * @param {Object} employeeData - Transferred Employee data
+ * @param {Object} oldAdmin - Previous Admin
+ * @param {Object} newAdmin - New Admin
  */
 async function sendEmployeeTransferEmail(senderUserId, employeeData, oldAdmin, newAdmin) {
   try {
-    // Charger le template
+    // Load template
     const template = await loadTemplate('employee-transfer');
 
-    // Préparer les variables
+    // Prepare variables
     const variables = {
       employeeFirstName: employeeData.firstName || 'Employee',
       employeeLastName: employeeData.lastName || '',
@@ -242,26 +242,26 @@ async function sendEmployeeTransferEmail(senderUserId, employeeData, oldAdmin, n
       newAdminName: `${newAdmin.firstName} ${newAdmin.lastName}`.trim() || newAdmin.email,
       newAdminEmail: newAdmin.email,
       loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      companyName: employeeData.tenant_id?.companyName || 'Votre entreprise',
+      companyName: employeeData.tenant_id?.companyName || 'Your Company',
       currentYear: new Date().getFullYear(),
     };
 
-    // Remplacer les variables
+    // Replace variables
     const htmlContent = replaceVariables(template, variables);
 
-    // Envoyer l'email
+    // Send email
     await sendEmail(
       senderUserId,
       employeeData.email,
-      'Notification - Changement de gestionnaire',
+      'Notification - Manager Change',
       htmlContent
     );
 
-    console.log(`✅ Email de transfert envoyé à: ${employeeData.email}`);
+    console.log(`✅ Transfer email sent to: ${employeeData.email}`);
 
   } catch (error) {
-    console.error('❌ Erreur envoi email transfert Employee:', error.message);
-    // Ne pas lancer d'erreur pour ne pas bloquer le transfert
+    console.error('❌ Error sending Employee transfer email:', error.message);
+    // Do not throw error to avoid blocking transfer
   }
 }
 

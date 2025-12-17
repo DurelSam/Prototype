@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bienvenue Employé</title>
+  <title>Welcome Employee</title>
   <style>
     body {
       margin: 0;
@@ -127,65 +127,65 @@
   <div class="email-container">
     <!-- Header -->
     <div class="header">
-      <h1>Bienvenue chez {{companyName}}</h1>
-      <p style="margin: 10px 0 0 0; font-size: 16px;">Votre compte a été créé</p>
+      <h1>Welcome to {{companyName}}</h1>
+      <p style="margin: 10px 0 0 0; font-size: 16px;">Your Account Has Been Created</p>
     </div>
 
     <!-- Content -->
     <div class="content">
-      <h2>Bonjour {{employeeFirstName}} {{employeeLastName}},</h2>
+      <h2>Hello {{employeeFirstName}} {{employeeLastName}},</h2>
 
-      <p>Bienvenue dans l'équipe ! Nous sommes ravis de vous compter parmi nous.</p>
+      <p>Welcome to the team! We are delighted to have you with us.</p>
 
-      <p>Votre compte a été créé avec succès sur notre plateforme de gestion des communications. Vous pouvez maintenant accéder à vos emails et communications professionnelles depuis une interface unique et intuitive.</p>
+      <p>Your account has been successfully created on our communications management platform. You can now access your emails and professional communications through a single, intuitive interface.</p>
 
       <!-- Credentials Box -->
       <div class="credentials-box">
-        <p><strong>Vos identifiants de connexion :</strong></p>
-        <p><strong>Email :</strong> {{employeeEmail}}</p>
-        <p><strong>Mot de passe temporaire :</strong></p>
+        <p><strong>Your Login Credentials:</strong></p>
+        <p><strong>Email:</strong> {{employeeEmail}}</p>
+        <p><strong>Temporary Password:</strong></p>
         <div class="password-box">{{temporaryPassword}}</div>
       </div>
 
       <!-- Warning -->
       <div class="warning-box">
-        <p><strong>⚠️ Important :</strong></p>
-        <p>Pour des raisons de sécurité, vous devrez changer ce mot de passe lors de votre première connexion.</p>
+        <p><strong>⚠️ Important:</strong></p>
+        <p>For security reasons, you will need to change this password upon your first login.</p>
       </div>
 
       <!-- Steps -->
       <div class="steps">
-        <p><strong>Premiers pas sur la plateforme :</strong></p>
+        <p><strong>Getting Started on the Platform:</strong></p>
         <ol>
-          <li><strong>Connectez-vous</strong> avec vos identifiants ci-dessus</li>
-          <li><strong>Configurez votre compte email</strong> (Outlook ou IMAP/SMTP) pour synchroniser vos communications</li>
-          <li><strong>Changez votre mot de passe</strong> dans les paramètres de votre profil</li>
-          <li><strong>Explorez l'interface</strong> et familiarisez-vous avec les fonctionnalités</li>
-          <li><strong>Commencez à gérer vos communications</strong> de manière efficace</li>
+          <li><strong>Log in</strong> with your credentials above</li>
+          <li><strong>Configure your email account</strong> (Outlook or IMAP/SMTP) to synchronize your communications</li>
+          <li><strong>Change your password</strong> in your profile settings</li>
+          <li><strong>Explore the interface</strong> and familiarize yourself with the features</li>
+          <li><strong>Start managing your communications</strong> efficiently</li>
         </ol>
       </div>
 
       <!-- Info Box -->
       <div class="info-box">
-        <p><strong>ℹ️ À savoir :</strong></p>
-        <p>Toutes vos communications seront centralisées sur cette plateforme. Vous pourrez envoyer et recevoir des emails, suivre vos conversations, et bénéficier d'analyses intelligentes pour améliorer votre productivité.</p>
+        <p><strong>ℹ️ Good to Know:</strong></p>
+        <p>All your communications will be centralized on this platform. You can send and receive emails, track your conversations, and benefit from intelligent analytics to improve your productivity.</p>
       </div>
 
       <!-- CTA Button -->
       <div style="text-align: center; margin: 30px 0;">
-        <a href="{{loginUrl}}" class="cta-button">Accéder à mon compte</a>
+        <a href="{{loginUrl}}" class="cta-button">Access My Account</a>
       </div>
 
       <p style="color: #666666; font-size: 14px; margin-top: 30px;">
-        Si vous avez des questions ou besoin d'aide pour démarrer, n'hésitez pas à contacter votre administrateur.
+        If you have any questions or need help getting started, please contact your administrator.
       </p>
     </div>
 
     <!-- Footer -->
     <div class="footer">
       <p><strong>{{companyName}}</strong></p>
-      <p>Plateforme de Gestion des Communications</p>
-      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} Tous droits réservés</p>
+      <p>Communications Management Platform</p>
+      <p style="margin-top: 15px; color: #999999;">© {{currentYear}} All Rights Reserved</p>
     </div>
   </div>
 </body>
