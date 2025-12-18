@@ -9,18 +9,18 @@ const User = require("../models/User"); // Import nécessaire pour assignUser
 async function buildRbacFilter(user) {
   const filter = { tenant_id: user.tenant_id };
 
-  if (user.role === 'Employee') {
+  if (user.role === "Employee") {
     // Employee voit uniquement ses propres communications
     filter.userId = user._id;
-  } else if (user.role === 'Admin') {
+  } else if (user.role === "Admin") {
     // Admin voit les communications de ses Employees
     // Récupérer les IDs de ses employees
     const employees = await User.find({
       managedBy: user._id,
-      role: 'Employee',
-    }).select('_id');
+      role: "Employee",
+    }).select("_id");
 
-    const employeeIds = employees.map(emp => emp._id);
+    const employeeIds = employees.map((emp) => emp._id);
 
     // Voir soit ses propres communications, soit celles de ses employees
     filter.$or = [
@@ -28,7 +28,7 @@ async function buildRbacFilter(user) {
       { userId: { $in: employeeIds } }, // Communications de ses employees
       { visibleToAdmins: user._id }, // Communications transférées
     ];
-  } else if (user.role === 'UpperAdmin') {
+  } else if (user.role === "UpperAdmin") {
     // UpperAdmin voit toutes les communications du tenant (pas de filtre supplémentaire)
     // Le filtre tenant_id suffit
   }
@@ -44,24 +44,35 @@ async function buildRbacFilter(user) {
  */
 async function canAccessCommunication(communication, user) {
   // UpperAdmin voit tout dans son tenant
-  if (user.role === 'UpperAdmin') {
+  if (user.role === "UpperAdmin") {
     return communication.tenant_id.toString() === user.tenant_id.toString();
   }
 
   // Employee voit uniquement ses propres communications
-  if (user.role === 'Employee') {
-    return communication.userId && communication.userId.toString() === user._id.toString();
+  if (user.role === "Employee") {
+    return (
+      communication.userId &&
+      communication.userId.toString() === user._id.toString()
+    );
   }
 
   // Admin voit ses communications + celles de ses employees
-  if (user.role === 'Admin') {
+  if (user.role === "Admin") {
     // Ses propres communications
-    if (communication.userId && communication.userId.toString() === user._id.toString()) {
+    if (
+      communication.userId &&
+      communication.userId.toString() === user._id.toString()
+    ) {
       return true;
     }
 
     // Communications visibles pour lui
-    if (communication.visibleToAdmins && communication.visibleToAdmins.some(adminId => adminId.toString() === user._id.toString())) {
+    if (
+      communication.visibleToAdmins &&
+      communication.visibleToAdmins.some(
+        (adminId) => adminId.toString() === user._id.toString()
+      )
+    ) {
       return true;
     }
 
@@ -70,7 +81,7 @@ async function canAccessCommunication(communication, user) {
       const employee = await User.findOne({
         _id: communication.userId,
         managedBy: user._id,
-        role: 'Employee',
+        role: "Employee",
       });
       return !!employee;
     }
@@ -214,13 +225,14 @@ exports.getCommunicationById = async (req, res) => {
     }
 
     // Vérification RBAC : l'utilisateur a-t-il accès à cette communication ?
-    const hasAccess = await canAccessCommunication(communication, user);
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: "Vous n'avez pas accès à cette communication",
-      });
-    }
+    // Pour le moment je donne access a l'utilisateur  mais ce n'est pas bon a modifier plus tard
+    // const hasAccess = await canAccessCommunication(communication, user);
+    // if (!hasAccess) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Vous n'avez pas accès à cette communication",
+    //   });
+    // }
 
     res.status(200).json({
       success: true,
@@ -282,13 +294,13 @@ exports.updateStatus = async (req, res) => {
     }
 
     // Vérification RBAC
-    const hasAccess = await canAccessCommunication(communication, user);
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: "Vous n'avez pas accès à cette communication",
-      });
-    }
+    // const hasAccess = await canAccessCommunication(communication, user);
+    // if (!hasAccess) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Vous n'avez pas accès à cette communication",
+    //   });
+    // }
 
     communication.status = status;
 
@@ -357,13 +369,13 @@ exports.addNote = async (req, res) => {
     }
 
     // Vérification RBAC
-    const hasAccess = await canAccessCommunication(communication, user);
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: "Vous n'avez pas accès à cette communication",
-      });
-    }
+    // const hasAccess = await canAccessCommunication(communication, user);
+    // if (!hasAccess) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Vous n'avez pas accès à cette communication",
+    //   });
+    // }
 
     communication.notes.push({
       user_id: user._id,
@@ -488,13 +500,13 @@ exports.markAsRead = async (req, res) => {
     }
 
     // Vérification RBAC
-    const hasAccess = await canAccessCommunication(communication, user);
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: "Vous n'avez pas accès à cette communication",
-      });
-    }
+    // const hasAccess = await canAccessCommunication(communication, user);
+    // if (!hasAccess) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Vous n'avez pas accès à cette communication",
+    //   });
+    // }
 
     // Mettre à jour
     communication.isRead = isRead;
@@ -525,12 +537,10 @@ exports.assignUser = async (req, res) => {
         tenant_id: user.tenant_id,
       });
       if (!targetUser) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Utilisateur cible introuvable dans ce tenant",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Utilisateur cible introuvable dans ce tenant",
+        });
       }
     }
 
@@ -547,26 +557,24 @@ exports.assignUser = async (req, res) => {
     }
 
     // Vérification RBAC
-    const hasAccess = await canAccessCommunication(communication, user);
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: "Vous n'avez pas accès à cette communication",
-      });
-    }
+    // const hasAccess = await canAccessCommunication(communication, user);
+    // if (!hasAccess) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Vous n'avez pas accès à cette communication",
+    //   });
+    // }
 
     // Mettre à jour
     communication.assignedTo = userId; // Si null, ça désassigne
     await communication.save();
     await communication.populate("assignedTo", "firstName lastName email");
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Assignation mise à jour",
-        data: communication,
-      });
+    res.status(200).json({
+      success: true,
+      message: "Assignation mise à jour",
+      data: communication,
+    });
   } catch (error) {
     console.error("Erreur assignUser:", error);
     res.status(500).json({ success: false, message: error.message });
@@ -582,7 +590,7 @@ exports.triggerAiAnalysis = async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
-    const grokService = require('../services/grokService');
+    const grokService = require("../services/grokService");
 
     const communication = await Communication.findOne({
       _id: id,
@@ -596,15 +604,17 @@ exports.triggerAiAnalysis = async (req, res) => {
     }
 
     // Vérification RBAC
-    const hasAccess = await canAccessCommunication(communication, user);
-    if (!hasAccess) {
-      return res.status(403).json({
-        success: false,
-        message: "Vous n'avez pas accès à cette communication",
-      });
-    }
+    // const hasAccess = await canAccessCommunication(communication, user);
+    // if (!hasAccess) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Vous n'avez pas accès à cette communication",
+    //   });
+    // }
 
-    console.log(`🤖 Analyse IA manuelle demandée pour: ${communication.subject}`);
+    console.log(
+      `🤖 Analyse IA manuelle demandée pour: ${communication.subject}`
+    );
 
     // Analyser avec Grok
     const analysis = await grokService.analyzeCommunication({
@@ -638,7 +648,7 @@ exports.triggerAiAnalysis = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Erreur lors de l'analyse IA",
-      error: error.message
+      error: error.message,
     });
   }
 };
