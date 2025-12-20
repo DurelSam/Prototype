@@ -99,7 +99,47 @@ const communicationSchema = new mongoose.Schema(
         enum: ["Low", "Medium", "High", "Critical"],
         default: "Medium",
       },
+      requiresResponse: {
+        type: Boolean,
+        default: false,
+      },
+      responseReason: { type: String, default: "" },
       processedAt: { type: Date, default: null },
+    },
+
+    // Réponse automatique IA (pour Low/Medium)
+    hasAutoResponse: {
+      type: Boolean,
+      default: false,
+    },
+    autoResponseSentAt: {
+      type: Date,
+      default: null,
+    },
+    autoResponseContent: {
+      type: String,
+      default: "",
+    },
+
+    // Réponse manuelle (pour High/Critical)
+    manualResponse: {
+      sent: {
+        type: Boolean,
+        default: false,
+      },
+      sentAt: {
+        type: Date,
+        default: null,
+      },
+      sentBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      content: {
+        type: String,
+        default: "",
+      },
     },
 
     status: {

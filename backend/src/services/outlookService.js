@@ -34,17 +34,23 @@ class OutlookService {
    * @returns {string} URL d'autorisation complète
    */
   getAuthorizationUrl(data) {
+    console.log("🟢 [OutlookService] getAuthorizationUrl reçu data:", data);
+    console.log("🟢 [OutlookService] data type:", typeof data);
+
     // 1. Construction du State sécurisé (JSON + Base64)
     // On permet de passer soit juste l'ID, soit un objet complet
     const statePayload = typeof data === "object" ? data : { id: data };
+    console.log("🟢 [OutlookService] statePayload créé:", JSON.stringify(statePayload));
 
     // Ajout d'un 'nonce' aléatoire pour garantir que le state est unique
     statePayload.nonce = crypto.randomBytes(16).toString("hex");
+    console.log("🟢 [OutlookService] statePayload avec nonce:", JSON.stringify(statePayload));
 
     // Encodage en Base64 pour passer proprement dans l'URL
     const encodedState = Buffer.from(JSON.stringify(statePayload)).toString(
       "base64"
     );
+    console.log("🟢 [OutlookService] encodedState:", encodedState);
 
     // 2. Construction des paramètres
     const params = new URLSearchParams({
@@ -387,6 +393,75 @@ class OutlookService {
   calculateExpiryDate(expiresIn) {
     const now = new Date();
     return new Date(now.getTime() + expiresIn * 1000);
+  }
+
+  /**
+   * Envoie un email en utilisant les credentials de l'utilisateur
+   * @param {string} userId - ID de l'utilisateur
+   * @param {Object} emailData - Données de l'email (to, subject, body)
+   * @returns {Promise<Object>} Résultat de l'envoi
+   */
+  async sendEmailAsUser(userId, emailData) {
+    try {
+      const User = require('../models/User');
+
+      // Récupérer l'utilisateur avec ses tokens
+      const user = await User.findById(userId).select(
+        '+outlookConfig.accessToken +outlookConfig.refreshToken outlookConfig.expiry outlookConfig.isConnected'
+      );
+
+      if (!user || !user.outlookConfig?.isConnected) {
+        throw new Error('Outlook non configuré pour cet utilisateur');
+      }
+
+      let accessToken = user.outlookConfig.accessToken;
+
+      // Vérifier et rafraîchir le token si nécessaire
+      if (this.isTokenExpired(user.outlookConfig.expiry)) {
+        console.log('🔄 Access token expiré, rafraîchissement en cours...');
+
+        const refreshedTokens = await this.refreshAccessToken(
+          user.outlookConfig.refreshToken
+        );
+        const newExpiryDate = this.calculateExpiryDate(refreshedTokens.expiresIn);
+
+        // Mettre à jour les tokens dans la base de données
+        await User.findByIdAndUpdate(userId, {
+          $set: {
+            'outlookConfig.accessToken': refreshedTokens.accessToken,
+            'outlookConfig.refreshToken': refreshedTokens.refreshToken,
+            'outlookConfig.expiry': newExpiryDate,
+          },
+        });
+
+        accessToken = refreshedTokens.accessToken;
+        console.log('✅ Access token rafraîchi avec succès');
+      }
+
+      // Normaliser le destinataire en tableau
+      const recipients = Array.isArray(emailData.to) ? emailData.to : [emailData.to];
+
+      // Envoyer l'email via l'API Graph
+      await this.sendEmail(accessToken, {
+        to: recipients,
+        subject: emailData.subject,
+        body: emailData.body || emailData.html,
+        isHtml: true,
+      });
+
+      console.log(`✅ Email envoyé via Outlook: ${recipients.join(', ')}`);
+
+      return {
+        success: true,
+        message: 'Email envoyé avec succès',
+      };
+    } catch (error) {
+      console.error('❌ Erreur envoi email Outlook:', error);
+      return {
+        success: false,
+        message: error.message || "Échec de l'envoi de l'email",
+      };
+    }
   }
 }
 

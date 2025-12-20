@@ -75,6 +75,10 @@ exports.createAdmin = async (req, res) => {
       });
     }
 
+    // Vérifier si l'UpperAdmin a configuré son email
+    const upperAdmin = await User.findById(req.user._id);
+    const hasEmailConfigured = upperAdmin.hasConfiguredEmail;
+
     // Vérifier si email existe déjà
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -103,17 +107,29 @@ exports.createAdmin = async (req, res) => {
     // Populate tenant_id pour l'email
     await admin.populate('tenant_id', 'companyName');
 
-    // Envoyer email de bienvenue avec credentials
-    try {
-      await emailService.sendAdminWelcomeEmail(req.user._id, admin, generatedPassword);
-    } catch (emailError) {
-      console.error('⚠️ Erreur envoi email bienvenue Admin:', emailError.message);
-      // Ne pas bloquer la création si l'email échoue
+    let emailSent = false;
+    let emailError = null;
+
+    // Envoyer email de bienvenue avec credentials SEULEMENT si UpperAdmin a configuré son email
+    if (hasEmailConfigured) {
+      try {
+        await emailService.sendAdminWelcomeEmail(req.user._id, admin, generatedPassword);
+        emailSent = true;
+        console.log('✅ Email de bienvenue Admin envoyé avec succès');
+      } catch (emailError) {
+        console.error('⚠️ Erreur envoi email bienvenue Admin:', emailError.message);
+        emailError = emailError.message;
+      }
+    } else {
+      console.log('⚠️ Email non envoyé: UpperAdmin n\'a pas configuré son email');
+      emailError = 'UpperAdmin email not configured';
     }
 
     res.status(201).json({
       success: true,
-      message: 'Admin créé avec succès. Un email de bienvenue a été envoyé.',
+      message: emailSent
+        ? 'Admin créé avec succès. Un email de bienvenue a été envoyé.'
+        : 'Admin créé avec succès. ⚠️ Email non envoyé: veuillez configurer votre email ou partager le mot de passe manuellement.',
       data: {
         admin: {
           _id: admin._id,
@@ -122,7 +138,9 @@ exports.createAdmin = async (req, res) => {
           lastName: admin.lastName,
           role: admin.role,
         },
-        temporaryPassword: generatedPassword, // À retirer en production
+        temporaryPassword: generatedPassword, // Toujours retourner le mot de passe
+        emailSent,
+        emailError: emailSent ? null : emailError,
       },
     });
   } catch (error) {
@@ -356,6 +374,10 @@ exports.createEmployee = async (req, res) => {
       });
     }
 
+    // Vérifier si l'Admin a configuré son email
+    const admin = await User.findById(req.user._id);
+    const hasEmailConfigured = admin.hasConfiguredEmail;
+
     // Vérifier si email existe déjà
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -386,17 +408,29 @@ exports.createEmployee = async (req, res) => {
     // Populate tenant_id pour l'email
     await employee.populate('tenant_id', 'companyName');
 
-    // Envoyer email de bienvenue
-    try {
-      await emailService.sendEmployeeWelcomeEmail(req.user._id, employee, generatedPassword);
-    } catch (emailError) {
-      console.error('⚠️ Erreur envoi email bienvenue Employee:', emailError.message);
-      // Ne pas bloquer la création si l'email échoue
+    let emailSent = false;
+    let emailError = null;
+
+    // Envoyer email de bienvenue SEULEMENT si Admin a configuré son email
+    if (hasEmailConfigured) {
+      try {
+        await emailService.sendEmployeeWelcomeEmail(req.user._id, employee, generatedPassword);
+        emailSent = true;
+        console.log('✅ Email de bienvenue Employee envoyé avec succès');
+      } catch (error) {
+        console.error('⚠️ Erreur envoi email bienvenue Employee:', error.message);
+        emailError = error.message;
+      }
+    } else {
+      console.log('⚠️ Email non envoyé: Admin n\'a pas configuré son email');
+      emailError = 'Admin email not configured';
     }
 
     res.status(201).json({
       success: true,
-      message: 'Employé créé avec succès. Un email de bienvenue a été envoyé.',
+      message: emailSent
+        ? 'Employé créé avec succès. Un email de bienvenue a été envoyé.'
+        : 'Employé créé avec succès. ⚠️ Email non envoyé: veuillez configurer votre email ou partager le mot de passe manuellement.',
       data: {
         employee: {
           _id: employee._id,
@@ -405,7 +439,9 @@ exports.createEmployee = async (req, res) => {
           lastName: employee.lastName,
           role: employee.role,
         },
-        temporaryPassword: generatedPassword, // À retirer en production
+        temporaryPassword: generatedPassword, // Toujours retourner le mot de passe
+        emailSent,
+        emailError: emailSent ? null : emailError
       },
     });
   } catch (error) {

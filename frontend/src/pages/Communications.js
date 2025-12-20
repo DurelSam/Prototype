@@ -1,6 +1,8 @@
 /* src/pages/Communications.js */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faSearch,
@@ -15,6 +17,9 @@ import {
   faClock,
   faChartLine,
   faArrowUp,
+  faReply,
+  faPaperPlane,
+  faTimes,
 } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../components/Pagination";
 import "../styles/Communications.css";
@@ -143,10 +148,261 @@ const EscalationDashboardTab = () => {
   );
 };
 
+// --- SUB-COMPONENT: Urgent Emails Tab (High/Critical) ---
+const UrgentEmailsTab = () => {
+  const [urgentEmails, setUrgentEmails] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEmail, setSelectedEmail] = useState(null);
+  const [replyContent, setReplyContent] = useState('');
+  const [sending, setSending] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const token = localStorage.getItem('authToken');
+
+  useEffect(() => {
+    fetchUrgentEmails();
+  }, [currentPage, itemsPerPage]);
+
+  const fetchUrgentEmails = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/communications`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          status: 'To Validate',
+          priority: 'High,Critical',
+          page: currentPage,
+          limit: itemsPerPage,
+        },
+      });
+
+      if (response.data.success) {
+        // Le backend retourne le tableau dans 'data' directement
+        const communications = response.data.data || [];
+
+        // Filtrer pour exclure les emails déjà répondus
+        const filtered = communications.filter(
+          (comm) =>
+            !comm.hasAutoResponse && // Pas de réponse auto
+            !comm.manualResponse?.sent // Pas de réponse manuelle
+        );
+
+        setUrgentEmails(filtered);
+
+        // Mettre à jour la pagination
+        if (response.data.pagination) {
+          setTotalPages(response.data.pagination.totalPages);
+          setTotalItems(response.data.pagination.total);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur chargement emails urgents:', error);
+      setUrgentEmails([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handlers pour la pagination (comme dans CommunicationListTab)
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    setCurrentPage(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleReply = async () => {
+    if (!replyContent.trim()) {
+      alert('Veuillez saisir un message de réponse');
+      return;
+    }
+
+    try {
+      setSending(true);
+      const response = await axios.post(
+        `${API_URL}/communications/${selectedEmail._id}/reply`,
+        { replyContent },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        alert('✅ Réponse envoyée avec succès !');
+        setSelectedEmail(null);
+        setReplyContent('');
+        fetchUrgentEmails(); // Recharger la liste
+      }
+    } catch (error) {
+      console.error('Erreur envoi réponse:', error);
+      alert(`❌ Erreur: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Chargement des emails urgents...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="urgent-emails-tab">
+      <div className="urgent-header">
+        <h2>
+          <FontAwesomeIcon icon={faExclamationTriangle} /> Emails Urgents à Répondre
+        </h2>
+        <p className="urgent-subtitle">
+          Emails High/Critical nécessitant une réponse manuelle ({urgentEmails.length})
+        </p>
+      </div>
+
+      {urgentEmails.length === 0 ? (
+        <div className="no-urgent-emails">
+          <p>Aucun email urgent en attente. Tous les emails High/Critical ont été traités.</p>
+        </div>
+      ) : (
+        <>
+          <div className="urgent-emails-grid">
+            {urgentEmails.map((email) => (
+              <div key={email._id} className="urgent-email-card">
+                <div className="urgent-email-header">
+                  <span
+                    className={`urgent-email-priority ${email.ai_analysis?.urgency?.toLowerCase()}`}
+                  >
+                    <FontAwesomeIcon icon={faExclamationTriangle} /> {email.ai_analysis?.urgency}
+                  </span>
+                  <span className="urgent-email-date">
+                    {new Date(email.receivedAt).toLocaleDateString('fr-FR', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <h4 className="urgent-email-subject">{email.subject}</h4>
+                <p className="urgent-email-from">
+                  <FontAwesomeIcon icon={faEnvelope} /> {email.sender.email}
+                </p>
+                <div className="urgent-email-summary">
+                  {email.ai_analysis?.summary?.substring(0, 200) || email.content?.substring(0, 200)}
+                  {(email.ai_analysis?.summary?.length > 200 || email.content?.length > 200) && '...'}
+                </div>
+                <div className="urgent-email-footer">
+                  <button className="btn-reply" onClick={() => setSelectedEmail(email)}>
+                    <FontAwesomeIcon icon={faReply} /> Répondre
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </>
+      )}
+
+      {/* Pagination Component - Identique à Summary & Search */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
+
+      {/* Modal de réponse */}
+      {selectedEmail && (
+        <div className="reply-modal" onClick={() => setSelectedEmail(null)}>
+          <div className="reply-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="reply-modal-header">
+              <h3>
+                <FontAwesomeIcon icon={faReply} /> Répondre à l'email
+              </h3>
+              <button className="close-modal-btn" onClick={() => setSelectedEmail(null)}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            <div className="reply-email-info">
+              <p>
+                <strong>À:</strong> <span>{selectedEmail.sender.email}</span>
+              </p>
+              <p>
+                <strong>Sujet:</strong> <span>Re: {selectedEmail.subject}</span>
+              </p>
+              <p>
+                <strong>Priorité:</strong>{' '}
+                <span className={`urgent-email-priority ${selectedEmail.ai_analysis?.urgency?.toLowerCase()}`}>
+                  <FontAwesomeIcon icon={faExclamationTriangle} /> {selectedEmail.ai_analysis?.urgency}
+                </span>
+              </p>
+            </div>
+
+            <div className="reply-original-email">
+              <h4>Message original</h4>
+              <div className="original-content">
+                {selectedEmail.ai_analysis?.summary || selectedEmail.content?.substring(0, 300)}
+              </div>
+            </div>
+
+            <div className="reply-compose">
+              <h4>Votre réponse</h4>
+              <textarea
+                id="reply-content"
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Composez votre réponse ici..."
+              />
+            </div>
+
+            <div className="reply-modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setSelectedEmail(null)}
+                disabled={sending}
+              >
+                Annuler
+              </button>
+              <button
+                className="btn-send"
+                onClick={handleReply}
+                disabled={sending || !replyContent.trim()}
+              >
+                {sending ? (
+                  <>
+                    <span className="spinner-small"></span> Envoi...
+                  </>
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon={faPaperPlane} /> Envoyer
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- SUB-COMPONENT: Communications Search & Filters Page ---
 const CommunicationListTab = ({ navigate }) => {
   const [allCommunications, setAllCommunications] = useState([]);
-  const [filteredCommunications, setFilteredCommunications] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
   const [filterPriority, setFilterPriority] = useState("All");
@@ -173,6 +429,7 @@ const CommunicationListTab = ({ navigate }) => {
         const params = new URLSearchParams();
         if (filterType !== "All") params.append("source", filterType);
         if (filterPriority !== "All") params.append("priority", filterPriority);
+        if (filterDateRange !== "All") params.append("dateRange", filterDateRange);
         if (searchTerm) params.append("search", searchTerm);
 
         // Paramètres de pagination
@@ -180,9 +437,8 @@ const CommunicationListTab = ({ navigate }) => {
         params.append("limit", itemsPerPage.toString());
 
         // Communications API avec filtrage RBAC côté backend
-        // ✅ FIX: Le bon endpoint est /auth/communications (voir server.js ligne 143)
         const response = await fetch(
-          `${API_URL}/auth/communications?${params.toString()}`,
+          `${API_URL}/communications?${params.toString()}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -206,6 +462,8 @@ const CommunicationListTab = ({ navigate }) => {
             date: new Date(comm.receivedAt),
             // CORRECTION: Utiliser isRead du modèle
             read: comm.isRead,
+            status: comm.status, // To Validate, Validated, Escalated, Closed, Archived
+            hasAutoResponse: comm.hasAutoResponse || false,
             aiAnalysis: {
               sentiment: comm.ai_analysis?.sentiment || "Pending",
               priority: comm.ai_analysis?.urgency || "Medium",
@@ -238,72 +496,11 @@ const CommunicationListTab = ({ navigate }) => {
     token,
     filterType,
     filterPriority,
+    filterDateRange,
     searchTerm,
     currentPage,
     itemsPerPage,
   ]);
-
-  // Apply client-side filtering for date range
-  useEffect(() => {
-    let filtered = [...allCommunications];
-
-    // Filter by date range
-    if (filterDateRange !== "All") {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      filtered = filtered.filter((comm) => {
-        const commDate = new Date(comm.date);
-
-        switch (filterDateRange) {
-          case "Today":
-            return commDate >= today;
-          case "Yesterday":
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            return commDate >= yesterday && commDate < today;
-          case "Last7Days":
-            const last7Days = new Date(today);
-            last7Days.setDate(last7Days.getDate() - 7);
-            return commDate >= last7Days;
-          case "Last30Days":
-            const last30Days = new Date(today);
-            last30Days.setDate(last30Days.getDate() - 30);
-            return commDate >= last30Days;
-          case "ThisMonth":
-            const thisMonthStart = new Date(
-              now.getFullYear(),
-              now.getMonth(),
-              1
-            );
-            return commDate >= thisMonthStart;
-          case "LastMonth":
-            const lastMonthStart = new Date(
-              now.getFullYear(),
-              now.getMonth() - 1,
-              1
-            );
-            const lastMonthEnd = new Date(
-              now.getFullYear(),
-              now.getMonth(),
-              0,
-              23,
-              59,
-              59
-            );
-            return commDate >= lastMonthStart && commDate <= lastMonthEnd;
-          default:
-            return true;
-        }
-      });
-    }
-
-    setFilteredCommunications(filtered);
-
-    // Update total items for pagination based on filtered results
-    setTotalItems(filtered.length);
-    setTotalPages(Math.ceil(filtered.length / itemsPerPage));
-  }, [allCommunications, filterDateRange, itemsPerPage]);
 
   // Reset à la page 1 quand les filtres changent
   useEffect(() => {
@@ -325,11 +522,9 @@ const CommunicationListTab = ({ navigate }) => {
 
   const handleCommunicationClick = (id) => navigate(`/communications/${id}`);
 
-  // Get paginated communications for current page
-  const paginatedCommunications = filteredCommunications.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // ✅ FIX: Utiliser directement les données du backend (déjà paginées)
+  // Pas de double pagination côté client
+  const paginatedCommunications = allCommunications;
 
   const formatDate = (date) => {
     const diff = new Date() - date;
@@ -507,6 +702,32 @@ const CommunicationListTab = ({ navigate }) => {
                     >
                       {comm.aiAnalysis.priority}
                     </span>
+                    {comm.status === "Escalated" && (
+                      <span
+                        className="ai-tag escalated"
+                        style={{
+                          background: "#ef4444",
+                          color: "#fff",
+                          fontWeight: "700",
+                        }}
+                        title="Email escaladé (SLA dépassé)"
+                      >
+                        <FontAwesomeIcon icon={faArrowUp} /> ESCALATED
+                      </span>
+                    )}
+                    {comm.hasAutoResponse && (
+                      <span
+                        className="ai-tag auto-response"
+                        style={{
+                          background: "#10b981",
+                          color: "#fff",
+                          fontWeight: "600",
+                        }}
+                        title="Réponse automatique envoyée"
+                      >
+                        ✓ Auto-Response
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -532,6 +753,7 @@ const CommunicationListTab = ({ navigate }) => {
 // --- MAIN COMPONENT: Communication Center ---
 function Communications() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("list");
   const [loading, setLoading] = useState(true);
 
@@ -544,6 +766,8 @@ function Communications() {
     switch (activeTab) {
       case "list":
         return <CommunicationListTab navigate={navigate} />;
+      case "urgent":
+        return <UrgentEmailsTab />;
       case "escalation":
         return <EscalationDashboardTab />;
       default:
@@ -575,14 +799,21 @@ function Communications() {
             <FontAwesomeIcon icon={faInbox} /> Summaries & Search
           </button>
           <button
-            className={`tab-button ${
-              activeTab === "escalation" ? "active" : ""
-            }`}
-            onClick={() => setActiveTab("escalation")}
+            className={`tab-button ${activeTab === "urgent" ? "active" : ""}`}
+            onClick={() => setActiveTab("urgent")}
           >
-            <FontAwesomeIcon icon={faChartLine} /> Escalation Dashboard (CEO
-            View)
+            <FontAwesomeIcon icon={faExclamationTriangle} /> À Répondre
           </button>
+          {user?.role !== 'UpperAdmin' && (
+            <button
+              className={`tab-button ${
+                activeTab === "escalation" ? "active" : ""
+              }`}
+              onClick={() => setActiveTab("escalation")}
+            >
+              <FontAwesomeIcon icon={faChartLine} /> Escalation Dashboard
+            </button>
+          )}
         </div>
       </div>
 

@@ -18,7 +18,7 @@ class GrokService {
       apiKey: process.env.GROK_API_KEY,
       baseURL: process.env.GROK_API_URL || "https://api.x.ai/v1",
     });
-    this.model = "grok-4"; // Utilise grok-beta ou grok-4 selon disponibilité
+    this.model = "grok-4-fast-non-reasoning"; // Utilise grok-beta ou grok-4 selon disponibilité
   }
 
   /**
@@ -45,7 +45,10 @@ class GrokService {
 
       // Construire le prompt pour Grok
       const prompt = this.buildAnalysisPrompt(subject, content, sender);
-      console.log("🔶 [GrokService] Prompt construit, longueur:", prompt.length);
+      console.log(
+        "🔶 [GrokService] Prompt construit, longueur:",
+        prompt.length
+      );
 
       console.log("🤖 Envoi de la communication à Grok pour analyse...");
       console.log("🔑 [GrokService] API Key présente:", !!this.client.apiKey);
@@ -70,7 +73,10 @@ class GrokService {
 
       const responseText = completion.choices[0].message.content;
       console.log("✅ Analyse Grok reçue");
-      console.log("📝 [GrokService] Réponse brute (premiers 200 chars):", responseText?.substring(0, 200));
+      console.log(
+        "📝 [GrokService] Réponse brute (premiers 200 chars):",
+        responseText?.substring(0, 200)
+      );
 
       // Parser la réponse JSON de Grok
       console.log("🔧 [GrokService] Parsing de la réponse...");
@@ -85,6 +91,8 @@ class GrokService {
         summary: analysis.summary || "No summary available",
         sentiment: analysis.sentiment || "Neutral",
         urgency: analysis.urgency || "Medium",
+        requiresResponse: analysis.requiresResponse !== undefined ? analysis.requiresResponse : false,
+        responseReason: analysis.responseReason || "",
         keyPoints: analysis.keyPoints || [],
         actionItems: analysis.actionItems || [],
         entities: analysis.entities || [],
@@ -94,7 +102,10 @@ class GrokService {
       console.error("❌ [GrokService] Erreur lors de l'analyse Grok");
       console.error("❌ [GrokService] Message:", error.message);
       console.error("❌ [GrokService] Type:", error.constructor.name);
-      console.error("❌ [GrokService] Stack:", error.stack?.split('\n').slice(0, 3).join('\n'));
+      console.error(
+        "❌ [GrokService] Stack:",
+        error.stack?.split("\n").slice(0, 3).join("\n")
+      );
       if (error.response) {
         console.error("❌ [GrokService] Réponse API:", {
           status: error.response.status,
@@ -108,6 +119,8 @@ class GrokService {
         summary: "Analysis failed - manual review required",
         sentiment: "Neutral",
         urgency: "Medium",
+        requiresResponse: false, // En cas d'erreur, ne pas répondre automatiquement
+        responseReason: "Analysis failed - cannot determine if response is needed",
         keyPoints: [],
         actionItems: [],
         entities: [],
@@ -133,6 +146,8 @@ class GrokService {
   "summary": "A concise executive summary (2-3 sentences) of the communication",
   "sentiment": "Positive, Negative, or Neutral",
   "urgency": "Low, Medium, High, or Critical",
+  "requiresResponse": true or false,
+  "responseReason": "Brief explanation of why response is/isn't needed",
   "keyPoints": ["key point 1", "key point 2", "key point 3"],
   "actionItems": ["action item 1", "action item 2"],
   "entities": ["entity1", "entity2"]
@@ -142,6 +157,10 @@ class GrokService {
 - summary: Brief executive summary highlighting the main purpose
 - sentiment: Overall emotional tone (Positive/Negative/Neutral)
 - urgency: How urgent is this communication (Low/Medium/High/Critical)
+- requiresResponse: CRITICAL - Determine if this email expects a reply:
+  * TRUE if: Direct questions, requests for information/action, business inquiries, customer support requests, meeting requests, proposals, complaints
+  * FALSE if: Newsletters, automated notifications, marketing emails, confirmations, receipts, FYI messages, thank you notes without questions, spam
+- responseReason: Brief explanation (1 sentence) why response is or isn't needed
 - keyPoints: 3-5 most important points from the message
 - actionItems: Any tasks or actions required (empty array if none)
 - entities: Important names, companies, products, dates mentioned (use hashtag format like #CompanyName)
@@ -208,6 +227,93 @@ Respond ONLY with the JSON object, no additional text.`;
     }
 
     return results;
+  }
+
+  /**
+   * Génère une réponse automatique pour les emails Low/Medium
+   * @param {Object} communication - Communication à répondre
+   * @param {Object} analysis - Analyse IA de la communication
+   * @param {Object} user - Utilisateur propriétaire
+   * @returns {String} Contenu de la réponse générée
+   */
+  async generateAutoResponse(communication, analysis, user) {
+    console.log("🤖 Génération de réponse automatique pour:", communication.subject);
+
+    try {
+      const prompt = this.buildAutoResponsePrompt(
+        communication.subject,
+        communication.content,
+        communication.sender,
+        analysis,
+        user
+      );
+
+      const completion = await this.client.chat.completions.create({
+        model: this.model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a professional email assistant. Generate polite, helpful, and contextually appropriate email responses. Keep responses concise and professional.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+
+      const responseContent = completion.choices[0].message.content.trim();
+      console.log("✅ Réponse automatique générée");
+
+      return responseContent;
+    } catch (error) {
+      console.error("❌ Erreur génération réponse auto:", error.message);
+
+      // Réponse par défaut en cas d'erreur
+      return `Dear ${communication.sender.name || "Valued Contact"},
+
+Thank you for your message. We have received your email and will review it shortly.
+
+If your matter is urgent, please don't hesitate to contact us directly.
+
+Best regards,
+${user.firstName} ${user.lastName}`;
+    }
+  }
+
+  /**
+   * Construit le prompt pour la réponse automatique
+   */
+  buildAutoResponsePrompt(subject, content, sender, analysis, user) {
+    return `Generate a professional email response for the following:
+
+**Original Email:**
+- From: ${sender?.name || sender?.email || "Unknown"}
+- Subject: ${subject || "No subject"}
+- Content: ${content?.substring(0, 500) || "No content"}
+
+**AI Analysis:**
+- Summary: ${analysis.summary}
+- Sentiment: ${analysis.sentiment}
+- Urgency: ${analysis.urgency}
+
+**Respond on behalf of:**
+- Name: ${user.firstName} ${user.lastName}
+- Role: ${user.role}
+
+**Instructions:**
+1. Acknowledge receipt of their email
+2. Provide a helpful response based on the content and analysis
+3. If specific information is requested, provide a general helpful response or indicate next steps
+4. Keep the tone professional and friendly
+5. Sign off with the user's name
+6. DO NOT include subject line, just the email body
+7. Keep it concise (3-5 sentences max)
+
+Generate ONLY the email body text, no additional formatting or explanations.`;
   }
 
   /**

@@ -340,19 +340,87 @@ class OutlookSyncService {
         const analysis = await grokService.analyzeCommunication(emailData);
 
         // Mettre à jour la communication avec l'analyse
-        await Communication.findByIdAndUpdate(communicationId, {
-          ai_analysis: {
-            summary: analysis.summary,
-            sentiment: analysis.sentiment,
-            urgency: analysis.urgency,
-            keyPoints: analysis.keyPoints || [],
-            actionItems: analysis.actionItems || [],
-            entities: analysis.entities || [],
-            processedAt: new Date(),
+        const updated = await Communication.findByIdAndUpdate(
+          communicationId,
+          {
+            ai_analysis: {
+              summary: analysis.summary,
+              sentiment: analysis.sentiment,
+              urgency: analysis.urgency,
+              requiresResponse: analysis.requiresResponse || false,
+              responseReason: analysis.responseReason || '',
+              keyPoints: analysis.keyPoints || [],
+              actionItems: analysis.actionItems || [],
+              entities: analysis.entities || [],
+              processedAt: new Date(),
+            },
           },
-        });
+          { new: true }
+        );
 
         console.log(`✅ Analyse IA terminée pour: ${emailData.subject?.substring(0, 30)}...`);
+
+        // Réponse automatique UNIQUEMENT si:
+        // 1. Urgence Low/Medium (pas High/Critical)
+        // 2. L'IA détermine qu'une réponse est attendue (requiresResponse === true)
+        const shouldAutoRespond = updated &&
+          (analysis.urgency === 'Low' || analysis.urgency === 'Medium') &&
+          analysis.requiresResponse === true;
+
+        if (shouldAutoRespond) {
+          console.log(`🤖 [${communicationId}] Urgence ${analysis.urgency} + requiresResponse=true - génération réponse automatique...`);
+          console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
+
+          try {
+            // Récupérer l'utilisateur propriétaire pour la signature
+            const User = require('../models/User');
+            const user = await User.findById(updated.userId);
+
+            if (!user) {
+              console.error(`⚠️  [${communicationId}] Utilisateur non trouvé pour réponse auto`);
+              return;
+            }
+
+            // Générer la réponse automatique avec Grok
+            const autoResponseContent = await grokService.generateAutoResponse(
+              updated,
+              analysis,
+              user
+            );
+
+            // Envoyer la réponse par Outlook
+            const outlookService = require('./outlookService');
+            const sendResult = await outlookService.sendEmailAsUser(user._id, {
+              to: updated.sender.email,
+              subject: `Re: ${updated.subject}`,
+              body: autoResponseContent,
+            });
+
+            if (sendResult.success) {
+              // Mettre à jour la communication avec les infos de réponse auto
+              await Communication.findByIdAndUpdate(communicationId, {
+                hasAutoResponse: true,
+                autoResponseSentAt: new Date(),
+                autoResponseContent,
+                status: 'Validated', // Marquer comme validé car répondu automatiquement
+              });
+
+              console.log(`✅ [${communicationId}] Réponse automatique envoyée avec succès`);
+            } else {
+              console.error(`❌ [${communicationId}] Échec envoi réponse auto:`, sendResult.message);
+            }
+          } catch (autoResponseError) {
+            console.error(`❌ [${communicationId}] Erreur réponse automatique:`, autoResponseError.message);
+            // Ne pas bloquer en cas d'erreur - l'email reste sans réponse auto
+          }
+        } else if (updated) {
+          if (analysis.urgency === 'High' || analysis.urgency === 'Critical') {
+            console.log(`⏭️  [${communicationId}] Urgence ${analysis.urgency} - pas de réponse automatique (manuel requis)`);
+          } else if (!analysis.requiresResponse) {
+            console.log(`⏭️  [${communicationId}] requiresResponse=false - pas de réponse automatique`);
+            console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
+          }
+        }
       } catch (error) {
         console.error(`❌ Erreur analyse IA pour ${emailData.subject}:`, error.message);
         // Ne pas bloquer en cas d'erreur - l'analyse restera "pending"

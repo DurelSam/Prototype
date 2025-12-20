@@ -714,6 +714,517 @@
   }
 }
 
+/* ===================================================================
+   URGENT EMAILS TAB - À RÉPONDRE
+   Layout: Grid for email cards with modal for replies
+   =================================================================== */
+.urgent-emails-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.urgent-header {
+  margin-bottom: var(--space-2);
+}
+
+.urgent-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 var(--space-1) 0;
+  line-height: 1.3;
+}
+
+.urgent-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.no-urgent-emails {
+  text-align: center;
+  padding: var(--space-6) var(--space-3);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  margin: var(--space-3) 0;
+}
+
+.no-urgent-emails p {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Urgent Emails Grid - 1 column (une carte par ligne) */
+.urgent-emails-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Urgent Email Card - Elevated styling for critical items */
+.urgent-email-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.urgent-email-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+}
+
+.urgent-email-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: #161e2e;
+}
+
+.urgent-email-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.urgent-email-date {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.urgent-email-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  width: auto;
+}
+
+.urgent-email-priority.high {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+  border: 2px solid #fb923c;
+}
+
+.urgent-email-priority.critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 2px solid #ef4444;
+}
+
+.urgent-email-subject {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0 0 var(--space-1) 0;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.urgent-email-from {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 var(--space-2) 0;
+  line-height: 1.4;
+}
+
+.urgent-email-from svg {
+  color: var(--primary-blue);
+  flex-shrink: 0;
+}
+
+.urgent-email-summary {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 var(--space-2) 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  padding: var(--space-2);
+  background: rgba(17, 24, 39, 0.5);
+  border-radius: var(--radius-md);
+  border-left: 2px solid var(--border-color);
+}
+
+.urgent-email-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.btn-reply {
+  width: auto;
+  padding: 10px 20px;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.btn-reply:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-reply:active {
+  transform: translateY(0);
+}
+
+.btn-reply:disabled {
+  background: #374151;
+  color: #6b7280;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Reply Modal - Full-screen overlay with centered modal */
+.reply-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-3);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.reply-modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  animation: slideUp 0.3s ease-out;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.reply-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.reply-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.3;
+}
+
+.close-modal-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: var(--space-1);
+  line-height: 1;
+  transition: all 0.2s ease;
+  border-radius: var(--radius-sm);
+}
+
+.close-modal-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-hover);
+}
+
+.reply-email-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: rgba(17, 24, 39, 0.5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.reply-email-info p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.reply-email-info strong {
+  color: var(--text-main);
+  font-weight: 600;
+  min-width: 80px;
+  display: inline-block;
+}
+
+.reply-email-info span {
+  color: var(--text-muted);
+}
+
+.reply-email-info .urgent-email-priority {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.reply-original-email {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reply-original-email h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.original-content {
+  padding: var(--space-2);
+  background: rgba(17, 24, 39, 0.3);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--border-color);
+  color: #9ca3af;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: inherit;
+}
+
+.reply-compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reply-compose h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.reply-compose textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: var(--space-2);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  transition: all 0.2s ease;
+}
+
+.reply-compose textarea::placeholder {
+  color: #6b7280;
+}
+
+.reply-compose textarea:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: #1a2332;
+}
+
+.reply-modal-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-cancel {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+}
+
+.btn-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+  border-color: var(--text-muted);
+}
+
+.btn-send {
+  padding: var(--space-2) var(--space-3);
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  line-height: 1.5;
+}
+
+.btn-send:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-send:disabled {
+  background: #374151;
+  color: #6b7280;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Small spinner for button loading state */
+.spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Modal animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===================================================================
+   RESPONSIVE - URGENT EMAILS TAB
+   =================================================================== */
+@media (max-width: 768px) {
+  .reply-modal {
+    padding: var(--space-2);
+  }
+
+  .reply-modal-content {
+    padding: var(--space-3);
+    max-height: 95vh;
+  }
+
+  .reply-compose textarea {
+    min-height: 150px;
+  }
+
+  .reply-modal-actions {
+    flex-direction: column;
+  }
+
+  .btn-cancel,
+  .btn-send {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .urgent-email-card {
+    padding: var(--space-2);
+  }
+
+  .urgent-email-header {
+    flex-direction: column;
+  }
+
+  .reply-modal-content {
+    padding: var(--space-2);
+  }
+
+  .reply-email-info {
+    padding: var(--space-2);
+  }
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

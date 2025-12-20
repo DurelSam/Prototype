@@ -635,6 +635,8 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
             summary: analysis.summary,
             sentiment: analysis.sentiment,
             urgency: analysis.urgency,
+            requiresResponse: analysis.requiresResponse || false,
+            responseReason: analysis.responseReason || '',
             suggestedAction: analysis.actionItems?.join('; ') || '',
             category: analysis.entities?.join(', ') || 'General',
             processedAt: new Date(),
@@ -645,6 +647,69 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
 
       if (updated) {
         console.log(`✅ [${communicationId}] Analyse IA terminée et sauvegardée`);
+
+        // Réponse automatique UNIQUEMENT si:
+        // 1. Urgence Low/Medium (pas High/Critical)
+        // 2. L'IA détermine qu'une réponse est attendue (requiresResponse === true)
+        const shouldAutoRespond =
+          (analysis.urgency === 'Low' || analysis.urgency === 'Medium') &&
+          analysis.requiresResponse === true;
+
+        if (shouldAutoRespond) {
+          console.log(`🤖 [${communicationId}] Urgence ${analysis.urgency} + requiresResponse=true - génération réponse automatique...`);
+          console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
+
+          try {
+            // Récupérer l'utilisateur propriétaire pour la signature
+            const user = await User.findById(updated.userId);
+
+            if (!user) {
+              console.error(`⚠️  [${communicationId}] Utilisateur non trouvé pour réponse auto`);
+              return;
+            }
+
+            // Générer la réponse automatique avec Grok
+            const autoResponseContent = await grokService.generateAutoResponse(
+              updated,
+              analysis,
+              user
+            );
+
+            // Envoyer la réponse par email
+            const sendResult = await exports.sendEmail(user._id, {
+              to: updated.sender.email,
+              subject: `Re: ${updated.subject}`,
+              text: autoResponseContent,
+              html: autoResponseContent.replace(/\n/g, '<br>'),
+              inReplyTo: updated.externalId,
+              references: updated.externalId,
+            });
+
+            if (sendResult.success) {
+              // Mettre à jour la communication avec les infos de réponse auto
+              await Communication.findByIdAndUpdate(communicationId, {
+                hasAutoResponse: true,
+                autoResponseSentAt: new Date(),
+                autoResponseContent,
+                status: 'Validated', // Marquer comme validé car répondu automatiquement
+              });
+
+              console.log(`✅ [${communicationId}] Réponse automatique envoyée avec succès`);
+            } else {
+              console.error(`❌ [${communicationId}] Échec envoi réponse auto:`, sendResult.message);
+            }
+          } catch (autoResponseError) {
+            console.error(`❌ [${communicationId}] Erreur réponse automatique:`, autoResponseError.message);
+            // Ne pas bloquer en cas d'erreur - l'email reste sans réponse auto
+          }
+        } else {
+          if (analysis.urgency === 'High' || analysis.urgency === 'Critical') {
+            console.log(`⏭️  [${communicationId}] Urgence ${analysis.urgency} - pas de réponse automatique (manuel requis)`);
+          } else if (!analysis.requiresResponse) {
+            console.log(`⏭️  [${communicationId}] requiresResponse=false - pas de réponse automatique`);
+            console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
+          }
+        }
       } else {
         console.error(`⚠️  [${communicationId}] Communication non trouvée pour mise à jour IA`);
       }

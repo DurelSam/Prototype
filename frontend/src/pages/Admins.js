@@ -45,9 +45,7 @@ const AdminListTab = () => {
     firstName: "",
     lastName: "",
     email: "",
-    password: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
 
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
@@ -84,7 +82,22 @@ const AdminListTab = () => {
       });
 
       if (response.data.success) {
-        alert("Admin créé avec succès ! Un email de bienvenue a été envoyé.");
+        const { emailSent, temporaryPassword, emailError } = response.data.data;
+
+        if (emailSent) {
+          alert("✅ Admin créé avec succès ! Un email de bienvenue a été envoyé.");
+        } else {
+          // Email non envoyé - afficher le mot de passe
+          alert(
+            `✅ Admin créé avec succès.\n\n` +
+            `⚠️ ATTENTION: L'email n'a pas pu être envoyé.\n` +
+            `Raison: ${emailError === 'UpperAdmin email not configured' ? 'Vous devez configurer votre email dans Intégrations' : emailError}\n\n` +
+            `📧 Email: ${response.data.data.admin.email}\n` +
+            `🔑 Mot de passe temporaire: ${temporaryPassword}\n\n` +
+            `⚠️ Veuillez partager ces informations manuellement avec l'admin.`
+          );
+        }
+
         closeCreateModal();
         fetchAdmins();
       }
@@ -119,12 +132,22 @@ const AdminListTab = () => {
   };
 
   const handleDeleteAdmin = async (adminId) => {
+    // Première confirmation
     if (
       !window.confirm(
-        "Êtes-vous sûr de vouloir supprimer cet Admin ? Ses Employés seront transférés."
+        "⚠️ ATTENTION: Êtes-vous sûr de vouloir supprimer cet Admin ? Cette action est irréversible."
       )
     ) {
       return;
+    }
+
+    // Demander la phrase de confirmation
+    const confirmationPhrase = window.prompt(
+      'Pour confirmer la suppression, veuillez taper exactement:\nDELETE ADMIN'
+    );
+
+    if (!confirmationPhrase) {
+      return; // Utilisateur a annulé
     }
 
     try {
@@ -133,11 +156,12 @@ const AdminListTab = () => {
         `${API_URL}/users/admins/${adminId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
+          data: { confirmationPhrase: confirmationPhrase.trim() }
         }
       );
 
       if (response.data.success) {
-        alert("Admin supprimé avec succès !");
+        alert("✅ Admin supprimé avec succès !");
         fetchAdmins();
       }
     } catch (err) {
@@ -173,7 +197,6 @@ const AdminListTab = () => {
       e.stopPropagation();
     }
     resetForm();
-    setShowPassword(false);
     setShowCreateModal(true);
   };
 
@@ -184,7 +207,6 @@ const AdminListTab = () => {
     }
     setShowCreateModal(false);
     resetForm();
-    setShowPassword(false);
   };
 
   const openEditModal = (admin) => {
@@ -193,7 +215,6 @@ const AdminListTab = () => {
       firstName: admin.firstName,
       lastName: admin.lastName,
       email: admin.email,
-      password: "",
     });
     setShowEditModal(true);
   };
@@ -208,7 +229,6 @@ const AdminListTab = () => {
       firstName: "",
       lastName: "",
       email: "",
-      password: "",
     });
     setSelectedAdmin(null);
   };
@@ -480,50 +500,16 @@ const AdminListTab = () => {
                     }
                   />
                 </div>
-
-                <div className="form-group form-group-full animate-entry delay-5">
-                  <label htmlFor="create-password">Mot de passe *</label>
-                  <div className="password-input-wrapper">
-                    <input
-                      id="create-password"
-                      type={showPassword ? "text" : "password"}
-                      required
-                      minLength="6"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          password: e.target.value,
-                        })
-                      }
-                      placeholder="••••••••••"
-                    />
-                    <button
-                      type="button"
-                      className="password-toggle-btn"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
-                    >
-                      <FontAwesomeIcon
-                        icon={showPassword ? faEyeSlash : faEye}
-                      />
-                    </button>
-                  </div>
-                  <span className="form-hint">Minimum 6 caractères</span>
-                </div>
               </div>
 
-              <div className="info-banner animate-entry delay-6">
+              <div className="info-banner animate-entry delay-5">
                 <FontAwesomeIcon icon={faInfoCircle} />
                 <span>
-                  Un email de bienvenue sera automatiquement envoyé à cet
-                  Admin avec ses identifiants.
+                  Un mot de passe sécurisé sera généré automatiquement et envoyé par email à cet Admin.
                 </span>
               </div>
 
-              <div className="form-actions animate-entry delay-7">
+              <div className="form-actions animate-entry delay-6">
                 <button
                   type="button"
                   className="btn-cancel"
@@ -542,7 +528,7 @@ const AdminListTab = () => {
 
       {showEditModal && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal animate-entry delay-1" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <button
               className="close-button"
               onClick={() => setShowEditModal(false)}

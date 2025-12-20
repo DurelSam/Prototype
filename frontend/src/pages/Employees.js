@@ -34,7 +34,6 @@ function Employees() {
     firstName: '',
     lastName: '',
     email: '',
-    password: '',
   });
 
   useEffect(() => {
@@ -77,7 +76,22 @@ function Employees() {
       );
 
       if (response.data.success) {
-        alert('Employé créé avec succès ! Un email de bienvenue a été envoyé.');
+        const { emailSent, temporaryPassword, emailError } = response.data.data;
+
+        if (emailSent) {
+          alert('✅ Employé créé avec succès ! Un email de bienvenue a été envoyé.');
+        } else {
+          // Email non envoyé - afficher le mot de passe
+          alert(
+            `✅ Employé créé avec succès.\n\n` +
+            `⚠️ ATTENTION: L'email n'a pas pu être envoyé.\n` +
+            `Raison: ${emailError === 'Admin email not configured' ? 'Vous devez configurer votre email dans Intégrations' : emailError}\n\n` +
+            `📧 Email: ${response.data.data.employee.email}\n` +
+            `🔑 Mot de passe temporaire: ${temporaryPassword}\n\n` +
+            `⚠️ Veuillez partager ces informations manuellement avec l'employé.`
+          );
+        }
+
         setShowCreateModal(false);
         resetForm();
         fetchEmployees();
@@ -170,7 +184,6 @@ function Employees() {
       firstName: employee.firstName,
       lastName: employee.lastName,
       email: employee.email,
-      password: '',
     });
     setShowEditModal(true);
   };
@@ -180,7 +193,6 @@ function Employees() {
       firstName: '',
       lastName: '',
       email: '',
-      password: '',
     });
     setSelectedEmployee(null);
   };
@@ -362,23 +374,9 @@ function Employees() {
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>Mot de passe *</label>
-                  <input
-                    type="password"
-                    required
-                    minLength="6"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                  />
-                  <small>Minimum 6 caractères</small>
-                </div>
-
                 <div className="alert-info">
                   <p>
-                    Un email de bienvenue sera automatiquement envoyé à cet Employé avec ses identifiants.
+                    Un mot de passe sécurisé sera généré automatiquement et envoyé par email à cet Employé.
                   </p>
                 </div>
 

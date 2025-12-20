@@ -120,6 +120,7 @@ exports.getCommunications = async (req, res) => {
       priority = "All",
       status = "All",
       search = "",
+      dateRange = "All",
       page = 1,
       limit = 50,
     } = req.query;
@@ -133,11 +134,68 @@ exports.getCommunications = async (req, res) => {
     }
 
     if (priority !== "All") {
-      filter["ai_analysis.urgency"] = priority;
+      // Support pour plusieurs priorités séparées par des virgules
+      const priorities = priority.split(',').map(p => p.trim());
+      if (priorities.length > 1) {
+        filter["ai_analysis.urgency"] = { $in: priorities };
+      } else {
+        filter["ai_analysis.urgency"] = priority;
+      }
     }
 
     if (status !== "All") {
       filter.status = status;
+    }
+
+    // Filtre de date (receivedAt)
+    if (dateRange !== "All") {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (dateRange) {
+        case "Today":
+          filter.receivedAt = { $gte: today };
+          break;
+        case "Yesterday":
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          filter.receivedAt = { $gte: yesterday, $lt: today };
+          break;
+        case "Last7Days":
+          const last7Days = new Date(today);
+          last7Days.setDate(last7Days.getDate() - 7);
+          filter.receivedAt = { $gte: last7Days };
+          break;
+        case "Last30Days":
+          const last30Days = new Date(today);
+          last30Days.setDate(last30Days.getDate() - 30);
+          filter.receivedAt = { $gte: last30Days };
+          break;
+        case "ThisMonth":
+          const thisMonthStart = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            1
+          );
+          filter.receivedAt = { $gte: thisMonthStart };
+          break;
+        case "LastMonth":
+          const lastMonthStart = new Date(
+            now.getFullYear(),
+            now.getMonth() - 1,
+            1
+          );
+          const lastMonthEnd = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            0,
+            23,
+            59,
+            59
+          );
+          filter.receivedAt = { $gte: lastMonthStart, $lte: lastMonthEnd };
+          break;
+      }
     }
 
     // Recherche Textuelle optimisée (avec index MongoDB)
@@ -648,6 +706,117 @@ exports.triggerAiAnalysis = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Erreur lors de l'analyse IA",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Répond à une communication (email High/Critical)
+ * @route   POST /api/communications/:id/reply
+ * @access  Private
+ */
+exports.replyToCommunication = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { replyContent } = req.body;
+    const user = req.user;
+
+    // Validation
+    if (!replyContent || replyContent.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Le contenu de la réponse est requis',
+      });
+    }
+
+    // Récupérer la communication
+    const communication = await Communication.findById(id);
+
+    if (!communication) {
+      return res.status(404).json({
+        success: false,
+        message: 'Communication non trouvée',
+      });
+    }
+
+    // Vérification RBAC
+    const filter = await buildRbacFilter(user);
+    const hasAccess = await Communication.findOne({ _id: id, ...filter });
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à cette communication',
+      });
+    }
+
+    // Vérifier que l'utilisateur a configuré son email
+    if (!user.hasConfiguredEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous devez configurer votre email dans Intégrations avant de pouvoir répondre',
+      });
+    }
+
+    // Envoyer la réponse via le provider configuré
+    const imapSmtpService = require('../services/imapSmtpService');
+    const outlookService = require('../services/outlookService');
+
+    let sendResult;
+
+    if (user.activeEmailProvider === 'imap_smtp') {
+      sendResult = await imapSmtpService.sendEmail(user._id, {
+        to: communication.sender.email,
+        subject: `Re: ${communication.subject}`,
+        text: replyContent,
+        html: replyContent.replace(/\n/g, '<br>'),
+        inReplyTo: communication.messageId,
+        references: communication.references || communication.messageId,
+      });
+    } else if (user.activeEmailProvider === 'outlook') {
+      sendResult = await outlookService.sendEmailAsUser(user._id, {
+        to: communication.sender.email,
+        subject: `Re: ${communication.subject}`,
+        body: replyContent.replace(/\n/g, '<br>'),
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Provider email non supporté',
+      });
+    }
+
+    if (!sendResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: `Échec de l'envoi de l'email: ${sendResult.message}`,
+      });
+    }
+
+    // Mettre à jour la communication
+    communication.status = 'Validated';
+    communication.manualResponse = {
+      sent: true,
+      sentAt: new Date(),
+      sentBy: user._id,
+      content: replyContent,
+    };
+
+    await communication.save();
+
+    console.log(`✅ Réponse manuelle envoyée pour: ${communication.subject}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Réponse envoyée avec succès',
+      data: communication,
+    });
+  } catch (error) {
+    console.error('❌ Erreur replyToCommunication:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'envoi de la réponse',
       error: error.message,
     });
   }

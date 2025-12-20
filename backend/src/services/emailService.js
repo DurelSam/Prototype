@@ -43,30 +43,24 @@ function replaceVariables(template, variables) {
 }
 
 /**
- * Envoyer un email via IMAP/SMTP
- * @param {Object} user - Utilisateur avec configuration IMAP/SMTP
+ * Envoyer un email via IMAP/SMTP en utilisant le service unifié
+ * @param {string} userId - ID de l'utilisateur
  * @param {string} to - Adresse email destinataire
  * @param {string} subject - Sujet de l'email
  * @param {string} htmlContent - Contenu HTML de l'email
  */
-async function sendViaImapSmtp(user, to, subject, htmlContent) {
+async function sendViaImapSmtp(userId, to, subject, htmlContent) {
   try {
-    const smtpConfig = {
-      host: user.imapSmtpConfig.smtpHost,
-      port: user.imapSmtpConfig.smtpPort,
-      secure: user.imapSmtpConfig.smtpPort === 465, // true pour 465, false pour 587
-      auth: {
-        user: user.imapSmtpConfig.emailAddress,
-        pass: user.imapSmtpConfig.password,
-      },
-    };
-
-    await imapSmtpService.sendEmail(smtpConfig, {
-      from: user.imapSmtpConfig.emailAddress,
+    const result = await imapSmtpService.sendEmail(userId, {
       to,
       subject,
+      text: htmlContent.replace(/<[^>]*>/g, ''), // Fallback texte
       html: htmlContent,
     });
+
+    if (!result.success) {
+      throw new Error(result.message);
+    }
 
     console.log(`✅ Email sent via IMAP/SMTP: ${to}`);
   } catch (error) {
@@ -76,20 +70,23 @@ async function sendViaImapSmtp(user, to, subject, htmlContent) {
 }
 
 /**
- * Envoyer un email via Outlook
- * @param {Object} user - Utilisateur avec configuration Outlook
+ * Envoyer un email via Outlook en utilisant le service unifié
+ * @param {string} userId - ID de l'utilisateur
  * @param {string} to - Adresse email destinataire
  * @param {string} subject - Sujet de l'email
  * @param {string} htmlContent - Contenu HTML de l'email
  */
-async function sendViaOutlook(user, to, subject, htmlContent) {
+async function sendViaOutlook(userId, to, subject, htmlContent) {
   try {
-    await outlookService.sendEmail(user, {
+    const result = await outlookService.sendEmailAsUser(userId, {
       to,
       subject,
       body: htmlContent,
-      bodyType: 'HTML',
     });
+
+    if (!result.success) {
+      throw new Error(result.message);
+    }
 
     console.log(`✅ Email sent via Outlook: ${to}`);
   } catch (error) {
@@ -99,7 +96,7 @@ async function sendViaOutlook(user, to, subject, htmlContent) {
 }
 
 /**
- * Send email using sender's configuration
+ * Send email using sender's configuration (unified method)
  * @param {string} senderUserId - Sender user ID
  * @param {string} to - Recipient email address
  * @param {string} subject - Email subject
@@ -107,23 +104,23 @@ async function sendViaOutlook(user, to, subject, htmlContent) {
  */
 async function sendEmail(senderUserId, to, subject, htmlContent) {
   try {
-    // Get sender user with email configuration
-    const sender = await User.findById(senderUserId).select('+imapSmtpConfig.password +outlookConfig.accessToken');
+    // Get sender user to check email configuration
+    const sender = await User.findById(senderUserId).select('activeEmailProvider hasConfiguredEmail');
 
     if (!sender) {
       throw new Error('Sender user not found');
     }
 
     // Verify sender has configured email
-    if (!sender.hasEmailConfigured()) {
+    if (!sender.hasConfiguredEmail) {
       throw new Error('Sender has not configured email');
     }
 
-    // Send according to active provider
+    // Send according to active provider using unified services
     if (sender.activeEmailProvider === 'imap_smtp') {
-      await sendViaImapSmtp(sender, to, subject, htmlContent);
+      await sendViaImapSmtp(senderUserId, to, subject, htmlContent);
     } else if (sender.activeEmailProvider === 'outlook') {
-      await sendViaOutlook(sender, to, subject, htmlContent);
+      await sendViaOutlook(senderUserId, to, subject, htmlContent);
     } else {
       throw new Error('Email provider not supported');
     }

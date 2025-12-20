@@ -14,13 +14,14 @@ exports.getAuthUrl = async (req, res) => {
       });
     }
 
-    const userId = req.user._id;
+    const userId = req.user._id.toString(); // IMPORTANT: Convertir ObjectId en string
 
     // --- CORRECTION ICI ---
     // On ne fait PLUS de crypto ni d'encodage ici.
     // On passe simplement l'ID brut au service.
     // Le service va s'occuper de créer l'objet {id: ..., nonce: ...} et d'encoder.
 
+    console.log("🔵 [getAuthUrl] UserID passé au service:", userId);
     const authUrl = outlookService.getAuthorizationUrl(userId);
 
     res.status(200).json({
@@ -63,17 +64,20 @@ exports.handleCallback = async (req, res) => {
     try {
       // On décode le Base64
       const decodedString = Buffer.from(state, "base64").toString("utf-8");
-      console.log("🔍 DEBUG State décodé (String):", decodedString); // <--- REGARDE CE LOG
+      console.log("🔍 DEBUG State décodé (String):", decodedString);
 
       // On essaie de parser en JSON
       const decodedState = JSON.parse(decodedString);
+      console.log("🔍 DEBUG State parsé (Object):", JSON.stringify(decodedState, null, 2));
+      console.log("🔍 DEBUG decodedState.id:", decodedState.id);
+      console.log("🔍 DEBUG decodedState keys:", Object.keys(decodedState || {}));
 
       // On récupère l'ID (en vérifiant que decodedState n'est pas null)
       if (decodedState && decodedState.id) {
         userId = decodedState.id;
       }
 
-      console.log("🆔 ID Utilisateur extrait :", userId);
+      console.log("🆔 ID Utilisateur extrait:", userId);
     } catch (e) {
       console.error("⚠️ Erreur de décodage JSON:", e.message);
       // Fallback : Si ce n'était pas du JSON, peut-être l'ancien format string ?

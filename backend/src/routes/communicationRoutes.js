@@ -9,6 +9,7 @@ const {
   markAsRead, // <--- NOUVEAU
   assignUser, // <--- NOUVEAU
   triggerAiAnalysis, // <--- NOUVEAU
+  replyToCommunication, // <--- NOUVEAU
 } = require("../controllers/communicationController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -67,6 +68,14 @@ router.patch("/:id/assign", protect, assignUser);
  * @access  Private
  */
 router.post("/:id/analyze", protect, triggerAiAnalysis);
+
+/**
+ * @route   POST /api/communications/:id/reply
+ * @desc    Répondre manuellement à un email High/Critical
+ * @access  Private
+ * @body    { replyContent: "Message de réponse" }
+ */
+router.post("/:id/reply", protect, replyToCommunication);
 
 /**
  * @route   POST /api/communications/:id/notes
