@@ -157,7 +157,7 @@ const UrgentEmailsTab = () => {
   const [replyContent, setReplyContent] = useState('');
   const [sending, setSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterPriority, setFilterPriority] = useState('High,Critical');
+  const [filterPriority, setFilterPriority] = useState('All');
   const [filterDateRange, setFilterDateRange] = useState('All');
 
   // Pagination
@@ -176,11 +176,12 @@ const UrgentEmailsTab = () => {
   const fetchUrgentEmails = async () => {
     try {
       setLoading(true);
+      const priorityParam = filterPriority === 'All' ? 'High,Critical' : filterPriority;
       const response = await axios.get(`${API_URL}/communications`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
           status: 'To Validate',
-          priority: filterPriority,
+          priority: priorityParam,
           search: searchTerm,
           dateRange: filterDateRange,
           needsReply: true,
@@ -302,7 +303,7 @@ const UrgentEmailsTab = () => {
               onChange={(e) => setFilterPriority(e.target.value)}
               className="filter-select"
             >
-              <option value="High,Critical">High + Critical</option>
+              <option value="All">Toutes urgences</option>
               <option value="High">High</option>
               <option value="Critical">Critical</option>
             </select>
@@ -331,36 +332,66 @@ const UrgentEmailsTab = () => {
         </div>
       ) : (
         <>
-          <div className="urgent-emails-grid">
-            {urgentEmails.map((email) => (
-              <div key={email._id} className="urgent-email-card">
-                <div className="urgent-email-header">
-                  <span
-                    className={`urgent-email-priority ${email.ai_analysis?.urgency?.toLowerCase()}`}
-                  >
-                    <FontAwesomeIcon icon={faExclamationTriangle} /> {email.ai_analysis?.urgency}
-                  </span>
-                  <span className="urgent-email-date">
-                    {new Date(email.receivedAt).toLocaleDateString('fr-FR', {
-                      day: '2-digit',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
+          <div className="communications-list">
+            {urgentEmails.map((email, index) => (
+              <div
+                key={email._id}
+                className="communication-card"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div
+                  className="comm-type-badge"
+                  data-type={(email.source || 'outlook').toLowerCase()}
+                >
+                  <FontAwesomeIcon icon={email.source === 'whatsapp' ? faCommentDots : faEnvelope} />
                 </div>
-                <h4 className="urgent-email-subject">{email.subject}</h4>
-                <p className="urgent-email-from">
-                  <FontAwesomeIcon icon={faEnvelope} /> {email.sender.email}
-                </p>
-                <div className="urgent-email-summary">
-                  {email.ai_analysis?.summary?.substring(0, 200) || email.content?.substring(0, 200)}
-                  {(email.ai_analysis?.summary?.length > 200 || email.content?.length > 200) && '...'}
-                </div>
-                <div className="urgent-email-footer">
-                  <button className="btn-reply" onClick={() => setSelectedEmail(email)}>
-                    <FontAwesomeIcon icon={faReply} /> Répondre
-                  </button>
+                <div className="comm-content">
+                  <div className="comm-header-row">
+                    <h3 className="comm-subject">{email.subject}</h3>
+                  </div>
+                  <div className="comm-meta">
+                    <span className="comm-from">{email.sender?.email || "Inconnu"}</span>
+                    <span>•</span>
+                    <span className="comm-date">
+                      {new Date(email.receivedAt).toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <p className="comm-preview">
+                    {(email.ai_analysis?.summary || email.snippet || email.content || '').substring(0, 140)}
+                    {((email.ai_analysis?.summary || email.snippet || email.content || '').length > 140) && '...'}
+                  </p>
+                  <div className="comm-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="ai-tags">
+                      <span
+                        className="ai-tag priority"
+                        data-priority={email.ai_analysis?.urgency || 'High'}
+                        title="Urgence IA"
+                      >
+                        <FontAwesomeIcon icon={faExclamationTriangle} /> {email.ai_analysis?.urgency || 'High'}
+                      </span>
+                      {email.hasAutoResponse && (
+                        <span className="ai-tag auto-response">
+                          ✓ Auto-Response envoyée
+                        </span>
+                      )}
+                      {email.hasBeenReplied && !email.hasAutoResponse && (
+                        <span
+                          className="ai-tag replied"
+                          title="Email répondu"
+                        >
+                          <FontAwesomeIcon icon={faReply} /> Répondu
+                        </span>
+                      )}
+                    </div>
+                    <button className="btn-reply" onClick={() => setSelectedEmail(email)}>
+                      <FontAwesomeIcon icon={faReply} /> Répondre
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1215,52 +1246,70 @@ const AssistedResponseTab = () => {
         </div>
       ) : (
         <>
-          <div className="awaiting-emails-grid">
-            {paginatedEmails.map((email) => (
-            <div key={email._id} className="awaiting-email-card">
-              <div className="awaiting-email-header">
-                <span
-                  className="awaiting-email-priority"
-                  data-priority={email.ai_analysis?.urgency || 'Medium'}
+          <div className="communications-list">
+            {paginatedEmails.map((email, index) => (
+              <div
+                key={email._id}
+                className="communication-card"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div
+                  className="comm-type-badge"
+                  data-type={(email.source || 'outlook').toLowerCase()}
                 >
-                  <FontAwesomeIcon icon={faClock} /> {email.ai_analysis?.urgency}
-                </span>
-                <span className="awaiting-email-date">
-                  {new Date(email.receivedAt).toLocaleDateString('fr-FR', {
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+                  <FontAwesomeIcon icon={email.source === 'whatsapp' ? faCommentDots : faEnvelope} />
+                </div>
+                <div className="comm-content">
+                  <div className="comm-header-row">
+                    <h3 className="comm-subject">{email.subject}</h3>
+                  </div>
+                  <div className="comm-meta">
+                    <span className="comm-from">{email.sender?.email || "Inconnu"}</span>
+                    <span>•</span>
+                    <span className="comm-date">
+                      {new Date(email.receivedAt).toLocaleDateString('fr-FR', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <div className="comm-preview">
+                    <AwaitingSummary summary={email.ai_analysis?.summary || email.content} />
+                  </div>
+                  <div className="comm-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="ai-tags">
+                      <span
+                        className="ai-tag priority"
+                        data-priority={email.ai_analysis?.urgency || 'Medium'}
+                        title="Urgence IA"
+                      >
+                        <FontAwesomeIcon icon={faClock} /> {email.ai_analysis?.urgency || 'Medium'}
+                      </span>
+                    </div>
+                    <button
+                      className="btn-reply"
+                      onClick={() => {
+                        if (email.aiGeneratedQuestions && email.aiGeneratedQuestions.length > 0) {
+                          setSelectedEmail(email);
+                          setQuestionnaireData({ questions: email.aiGeneratedQuestions });
+                          setShowQuestionnaireModal(true);
+                          setUserAnswers({});
+                        } else {
+                          handleGenerateQuestions(email);
+                        }
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faRobot} />
+                      {email.aiGeneratedQuestions && email.aiGeneratedQuestions.length > 0
+                        ? ' Continuer'
+                        : ' Assistant'}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <h4 className="awaiting-email-subject">{email.subject}</h4>
-              <p className="awaiting-email-from">
-                <FontAwesomeIcon icon={faEnvelope} /> {email.sender.email}
-              </p>
-              <AwaitingSummary summary={email.ai_analysis?.summary || email.content} />
-              <div className="awaiting-email-footer">
-                <button
-                  className="btn-reply"
-                  onClick={() => {
-                    if (email.aiGeneratedQuestions && email.aiGeneratedQuestions.length > 0) {
-                      setSelectedEmail(email);
-                      setQuestionnaireData({ questions: email.aiGeneratedQuestions });
-                      setShowQuestionnaireModal(true);
-                      setUserAnswers({});
-                    } else {
-                      handleGenerateQuestions(email);
-                    }
-                  }}
-                >
-                  <FontAwesomeIcon icon={faRobot} />
-                  {email.aiGeneratedQuestions && email.aiGeneratedQuestions.length > 0
-                    ? 'Continuer la réponse assistée'
-                    : 'Répondre (assistant)'}
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
           </div>
           {/* Pagination */}
           <Pagination

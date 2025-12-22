@@ -157,9 +157,15 @@ class GrokService {
 - summary: Brief executive summary highlighting the main purpose, written in the SAME LANGUAGE as the original email
 - sentiment: Overall emotional tone (Positive/Negative/Neutral)
 - urgency: How urgent is this communication (Low/Medium/High/Critical)
-- requiresResponse: CRITICAL - Determine if this email expects a reply:
-  * TRUE if: Direct questions, requests for information/action, business inquiries, customer support requests, meeting requests, proposals, complaints
-  * FALSE if: Newsletters, automated notifications, marketing emails, confirmations, receipts, FYI messages, thank you notes without questions, spam
+- requiresResponse: CRITICAL - Determine if this email expects a reply.
+  * MUST be TRUE if:
+    - The email contains ANY question.
+    - It is a request for help, information, or action.
+    - It is a complaint or issue report.
+    - The Urgency is High or Critical (unless it is explicitly an automated "do-not-reply" notification).
+  * FALSE only if:
+    - It is a newsletter, receipt, automated system notification, or spam.
+    - It is a simple "Thank you" or "FYI" with no further action needed.
 - responseReason: Brief explanation (1 sentence) why response is or isn't needed
 - keyPoints: 3-5 most important points from the message
 - actionItems: Any tasks or actions required (empty array if none)

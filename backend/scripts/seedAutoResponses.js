@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require("mongoose");
 const connectDB = require("../src/config/database");
 const Communication = require("../src/models/Communication");
@@ -110,19 +111,18 @@ const seedAutoResponses = async () => {
 
     // 2. Récupérer un utilisateur Admin pour lier les données
     // On cherche spécifiquement durelzanfack@gmail.com ou un UpperAdmin
-    const adminUser = await User.findOne({ 
-      $or: [
-        { email: "durelzanfack@gmail.com" },
-        { role: { $in: ["UpperAdmin", "Admin"] } }
-      ]
-    });
-
+    const targetTenant = await Tenant.findOne({ companyName: "Di" });
+    if (!targetTenant) {
+      console.error("❌ Tenant 'Di' introuvable dans la base prototypedb. Abandon.");
+      process.exit(1);
+    }
+    let adminUser = await User.findOne({ tenant_id: targetTenant._id, email: "durelzanfack@gmail.com", role: "UpperAdmin" });
     if (!adminUser) {
-      console.error("❌ Aucun utilisateur Admin trouvé. Veuillez d'abord créer un utilisateur.");
+      console.error("❌ UpperAdmin 'durelzanfack@gmail.com' introuvable pour le tenant 'Di'. Abandon.");
       process.exit(1);
     }
 
-    const tenantId = adminUser.tenant_id;
+    const tenantId = targetTenant._id;
     const userId = adminUser._id;
 
     console.log(`👤 Utilisateur trouvé: ${adminUser.email} (Tenant: ${tenantId})`);
@@ -182,6 +182,71 @@ const seedAutoResponses = async () => {
 
     console.log(`✅ ${communications.length} emails injectés avec succès pour le test Auto Response !`);
     console.log("👉 Allez dans l'onglet 'Réponses Auto' pour les voir.");
+
+    const assistedCommunications = [];
+    for (let i = 0; i < 12; i++) {
+      const sender = mockSenders[Math.floor(Math.random() * mockSenders.length)];
+      const subject = mockSubjects[(i + 7) % mockSubjects.length];
+      const content = mockContents[(i + 7) % mockContents.length];
+      const date = new Date();
+      date.setDate(date.getDate() - Math.floor(Math.random() * 14));
+      date.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+      const urgency = Math.random() > 0.5 ? "Low" : "Medium";
+      assistedCommunications.push({
+        tenant_id: tenantId,
+        userId: userId,
+        source: Math.random() > 0.3 ? "outlook" : "gmail",
+        externalId: `mock-assisted-${Date.now()}-${i}`,
+        isRead: false,
+        sender: {
+          name: sender.name,
+          email: sender.email,
+        },
+        recipient: {
+          email: adminUser.email,
+        },
+        subject,
+        content,
+        snippet: content.substring(0, 120),
+        status: "To Validate",
+        hasAutoResponse: false,
+        hasBeenReplied: false,
+        autoActivation: "assisted",
+        awaitingUserInput: true,
+        aiGeneratedQuestions: [
+          {
+            question: "Êtes-vous disponible cette semaine ?",
+            type: "radio",
+            options: ["Oui", "Non"],
+            required: true,
+          },
+          {
+            question: "Quel créneau préférez-vous ?",
+            type: "select",
+            options: ["Matin", "Après-midi", "Fin de journée"],
+            required: false,
+          },
+          {
+            question: "Précisez des informations complémentaires",
+            type: "text",
+            options: [],
+            required: false,
+          },
+        ],
+        ai_analysis: {
+          summary: `Résumé IA : ${content}`,
+          sentiment: Math.random() > 0.5 ? "Neutral" : "Positive",
+          urgency,
+          requiresResponse: true,
+          processedAt: new Date(),
+        },
+        receivedAt: date,
+        slaDueDate: new Date(date.getTime() + 24 * 60 * 60 * 1000),
+      });
+    }
+    await Communication.insertMany(assistedCommunications);
+    console.log(`✅ ${assistedCommunications.length} emails injectés pour le test Réponses Assistées !`);
+    console.log("👉 Allez dans l'onglet 'Réponses Assistées' pour les voir.");
 
     process.exit(0);
   } catch (error) {

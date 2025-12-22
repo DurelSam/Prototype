@@ -1,22 +1,22 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const connectDB = require('../src/config/database');
 
-const drop = async () => {
+async function dropLocalDb() {
+  const uri = 'mongodb://localhost:27017/prototypedb_local';
   try {
-    await connectDB();
-    const dbName = mongoose.connection.name;
-    if (dbName !== 'prototypedb_local') {
-      console.error(`❌ Mauvaise base sélectionnée: ${dbName}. Attendu: prototypedb_local`);
-      process.exit(1);
-    }
-    await mongoose.connection.db.dropDatabase();
-    console.log(`✅ Base de données '${dbName}' supprimée avec succès`);
+    const conn = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 15000,
+      family: 4,
+    });
+    console.log(`✅ Connecté à ${conn.connection.name} sur ${conn.connection.host}`);
+    await mongoose.connection.dropDatabase();
+    console.log('🗑️  Base de données prototypedb_local supprimée avec succès');
+    await mongoose.disconnect();
     process.exit(0);
   } catch (err) {
-    console.error('❌ Échec suppression DB:', err.message);
+    console.error('❌ Échec suppression prototypedb_local:', err.message);
     process.exit(1);
   }
-};
+}
 
-drop();
+dropLocalDb();

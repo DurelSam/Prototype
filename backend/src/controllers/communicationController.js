@@ -174,7 +174,11 @@ exports.getCommunications = async (req, res) => {
           filter.isRead = true;
           break;
         case "Replied":
-          filter.$or = [{ hasBeenReplied: true }, { hasAutoResponse: true }];
+          filter.$or = [
+            { hasBeenReplied: true },
+            { hasAutoResponse: true },
+            { "manualResponse.sent": true },
+          ];
           break;
         case "NotReplied":
           filter.hasAutoResponse = false;
