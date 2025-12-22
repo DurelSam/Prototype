@@ -119,10 +119,14 @@ exports.getCommunications = async (req, res) => {
       source = "All",
       priority = "All",
       status = "All",
+      sentiment = "All",
+      state = "All",
       search = "",
       dateRange = "All",
       page = 1,
       limit = 50,
+      needsReply = "false",
+      excludeReplied = "false",
     } = req.query;
 
     // Construire le filtre de base avec RBAC
@@ -143,8 +147,52 @@ exports.getCommunications = async (req, res) => {
       }
     }
 
+    if (sentiment !== "All") {
+      filter["ai_analysis.sentiment"] = sentiment;
+    }
+
     if (status !== "All") {
       filter.status = status;
+    }
+
+    if (needsReply === "true") {
+      filter["ai_analysis.requiresResponse"] = true;
+    }
+
+    if (excludeReplied === "true") {
+      filter.hasAutoResponse = false;
+      filter["manualResponse.sent"] = { $ne: true };
+    }
+
+    // Filtre d'état (State/Flags)
+    if (state !== "All") {
+      switch (state) {
+        case "Unread":
+          filter.isRead = false;
+          break;
+        case "Read":
+          filter.isRead = true;
+          break;
+        case "Replied":
+          filter.$or = [{ hasBeenReplied: true }, { hasAutoResponse: true }];
+          break;
+        case "NotReplied":
+          filter.hasAutoResponse = false;
+          filter["manualResponse.sent"] = { $ne: true };
+          break;
+        case "AutoResponse":
+          filter.hasAutoResponse = true;
+          break;
+        case "AwaitingInput":
+          filter.awaitingUserInput = true;
+          break;
+        case "Escalated":
+          filter.status = "Escalated";
+          break;
+        case "NoResponseNeeded":
+          filter["ai_analysis.requiresResponse"] = false;
+          break;
+      }
     }
 
     // Filtre de date (receivedAt)
@@ -802,6 +850,9 @@ exports.replyToCommunication = async (req, res) => {
       sentBy: user._id,
       content: replyContent,
     };
+    communication.hasBeenReplied = true;
+    communication.repliedAt = new Date();
+    communication.repliedBy = user._id;
 
     await communication.save();
 
@@ -821,3 +872,587 @@ exports.replyToCommunication = async (req, res) => {
     });
   }
 };
+
+// ============================================
+// RÉPONSES ASSISTÉES (QUESTIONNAIRE IA)
+// ============================================
+
+/**
+ * @desc    Récupère les emails en attente de réponse utilisateur (questionnaire)
+ * @route   GET /api/communications/awaiting-input
+ * @access  Private
+ */
+exports.getAwaitingInputEmails = async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user.tenant_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'User does not belong to a tenant.',
+      });
+    }
+
+    // Construire le filtre RBAC
+    const filter = await buildRbacFilter(user);
+
+    if (user.autoResponseEnabled === true) {
+      filter.awaitingUserInput = true;
+    } else {
+      filter.$or = [
+        { awaitingUserInput: true },
+        {
+          'ai_analysis.requiresResponse': true,
+          'ai_analysis.urgency': { $in: ['Low', 'Medium'] },
+          hasAutoResponse: false,
+          'manualResponse.sent': { $ne: true },
+          status: { $nin: ['Closed', 'Archived', 'Validated'] }
+        }
+      ];
+    }
+
+    // Récupérer les emails
+    const communications = await Communication.find(filter)
+      .sort({ receivedAt: -1 })
+      .populate('assignedTo', 'firstName lastName email')
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: communications,
+      count: communications.length,
+    });
+  } catch (error) {
+    console.error('❌ Erreur getAwaitingInputEmails:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des emails en attente',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Récupère les emails éligibles aux Réponses Auto (filtrage précis pour Low/Medium + suggestion IA)
+ * @route   GET /api/communications/auto-candidates
+ * @access  Private
+ */
+exports.getAutoCandidates = async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user.tenant_id) {
+      return res.status(400).json({
+        success: false,
+        message: "User does not belong to a tenant.",
+      });
+    }
+
+    // Si l'utilisateur a désactivé les réponses automatiques, ne rien retourner
+    if (user.autoResponseEnabled === false) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        pagination: {
+          page: 1,
+          limit: parseInt(req.query.limit || 10),
+          total: 0,
+          totalPages: 1,
+        },
+      });
+    }
+
+    const {
+      search = "",
+      priority = "All",
+      dateRange = "All",
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    // 1. Construire le filtre RBAC de base
+    const filter = await buildRbacFilter(user);
+
+    // 2. Filtres Auto Responses
+    // - Pas de réponse auto déjà envoyée
+    // - Pas de réponse manuelle déjà envoyée
+    // - Suggestion IA existe
+    // - Urgence Low ou Medium (High/Critical vont dans Urgent Emails)
+    // - Pas de "noreply" dans l'expéditeur
+    filter.autoActivation = "auto";
+    filter.hasAutoResponse = false;
+    filter["manualResponse.sent"] = { $ne: true };
+    filter["ai_analysis.suggestedResponse"] = { $exists: true, $ne: "" };
+    
+    // Si priorité spécifiée, on respecte le filtre UI, sinon on force Low/Medium par défaut
+    if (priority !== "All") {
+      const priorities = priority.split(',').map(p => p.trim());
+      filter["ai_analysis.urgency"] = { $in: priorities };
+    } else {
+      filter["ai_analysis.urgency"] = { $in: ["Low", "Medium"] };
+    }
+
+    // Exclure les no-reply
+    filter["sender.email"] = { $not: { $regex: /noreply|no-reply|do-not-reply/i } };
+
+    // 3. Filtres optionnels UI (Recherche, Date)
+    if (search) {
+      filter.$or = [
+        { subject: { $regex: search, $options: "i" } },
+        { content: { $regex: search, $options: "i" } },
+        { "sender.email": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (dateRange !== "All") {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (dateRange) {
+        case "Today":
+          filter.receivedAt = { $gte: today };
+          break;
+        case "Yesterday":
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          filter.receivedAt = { $gte: yesterday, $lt: today };
+          break;
+        case "Last7Days":
+          const last7Days = new Date(today);
+          last7Days.setDate(last7Days.getDate() - 7);
+          filter.receivedAt = { $gte: last7Days };
+          break;
+        case "Last30Days":
+          const last30Days = new Date(today);
+          last30Days.setDate(last30Days.getDate() - 30);
+          filter.receivedAt = { $gte: last30Days };
+          break;
+      }
+    }
+
+    // 4. Pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // 5. Exécution
+    const communications = await Communication.find(filter)
+      .sort({ receivedAt: -1 }) // Plus récents d'abord
+      .skip(skip)
+      .limit(limitNum)
+      .populate("assignedTo", "firstName lastName email")
+      .lean();
+
+    const total = await Communication.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      data: communications,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Erreur getAutoCandidates:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des candidats auto-response",
+      error: error.message,
+    });
+  }
+};
+
+exports.getAutoCandidateIds = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user.tenant_id) {
+      return res.status(400).json({
+        success: false,
+        message: "User does not belong to a tenant.",
+      });
+    }
+    if (user.autoResponseEnabled === false) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        count: 0,
+      });
+    }
+    const { search = "", priority = "All", dateRange = "All" } = req.query;
+    const filter = await buildRbacFilter(user);
+    filter.autoActivation = "auto";
+    filter.hasAutoResponse = false;
+    filter["manualResponse.sent"] = { $ne: true };
+    filter["ai_analysis.suggestedResponse"] = { $exists: true, $ne: "" };
+    if (priority !== "All") {
+      const priorities = priority.split(",").map((p) => p.trim());
+      filter["ai_analysis.urgency"] = { $in: priorities };
+    } else {
+      filter["ai_analysis.urgency"] = { $in: ["Low", "Medium"] };
+    }
+    filter["sender.email"] = { $not: { $regex: /noreply|no-reply|do-not-reply/i } };
+    if (search) {
+      filter.$or = [
+        { subject: { $regex: search, $options: "i" } },
+        { content: { $regex: search, $options: "i" } },
+        { "sender.email": { $regex: search, $options: "i" } },
+      ];
+    }
+    if (dateRange !== "All") {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      switch (dateRange) {
+        case "Today":
+          filter.receivedAt = { $gte: today };
+          break;
+        case "Yesterday":
+          {
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            filter.receivedAt = { $gte: yesterday, $lt: today };
+          }
+          break;
+        case "Last7Days":
+          {
+            const last7Days = new Date(today);
+            last7Days.setDate(last7Days.getDate() - 7);
+            filter.receivedAt = { $gte: last7Days };
+          }
+          break;
+        case "Last30Days":
+          {
+            const last30Days = new Date(today);
+            last30Days.setDate(last30Days.getDate() - 30);
+            filter.receivedAt = { $gte: last30Days };
+          }
+          break;
+      }
+    }
+    const ids = await Communication.find(filter).select("_id").lean();
+    return res.status(200).json({
+      success: true,
+      data: ids.map((d) => d._id),
+      count: ids.length,
+    });
+  } catch (error) {
+    console.error("❌ Erreur getAutoCandidateIds:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des IDs des candidats auto-response",
+      error: error.message,
+    });
+  }
+};
+exports.generateSuggestionForEmail = async (req, res) => {
+  try {
+    const user = req.user;
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Missing communication id" });
+    }
+
+    const rbacFilter = await buildRbacFilter(user);
+    const comm = await Communication.findOne({ _id: id, ...rbacFilter });
+    if (!comm) {
+      return res.status(404).json({ success: false, message: "Communication not found or not accessible" });
+    }
+
+    const grokService = require("../services/grokService");
+
+    // Assurer qu'une analyse existe (Résumé/Sentiment/Urgence)
+    let analysis = comm.ai_analysis;
+    if (!analysis || !analysis.summary) {
+      analysis = await grokService.analyzeCommunication({
+        subject: comm.subject,
+        content: comm.content,
+        sender: comm.sender,
+      });
+      comm.ai_analysis = { ...(comm.ai_analysis || {}), ...analysis };
+    }
+
+    // Générer une réponse automatique basée sur l'analyse et le contexte utilisateur
+    const autoResponse = await grokService.generateAutoResponse(comm, analysis, user);
+    comm.ai_analysis = { ...(comm.ai_analysis || {}), suggestedResponse: autoResponse, processedAt: new Date() };
+    await comm.save();
+
+    return res.status(200).json({
+      success: true,
+      data: { suggestedResponse: comm.ai_analysis.suggestedResponse },
+    });
+  } catch (error) {
+    console.error("❌ generateSuggestionForEmail error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to regenerate suggested response",
+      error: error.message,
+    });
+  }
+};
+
+/** 
+ * @desc    Génère des questions contextuelles pour un email spécifique
+ * @route   POST /api/communications/:id/generate-questions
+ * @access  Private
+ */
+exports.generateQuestionsForEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+    const grokService = require('../services/grokService');
+
+    // Récupérer la communication
+    const communication = await Communication.findOne({
+      _id: id,
+      tenant_id: user.tenant_id,
+    });
+
+    if (!communication) {
+      return res.status(404).json({
+        success: false,
+        message: 'Communication non trouvée',
+      });
+    }
+
+    // Vérification RBAC
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à cette communication',
+      });
+    }
+
+    console.log(`🤖 Génération de questions pour: ${communication.subject}`);
+
+    // Vérifier que l'analyse IA existe déjà
+    if (!communication.ai_analysis || !communication.ai_analysis.summary) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cette communication doit d\'abord être analysée par l\'IA. Lancez une analyse d\'abord.',
+      });
+    }
+
+    // Générer les questions contextuelles
+    const questions = await grokService.generateContextualQuestions(
+      communication,
+      communication.ai_analysis
+    );
+
+    // Enregistrer les questions dans la communication
+    communication.aiGeneratedQuestions = questions;
+    communication.awaitingUserInput = true;
+    await communication.save();
+
+    console.log(`✅ ${questions.length} questions générées pour: ${communication.subject}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Questions générées avec succès',
+      data: {
+        communicationId: communication._id,
+        questions,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Erreur generateQuestionsForEmail:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la génération des questions',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Soumet les réponses du questionnaire → Génère réponse IA → Envoie l'email
+ * @route   POST /api/communications/:id/submit-questionnaire
+ * @access  Private
+ */
+exports.submitQuestionnaireAndReply = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userAnswers } = req.body;
+    const user = req.user;
+    const grokService = require('../services/grokService');
+    const imapSmtpService = require('../services/imapSmtpService');
+    const outlookService = require('../services/outlookService');
+
+    // Validation
+    if (!userAnswers || Object.keys(userAnswers).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Les réponses du questionnaire sont requises',
+      });
+    }
+
+    // Récupérer la communication
+    const communication = await Communication.findOne({
+      _id: id,
+      tenant_id: user.tenant_id,
+    });
+
+    if (!communication) {
+      return res.status(404).json({
+        success: false,
+        message: 'Communication non trouvée',
+      });
+    }
+
+    // Vérification RBAC
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à cette communication',
+      });
+    }
+
+    // Vérifier que l'utilisateur a configuré son email
+    if (!user.hasConfiguredEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous devez configurer votre email dans Intégrations avant de pouvoir répondre',
+      });
+    }
+
+    console.log(`🤖 Génération de réponse assistée pour: ${communication.subject}`);
+
+    // Enregistrer les réponses de l'utilisateur
+    communication.userResponseContext = userAnswers;
+
+    // Créer un prompt enrichi avec le contexte de l'utilisateur
+    const contextualPrompt = buildContextualResponsePrompt(
+      communication,
+      communication.ai_analysis,
+      user,
+      userAnswers
+    );
+
+    // Générer la réponse IA avec le contexte
+    const grokClient = grokService.client;
+    const completion = await grokClient.chat.completions.create({
+      model: grokService.model,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a professional email assistant. Generate contextually appropriate email responses based on user guidance and email analysis.',
+        },
+        {
+          role: 'user',
+          content: contextualPrompt,
+        },
+      ],
+      max_tokens: 700,
+      temperature: 0.7,
+    });
+
+    const generatedResponse = completion.choices[0].message.content.trim();
+    console.log('✅ Réponse IA générée avec contexte utilisateur');
+
+    // Envoyer l'email via le provider configuré
+    let sendResult;
+
+    if (user.activeEmailProvider === 'imap_smtp') {
+      sendResult = await imapSmtpService.sendEmail(user._id, {
+        to: communication.sender.email,
+        subject: `Re: ${communication.subject}`,
+        text: generatedResponse,
+        html: generatedResponse.replace(/\n/g, '<br>'),
+        inReplyTo: communication.messageId,
+        references: communication.references || communication.messageId,
+      });
+    } else if (user.activeEmailProvider === 'outlook') {
+      sendResult = await outlookService.sendEmailAsUser(user._id, {
+        to: communication.sender.email,
+        subject: `Re: ${communication.subject}`,
+        body: generatedResponse.replace(/\n/g, '<br>'),
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Provider email non supporté',
+      });
+    }
+
+    if (!sendResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: `Échec de l'envoi de l'email: ${sendResult.message}`,
+      });
+    }
+
+    // Mettre à jour la communication
+    communication.status = 'Validated';
+    communication.awaitingUserInput = false;
+    communication.assistedResponseGeneratedAt = new Date();
+    communication.hasBeenReplied = true;
+    communication.repliedAt = new Date();
+    communication.repliedBy = user._id;
+    communication.autoResponseContent = generatedResponse;
+    communication.hasAutoResponse = true;
+    communication.autoResponseSentAt = new Date();
+
+    await communication.save();
+
+    console.log(`✅ Réponse assistée envoyée pour: ${communication.subject}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Réponse générée et envoyée avec succès',
+      data: {
+        communication,
+        generatedResponse,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Erreur submitQuestionnaireAndReply:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la génération/envoi de la réponse',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Helper: Construit un prompt enrichi avec le contexte utilisateur
+ */
+function buildContextualResponsePrompt(communication, analysis, user, userAnswers) {
+  // Convertir les réponses en texte lisible
+  const answersText = Object.entries(userAnswers)
+    .map(([question, answer]) => `- ${question}: ${Array.isArray(answer) ? answer.join(', ') : answer}`)
+    .join('\n');
+
+  return `Generate a professional email response based on the following context:
+
+**Original Email:**
+- From: ${communication.sender?.name || communication.sender?.email || 'Unknown'}
+- Subject: ${communication.subject || 'No subject'}
+- Content: ${communication.content?.substring(0, 600) || 'No content'}
+
+**AI Analysis:**
+- Summary: ${analysis.summary}
+- Sentiment: ${analysis.sentiment}
+- Urgency: ${analysis.urgency}
+
+**User Context (Your Guidance):**
+${answersText}
+
+**Respond on behalf of:**
+- Name: ${user.firstName} ${user.lastName}
+- Role: ${user.role}
+
+**Instructions:**
+1. Use the user's guidance (User Context) to inform the tone and content of your response
+2. Acknowledge the sender's email appropriately
+3. Address the key points based on the user's answers
+4. Maintain a professional and friendly tone
+5. Keep it concise (4-6 sentences)
+6. DO NOT include subject line, just the email body
+7. Sign off with: "Best regards, ${user.firstName} ${user.lastName}"
+
+Generate ONLY the email body text, no additional formatting or explanations.`;
+}

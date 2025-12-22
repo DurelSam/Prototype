@@ -779,3 +779,114 @@ exports.getUserStats = async (req, res) => {
     });
   }
 };
+
+// ========================================
+// PARAMÈTRES DE RÉPONSE AUTOMATIQUE
+// ========================================
+
+/**
+ * @desc    Récupérer les paramètres de réponse automatique
+ * @route   GET /api/users/me/auto-response-settings
+ * @access  Private
+ */
+exports.getAutoResponseSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('autoResponseEnabled');
+
+    res.json({
+      success: true,
+      data: {
+        autoResponseEnabled: user.autoResponseEnabled || false,
+      },
+    });
+  } catch (error) {
+    console.error('Erreur getAutoResponseSettings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des paramètres',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Mettre à jour les paramètres de réponse automatique
+ * @route   PUT /api/users/me/auto-response-settings
+ * @access  Private
+ */
+exports.updateAutoResponseSettings = async (req, res) => {
+  try {
+    const { autoResponseEnabled } = req.body;
+
+    // Validation
+    if (typeof autoResponseEnabled !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'autoResponseEnabled doit être un booléen',
+      });
+    }
+
+    // Vérifier que l'utilisateur a configuré un email
+    if (autoResponseEnabled && !req.user.hasConfiguredEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous devez d\'abord configurer votre email dans Intégrations avant d\'activer les réponses automatiques',
+      });
+    }
+
+    // Mettre à jour
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { autoResponseEnabled },
+      { new: true, runValidators: true }
+    ).select('autoResponseEnabled');
+
+    const tenantId = req.user.tenant_id;
+    if (tenantId) {
+      if (autoResponseEnabled) {
+        await Communication.updateMany(
+          {
+            tenant_id: tenantId,
+            'ai_analysis.requiresResponse': true,
+            'ai_analysis.urgency': { $in: ['Low', 'Medium'] },
+            hasAutoResponse: false,
+            'manualResponse.sent': { $ne: true },
+            autoActivation: { $ne: 'never' },
+            'sender.email': { $not: { $regex: /noreply|no-reply|do-not-reply/i } },
+          },
+          { $set: { autoActivation: 'auto' } }
+        );
+      } else {
+        await Communication.updateMany(
+          {
+            tenant_id: tenantId,
+            autoActivation: 'auto',
+          },
+          { $set: { autoActivation: 'assisted' } }
+        );
+      }
+      await Communication.updateMany(
+        {
+          tenant_id: tenantId,
+          'ai_analysis.urgency': { $in: ['High', 'Critical'] },
+        },
+        { $set: { autoActivation: 'never' } }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Réponses automatiques ${autoResponseEnabled ? 'activées' : 'désactivées'} avec succès`,
+      data: {
+        autoResponseEnabled: user.autoResponseEnabled,
+      },
+    });
+  } catch (error) {
+    console.error('Erreur updateAutoResponseSettings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour des paramètres',
+      error: error.message,
+    });
+  }
+};

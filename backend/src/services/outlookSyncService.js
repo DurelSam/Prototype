@@ -363,12 +363,13 @@ class OutlookSyncService {
         // Réponse automatique UNIQUEMENT si:
         // 1. Urgence Low/Medium (pas High/Critical)
         // 2. L'IA détermine qu'une réponse est attendue (requiresResponse === true)
+        // 3. L'utilisateur a activé les réponses automatiques (autoResponseEnabled === true)
         const shouldAutoRespond = updated &&
           (analysis.urgency === 'Low' || analysis.urgency === 'Medium') &&
           analysis.requiresResponse === true;
 
         if (shouldAutoRespond) {
-          console.log(`🤖 [${communicationId}] Urgence ${analysis.urgency} + requiresResponse=true - génération réponse automatique...`);
+          console.log(`🤖 [${communicationId}] Urgence ${analysis.urgency} + requiresResponse=true - vérification paramètres utilisateur...`);
           console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
 
           try {
@@ -380,6 +381,19 @@ class OutlookSyncService {
               console.error(`⚠️  [${communicationId}] Utilisateur non trouvé pour réponse auto`);
               return;
             }
+
+            const noReply = !!(updated.sender?.email && /noreply|no-reply|do-not-reply/i.test(updated.sender.email));
+            await Communication.findByIdAndUpdate(communicationId, {
+              autoActivation: noReply ? 'never' : (user.autoResponseEnabled ? 'auto' : 'assisted'),
+            });
+
+            // Vérifier si l'utilisateur a activé les réponses automatiques
+            if (!user.autoResponseEnabled) {
+              console.log(`⏭️  [${communicationId}] Réponse automatique désactivée pour cet utilisateur - skip`);
+              return;
+            }
+
+            console.log(`✅ [${communicationId}] autoResponseEnabled=true - génération de la réponse...`);
 
             // Générer la réponse automatique avec Grok
             const autoResponseContent = await grokService.generateAutoResponse(
@@ -403,6 +417,9 @@ class OutlookSyncService {
                 autoResponseSentAt: new Date(),
                 autoResponseContent,
                 status: 'Validated', // Marquer comme validé car répondu automatiquement
+                hasBeenReplied: true,
+                repliedAt: new Date(),
+                repliedBy: user._id,
               });
 
               console.log(`✅ [${communicationId}] Réponse automatique envoyée avec succès`);
@@ -416,9 +433,11 @@ class OutlookSyncService {
         } else if (updated) {
           if (analysis.urgency === 'High' || analysis.urgency === 'Critical') {
             console.log(`⏭️  [${communicationId}] Urgence ${analysis.urgency} - pas de réponse automatique (manuel requis)`);
+            await Communication.findByIdAndUpdate(communicationId, { autoActivation: 'never' });
           } else if (!analysis.requiresResponse) {
             console.log(`⏭️  [${communicationId}] requiresResponse=false - pas de réponse automatique`);
             console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
+            await Communication.findByIdAndUpdate(communicationId, { autoActivation: 'never' });
           }
         }
       } catch (error) {

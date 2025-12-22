@@ -234,6 +234,12 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Activer/Désactiver les réponses automatiques AI (Low/Medium priority)
+    autoResponseEnabled: {
+      type: Boolean,
+      default: false, // Désactivé par défaut pour des raisons de sécurité
+    },
+
     isActive: {
       type: Boolean,
       default: true,

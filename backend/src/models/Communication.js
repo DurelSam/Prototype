@@ -105,6 +105,14 @@ const communicationSchema = new mongoose.Schema(
       },
       responseReason: { type: String, default: "" },
       processedAt: { type: Date, default: null },
+      suggestedResponse: { type: String, default: "" }, // Nouveau champ pour le brouillon
+    },
+
+    autoActivation: {
+      type: String,
+      enum: ["auto", "assisted", "never"],
+      default: "assisted",
+      index: true,
     },
 
     // Réponse automatique IA (pour Low/Medium)
@@ -140,6 +148,49 @@ const communicationSchema = new mongoose.Schema(
         type: String,
         default: "",
       },
+    },
+
+    // Réponse automatique assistée par questionnaire contextuel
+    awaitingUserInput: {
+      type: Boolean,
+      default: false,
+      index: true, // Pour filtrer rapidement les emails en attente
+    },
+    aiGeneratedQuestions: [
+      {
+        question: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ["checkbox", "radio", "text", "select"],
+          default: "checkbox",
+        },
+        options: [{ type: String }], // Options pour checkbox/radio/select
+        required: { type: Boolean, default: false },
+      },
+    ],
+    userResponseContext: {
+      type: mongoose.Schema.Types.Mixed, // Stocke les réponses de l'utilisateur
+      default: null,
+    },
+    assistedResponseGeneratedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Flag global : email a reçu une réponse (manuelle ou auto)
+    hasBeenReplied: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    repliedAt: {
+      type: Date,
+      default: null,
+    },
+    repliedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
 
     status: {

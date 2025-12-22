@@ -133,4 +133,22 @@ router.put('/employees/:id/transfer', authenticate, authorize('UpperAdmin'), use
  */
 router.get('/stats', authenticate, authorize('Admin', 'UpperAdmin'), userController.getUserStats);
 
+// ========================================
+// ROUTES PARAMÈTRES DE RÉPONSE AUTOMATIQUE
+// (Tous les utilisateurs authentifiés)
+// ========================================
+
+/**
+ * GET /api/users/me/auto-response-settings
+ * Récupérer les paramètres de réponse automatique
+ */
+router.get('/me/auto-response-settings', authenticate, userController.getAutoResponseSettings);
+
+/**
+ * PUT /api/users/me/auto-response-settings
+ * Mettre à jour les paramètres de réponse automatique
+ * Body: { autoResponseEnabled: boolean }
+ */
+router.put('/me/auto-response-settings', authenticate, userController.updateAutoResponseSettings);
+
 module.exports = router;

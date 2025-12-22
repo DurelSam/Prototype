@@ -60,7 +60,7 @@ class GrokService {
           {
             role: "system",
             content:
-              "You are an expert business communication analyst. Analyze emails and messages to extract key insights, sentiment, urgency level, and actionable items. Always respond in valid JSON format.",
+              "You are an expert business communication analyst. Analyze emails and messages to extract key insights, sentiment, urgency level, and actionable items. Always respond in valid JSON format. Always write your output in the SAME LANGUAGE as the original email content (auto-detect language). Never translate to another language.",
           },
           {
             role: "user",
@@ -143,7 +143,7 @@ class GrokService {
 
 **Required Analysis (respond ONLY with valid JSON):**
 {
-  "summary": "A concise executive summary (2-3 sentences) of the communication",
+  "summary": "A concise executive summary (2-3 sentences) of the communication written in the SAME LANGUAGE as the original email",
   "sentiment": "Positive, Negative, or Neutral",
   "urgency": "Low, Medium, High, or Critical",
   "requiresResponse": true or false,
@@ -154,7 +154,7 @@ class GrokService {
 }
 
 **Instructions:**
-- summary: Brief executive summary highlighting the main purpose
+- summary: Brief executive summary highlighting the main purpose, written in the SAME LANGUAGE as the original email
 - sentiment: Overall emotional tone (Positive/Negative/Neutral)
 - urgency: How urgent is this communication (Low/Medium/High/Critical)
 - requiresResponse: CRITICAL - Determine if this email expects a reply:
@@ -165,7 +165,7 @@ class GrokService {
 - actionItems: Any tasks or actions required (empty array if none)
 - entities: Important names, companies, products, dates mentioned (use hashtag format like #CompanyName)
 
-Respond ONLY with the JSON object, no additional text.`;
+Respond ONLY with the JSON object, no additional text. Ensure ALL string fields use the SAME LANGUAGE as the original email.`;
   }
 
   /**
@@ -254,7 +254,7 @@ Respond ONLY with the JSON object, no additional text.`;
           {
             role: "system",
             content:
-              "You are a professional email assistant. Generate polite, helpful, and contextually appropriate email responses. Keep responses concise and professional.",
+              "You are a professional email assistant. Generate polite, helpful, and contextually appropriate email responses. Keep responses concise and professional. IMPORTANT: Always write the response in the SAME LANGUAGE as the original email (auto-detect language).",
           },
           {
             role: "user",
@@ -309,11 +309,153 @@ ${user.firstName} ${user.lastName}`;
 2. Provide a helpful response based on the content and analysis
 3. If specific information is requested, provide a general helpful response or indicate next steps
 4. Keep the tone professional and friendly
-5. Sign off with the user's name
+5. Sign off with the user's FULL NAME and ROLE/TITLE as a signature block
 6. DO NOT include subject line, just the email body
 7. Keep it concise (3-5 sentences max)
+8. Write the ENTIRE response in the SAME LANGUAGE as the original email (auto-detect)
 
 Generate ONLY the email body text, no additional formatting or explanations.`;
+  }
+
+  /**
+   * Génère des questions contextuelles pour aider l'utilisateur à répondre
+   * @param {Object} communication - Communication à analyser
+   * @param {Object} analysis - Analyse IA déjà effectuée
+   * @returns {Array} Liste de questions contextuelles
+   */
+  async generateContextualQuestions(communication, analysis) {
+    console.log("🤖 Génération de questions contextuelles pour:", communication.subject);
+
+    try {
+      const prompt = this.buildContextualQuestionsPrompt(
+        communication.subject,
+        communication.content,
+        communication.sender,
+        analysis
+      );
+
+      const completion = await this.client.chat.completions.create({
+        model: this.model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert email assistant. Generate contextual questions to help a user provide the right information for responding to an email. Always respond in valid JSON format.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 800,
+        temperature: 0.4,
+      });
+
+      const responseText = completion.choices[0].message.content;
+      console.log("✅ Questions contextuelles générées");
+
+      // Parser la réponse JSON
+      const questions = this.parseQuestionsResponse(responseText);
+      return questions;
+    } catch (error) {
+      console.error("❌ Erreur génération questions:", error.message);
+
+      // Questions par défaut en cas d'erreur
+      return [
+        {
+          question: "Avez-vous les informations demandées disponibles ?",
+          type: "radio",
+          options: ["Oui, immédiatement", "Oui, sous 24h", "Non, besoin de vérifier", "Non, refuser poliment"],
+          required: true,
+        },
+        {
+          question: "Délai de réponse préféré",
+          type: "radio",
+          options: ["Immédiat", "24 heures", "48 heures", "1 semaine"],
+          required: true,
+        },
+      ];
+    }
+  }
+
+  /**
+   * Construit le prompt pour générer des questions contextuelles
+   */
+  buildContextualQuestionsPrompt(subject, content, sender, analysis) {
+    return `Analyze this email and generate 3-5 contextual questions to help the recipient respond appropriately.
+
+**Email Details:**
+- From: ${sender?.email || sender?.name || "Unknown"}
+- Subject: ${subject || "No subject"}
+- Content: ${content?.substring(0, 600) || "No content"}
+
+**AI Analysis:**
+- Summary: ${analysis.summary}
+- Urgency: ${analysis.urgency}
+- Sentiment: ${analysis.sentiment}
+
+**Instructions:**
+Generate questions that will help the user provide context for an AI-generated response. Questions should be:
+1. Specific to THIS email content (not generic)
+2. Actionable (help determine what to include in the response)
+3. Clear and concise
+
+**Response Format (JSON only):**
+{
+  "questions": [
+    {
+      "question": "Question text here?",
+      "type": "radio",
+      "options": ["Option 1", "Option 2", "Option 3"],
+      "required": true
+    },
+    {
+      "question": "Another question?",
+      "type": "checkbox",
+      "options": ["Choice A", "Choice B"],
+      "required": false
+    }
+  ]
+}
+
+**Question Types:**
+- "radio": Single choice (use for mutually exclusive options)
+- "checkbox": Multiple choices (use when multiple apply)
+- "text": Free text input (use sparingly)
+- "select": Dropdown (use for many options)
+
+Generate ONLY the JSON object, no additional text.`;
+  }
+
+  /**
+   * Parse la réponse des questions contextuelles
+   */
+  parseQuestionsResponse(responseText) {
+    try {
+      const parsed = JSON.parse(responseText);
+      return parsed.questions || [];
+    } catch (e) {
+      // Essayer d'extraire le JSON du texte
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return parsed.questions || [];
+        } catch (e2) {
+          console.warn("⚠️ Impossible de parser les questions de Grok");
+        }
+      }
+
+      // Fallback: questions par défaut
+      return [
+        {
+          question: "Comment souhaitez-vous traiter cette demande ?",
+          type: "radio",
+          options: ["Accepter", "Refuser poliment", "Demander plus d'informations"],
+          required: true,
+        },
+      ];
+    }
   }
 
   /**

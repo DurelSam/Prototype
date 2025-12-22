@@ -10,6 +10,12 @@ const {
   assignUser, // <--- NOUVEAU
   triggerAiAnalysis, // <--- NOUVEAU
   replyToCommunication, // <--- NOUVEAU
+  getAwaitingInputEmails, // <--- RÉPONSES ASSISTÉES
+  getAutoCandidates, // <--- RÉPONSES AUTO (NOUVEAU)
+  getAutoCandidateIds, // <--- IDS des candidats auto
+  generateSuggestionForEmail, // <--- RÉGÉNÉRATION SUGGESTION
+  generateQuestionsForEmail, // <--- RÉPONSES ASSISTÉES
+  submitQuestionnaireAndReply, // <--- RÉPONSES ASSISTÉES
 } = require("../controllers/communicationController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -24,6 +30,24 @@ const { protect } = require("../middleware/authMiddleware");
  * ⚠️ IMPORTANT : Doit rester AVANT la route /:id
  */
 router.get("/stats", protect, getStats);
+
+/**
+ * @route   GET /api/communications/auto-candidates
+ * @desc    Récupère les emails éligibles aux Réponses Auto (Low/Medium, suggestion IA, non répondu)
+ * @access  Private
+ * @query   search, priority, dateRange, page, limit
+ * ⚠️ IMPORTANT : Doit rester AVANT la route /:id
+ */
+router.get("/auto-candidates", protect, getAutoCandidates);
+router.get("/auto-candidates/ids", protect, getAutoCandidateIds);
+
+/**
+ * @route   GET /api/communications/awaiting-input
+ * @desc    Récupère les emails en attente de réponse utilisateur (awaitingUserInput: true)
+ * @access  Private
+ * ⚠️ IMPORTANT : Doit rester AVANT la route /:id
+ */
+router.get("/awaiting-input", protect, getAwaitingInputEmails);
 
 /**
  * @route   GET /api/communications
@@ -70,6 +94,13 @@ router.patch("/:id/assign", protect, assignUser);
 router.post("/:id/analyze", protect, triggerAiAnalysis);
 
 /**
+ * @route   POST /api/communications/:id/generate-suggestion
+ * @desc    IA: Régénérer la suggestion de réponse (suggestedResponse)
+ * @access  Private
+ */
+router.post("/:id/generate-suggestion", protect, generateSuggestionForEmail);
+
+/**
  * @route   POST /api/communications/:id/reply
  * @desc    Répondre manuellement à un email High/Critical
  * @access  Private
@@ -83,5 +114,24 @@ router.post("/:id/reply", protect, replyToCommunication);
  * @access  Private
  */
 router.post("/:id/notes", protect, addNote);
+
+// ============================================
+// RÉPONSES ASSISTÉES (QUESTIONNAIRE IA)
+// ============================================
+
+/**
+ * @route   POST /api/communications/:id/generate-questions
+ * @desc    Génère des questions contextuelles IA pour un email spécifique
+ * @access  Private
+ */
+router.post("/:id/generate-questions", protect, generateQuestionsForEmail);
+
+/**
+ * @route   POST /api/communications/:id/submit-questionnaire
+ * @desc    Soumet les réponses de l'utilisateur → Génère réponse IA → Envoie l'email
+ * @access  Private
+ * @body    { userAnswers: {...} }
+ */
+router.post("/:id/submit-questionnaire", protect, submitQuestionnaireAndReply);
 
 module.exports = router;

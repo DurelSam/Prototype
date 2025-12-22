@@ -651,12 +651,13 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
         // Réponse automatique UNIQUEMENT si:
         // 1. Urgence Low/Medium (pas High/Critical)
         // 2. L'IA détermine qu'une réponse est attendue (requiresResponse === true)
+        // 3. L'utilisateur a activé les réponses automatiques (autoResponseEnabled === true)
         const shouldAutoRespond =
           (analysis.urgency === 'Low' || analysis.urgency === 'Medium') &&
           analysis.requiresResponse === true;
 
         if (shouldAutoRespond) {
-          console.log(`🤖 [${communicationId}] Urgence ${analysis.urgency} + requiresResponse=true - génération réponse automatique...`);
+          console.log(`🤖 [${communicationId}] Urgence ${analysis.urgency} + requiresResponse=true - vérification paramètres utilisateur...`);
           console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
 
           try {
@@ -668,35 +669,58 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
               return;
             }
 
-            // Générer la réponse automatique avec Grok
-            const autoResponseContent = await grokService.generateAutoResponse(
+            const noReply = !!(updated.sender?.email && /noreply|no-reply|do-not-reply/i.test(updated.sender.email));
+            await Communication.findByIdAndUpdate(communicationId, {
+              autoActivation: noReply ? 'never' : (user.autoResponseEnabled ? 'auto' : 'assisted'),
+            });
+
+            // Générer la réponse automatique avec Grok (pour envoi ou brouillon)
+            const generatedResponse = await grokService.generateAutoResponse(
               updated,
               analysis,
               user
             );
 
+            // Vérifier si l'utilisateur a activé les réponses automatiques
+            if (!user.autoResponseEnabled) {
+              console.log(`⏭️  [${communicationId}] Réponse automatique désactivée - SAUVEGARDE EN BROUILLON`);
+              
+              // Sauvegarder comme suggestion (brouillon)
+              await Communication.findByIdAndUpdate(communicationId, {
+                'ai_analysis.suggestedResponse': generatedResponse,
+                awaitingUserInput: true // Faire apparaître dans l'onglet Réponses Auto
+              });
+              
+              return;
+            }
+
+            console.log(`✅ [${communicationId}] autoResponseEnabled=true - génération de la réponse...`);
+
             // Envoyer la réponse par email
             const sendResult = await exports.sendEmail(user._id, {
               to: updated.sender.email,
               subject: `Re: ${updated.subject}`,
-              text: autoResponseContent,
-              html: autoResponseContent.replace(/\n/g, '<br>'),
+              text: generatedResponse,
+              html: generatedResponse.replace(/\n/g, '<br>'),
               inReplyTo: updated.externalId,
               references: updated.externalId,
             });
 
-            if (sendResult.success) {
-              // Mettre à jour la communication avec les infos de réponse auto
-              await Communication.findByIdAndUpdate(communicationId, {
-                hasAutoResponse: true,
-                autoResponseSentAt: new Date(),
-                autoResponseContent,
-                status: 'Validated', // Marquer comme validé car répondu automatiquement
-              });
+          if (sendResult.success) {
+            // Mettre à jour la communication avec les infos de réponse auto
+            await Communication.findByIdAndUpdate(communicationId, {
+              hasAutoResponse: true,
+              autoResponseSentAt: new Date(),
+              autoResponseContent: generatedResponse,
+              status: 'Validated', // Marquer comme validé car répondu automatiquement
+              hasBeenReplied: true,
+              repliedAt: new Date(),
+              repliedBy: user._id,
+            });
 
-              console.log(`✅ [${communicationId}] Réponse automatique envoyée avec succès`);
-            } else {
-              console.error(`❌ [${communicationId}] Échec envoi réponse auto:`, sendResult.message);
+            console.log(`✅ [${communicationId}] Réponse automatique envoyée avec succès`);
+          } else {
+            console.error(`❌ [${communicationId}] Échec envoi réponse auto:`, sendResult.message);
             }
           } catch (autoResponseError) {
             console.error(`❌ [${communicationId}] Erreur réponse automatique:`, autoResponseError.message);
@@ -704,10 +728,31 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
           }
         } else {
           if (analysis.urgency === 'High' || analysis.urgency === 'Critical') {
-            console.log(`⏭️  [${communicationId}] Urgence ${analysis.urgency} - pas de réponse automatique (manuel requis)`);
+            console.log(`⏭️  [${communicationId}] Urgence ${analysis.urgency} - SAUVEGARDE EN BROUILLON`);
+            
+            try {
+              const user = await User.findById(updated.userId);
+              if (user && analysis.requiresResponse) {
+                // Générer un brouillon même pour les urgences élevées
+                const draftResponse = await grokService.generateAutoResponse(
+                  updated,
+                  analysis,
+                  user
+                );
+                
+                await Communication.findByIdAndUpdate(communicationId, {
+                  'ai_analysis.suggestedResponse': draftResponse,
+                  awaitingUserInput: false // Ne pas mettre dans "awaitingUserInput" car c'est urgent (onglet "À Répondre")
+                });
+              }
+            } catch (err) {
+              console.error('Erreur génération brouillon High/Critical:', err);
+            }
+            await Communication.findByIdAndUpdate(communicationId, { autoActivation: 'never' });
           } else if (!analysis.requiresResponse) {
             console.log(`⏭️  [${communicationId}] requiresResponse=false - pas de réponse automatique`);
             console.log(`📝 [${communicationId}] Raison: ${analysis.responseReason}`);
+            await Communication.findByIdAndUpdate(communicationId, { autoActivation: 'never' });
           }
         }
       } else {
