@@ -992,6 +992,11 @@ const AssistedResponseTab = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  // Wizard States
+  const [wizardStep, setWizardStep] = useState('questions'); // 'questions' | 'preview'
+  const [generatedDraft, setGeneratedDraft] = useState('');
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
+
   useEffect(() => {
     fetchAwaitingEmails();
   }, [searchTerm, filterPriority, filterDateRange, currentPage, itemsPerPage]);
@@ -1046,10 +1051,24 @@ const AssistedResponseTab = () => {
       );
 
       if (response.data.success) {
-        setSelectedEmail(email);
+        // Mettre à jour l'état local pour inclure les questions générées
+        setAwaitingEmails((prevEmails) =>
+          prevEmails.map((e) =>
+            e._id === email._id
+              ? { ...e, aiGeneratedQuestions: response.data.data.questions }
+              : e
+          )
+        );
+
+        // Mettre à jour l'email sélectionné avec les questions (important pour le modal)
+        const updatedEmail = { ...email, aiGeneratedQuestions: response.data.data.questions };
+        setSelectedEmail(updatedEmail);
+        
         setQuestionnaireData(response.data.data);
         setShowQuestionnaireModal(true);
         setUserAnswers({});
+        setWizardStep('questions');
+        setGeneratedDraft('');
       }
     } catch (error) {
       console.error('Erreur génération questions:', error);
@@ -1067,7 +1086,7 @@ const AssistedResponseTab = () => {
     }));
   };
 
-  const handleSubmitQuestionnaire = async () => {
+  const handleGenerateDraft = async () => {
     // Vérifier que toutes les questions requises ont une réponse
     const requiredQuestions = questionnaireData?.questions?.filter((q) => q.required) || [];
     const missingAnswers = requiredQuestions.filter((q) => !userAnswers[q.question]);
@@ -1078,25 +1097,55 @@ const AssistedResponseTab = () => {
       return;
     }
 
-    // Confirmation avant envoi
-    const confirmSend = window.confirm('Êtes-vous sûr de vouloir générer et envoyer cette réponse ?');
-    if (!confirmSend) return;
-
     try {
-      setSubmitting(true);
+      setIsGeneratingDraft(true);
       const response = await axios.post(
-        `${API_URL}/communications/${selectedEmail._id}/submit-questionnaire`,
+        `${API_URL}/communications/${selectedEmail._id}/preview-reply`,
         { userAnswers },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.success) {
-        setToast({ show: true, message: 'Réponse générée et envoyée avec succès !', type: 'success' });
+        setGeneratedDraft(response.data.data.draft);
+        setWizardStep('preview');
+      }
+    } catch (error) {
+      console.error('Erreur génération brouillon:', error);
+      setToast({ show: true, message: `Erreur: ${error.response?.data?.message || error.message}`, type: 'error' });
+      setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+    } finally {
+      setIsGeneratingDraft(false);
+    }
+  };
+
+  const handleSubmitQuestionnaire = async () => {
+    // Confirmation avant envoi
+    const confirmSend = window.confirm('Êtes-vous sûr de vouloir envoyer cette réponse ?');
+    if (!confirmSend) return;
+
+    try {
+      setSubmitting(true);
+      // On envoie le brouillon final ET les réponses pour l'historique
+      const payload = {
+        userAnswers,
+        finalDraft: generatedDraft 
+      };
+
+      const response = await axios.post(
+        `${API_URL}/communications/${selectedEmail._id}/submit-questionnaire`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        setToast({ show: true, message: 'Réponse envoyée avec succès !', type: 'success' });
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
         setShowQuestionnaireModal(false);
         setSelectedEmail(null);
         setQuestionnaireData(null);
         setUserAnswers({});
+        setGeneratedDraft('');
+        setWizardStep('questions');
         fetchAwaitingEmails(); // Recharger la liste
       }
     } catch (error) {
@@ -1203,8 +1252,6 @@ const AssistedResponseTab = () => {
               className="filter-select"
             >
               <option value="All">Toute priorité</option>
-              <option value="Critical">Critical</option>
-              <option value="High">High</option>
               <option value="Medium">Medium</option>
               <option value="Low">Low</option>
             </select>
@@ -1296,6 +1343,8 @@ const AssistedResponseTab = () => {
                           setQuestionnaireData({ questions: email.aiGeneratedQuestions });
                           setShowQuestionnaireModal(true);
                           setUserAnswers({});
+                          setWizardStep('questions'); // Reset step
+                          setGeneratedDraft(''); // Reset draft
                         } else {
                           handleGenerateQuestions(email);
                         }
@@ -1324,22 +1373,27 @@ const AssistedResponseTab = () => {
         </>
       )}
 
-      {/* Modal Questionnaire */}
+      {/* Modal Questionnaire (Wizard) */}
       {showQuestionnaireModal && questionnaireData && (
         <div className="questionnaire-modal" onClick={() => setShowQuestionnaireModal(false)}>
           <div className="questionnaire-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="questionnaire-modal-header">
               <div>
                 <h3>
-                  <FontAwesomeIcon icon={faRobot} /> Questions Contextuelles
+                  <FontAwesomeIcon icon={faRobot} />{' '}
+                  {wizardStep === 'questions' ? 'Questions Contextuelles' : 'Prévisualisation de la Réponse'}
                 </h3>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${((userAnswers ? Object.keys(userAnswers).length : 0) / questionnaireData.questions.length) * 100}%` }}
-                  />
-                </div>
-                <span className="progress-text">{Object.keys(userAnswers).length} / {questionnaireData.questions.length} répondues</span>
+                {wizardStep === 'questions' && (
+                  <>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill"
+                        style={{ width: `${((userAnswers ? Object.keys(userAnswers).length : 0) / questionnaireData.questions.length) * 100}%` }}
+                      />
+                    </div>
+                    <span className="progress-text">{Object.keys(userAnswers).length} / {questionnaireData.questions.length} répondues</span>
+                  </>
+                )}
               </div>
               <button className="close-modal-btn" onClick={() => setShowQuestionnaireModal(false)}>
                 <FontAwesomeIcon icon={faTimes} />
@@ -1356,106 +1410,155 @@ const AssistedResponseTab = () => {
             </div>
 
             <div className="questionnaire-body">
-              {questionnaireData.questions.map((question, index) => (
-                <div key={index} className="question-block">
-                  <div className="question-label-wrapper">
-                    <label className="question-label">
-                      {question.question}
-                      {question.required && <span className="required-asterisk"> *</span>}
-                    </label>
-                    {question.hint && (
-                      <span className="hint-icon" title={question.hint}>ⓘ</span>
+              {wizardStep === 'questions' ? (
+                // ÉTAPE 1: QUESTIONS
+                questionnaireData.questions.map((question, index) => (
+                  <div key={index} className="question-block">
+                    <div className="question-label-wrapper">
+                      <label className="question-label">
+                        {question.question}
+                        {question.required && <span className="required-asterisk"> *</span>}
+                      </label>
+                      {question.hint && (
+                        <span className="hint-icon" title={question.hint}>ⓘ</span>
+                      )}
+                    </div>
+
+                    {question.type === 'radio' && (
+                      <div className="radio-group">
+                        {question.options.map((option, optIndex) => (
+                          <label key={optIndex} className="radio-option">
+                            <input
+                              type="radio"
+                              name={`question-${index}`}
+                              value={option}
+                              checked={userAnswers[question.question] === option}
+                              onChange={(e) => handleAnswerQuestion(question.question, e.target.value)}
+                            />
+                            <span>{option}</span>
+                          </label>
+                        ))}
+                      </div>
                     )}
-                  </div>
 
-                  {question.type === 'radio' && (
-                    <div className="radio-group">
-                      {question.options.map((option, optIndex) => (
-                        <label key={optIndex} className="radio-option">
-                          <input
-                            type="radio"
-                            name={`question-${index}`}
-                            value={option}
-                            checked={userAnswers[question.question] === option}
-                            onChange={(e) => handleAnswerQuestion(question.question, e.target.value)}
-                          />
-                          <span>{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-
-                  {question.type === 'checkbox' && (
-                    <div className="checkbox-group">
-                      {question.options.map((option, optIndex) => (
-                        <label key={optIndex} className="checkbox-option">
-                          <input
-                            type="checkbox"
-                            value={option}
-                            checked={
-                              Array.isArray(userAnswers[question.question]) &&
-                              userAnswers[question.question].includes(option)
-                            }
-                            onChange={(e) => {
-                              const currentAnswers = userAnswers[question.question] || [];
-                              if (e.target.checked) {
-                                handleAnswerQuestion(question.question, [...currentAnswers, option]);
-                              } else {
-                                handleAnswerQuestion(
-                                  question.question,
-                                  currentAnswers.filter((a) => a !== option)
-                                );
+                    {question.type === 'checkbox' && (
+                      <div className="checkbox-group">
+                        {question.options.map((option, optIndex) => (
+                          <label key={optIndex} className="checkbox-option">
+                            <input
+                              type="checkbox"
+                              value={option}
+                              checked={
+                                Array.isArray(userAnswers[question.question]) &&
+                                userAnswers[question.question].includes(option)
                               }
-                            }}
-                          />
-                          <span>{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                              onChange={(e) => {
+                                const currentAnswers = userAnswers[question.question] || [];
+                                if (e.target.checked) {
+                                  handleAnswerQuestion(question.question, [...currentAnswers, option]);
+                                } else {
+                                  handleAnswerQuestion(
+                                    question.question,
+                                    currentAnswers.filter((a) => a !== option)
+                                  );
+                                }
+                              }}
+                            />
+                            <span>{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
 
-                  {question.type === 'text' && (
-                    <>
-                      <textarea
-                        className="text-input"
-                        rows="3"
+                    {question.type === 'text' && (
+                      <>
+                        <textarea
+                          className="text-input"
+                          rows="3"
+                          value={userAnswers[question.question] || ''}
+                          onChange={(e) => handleAnswerQuestion(question.question, e.target.value)}
+                          placeholder="Votre réponse..."
+                        />
+                        {question.hint && <p className="question-hint">{question.hint}</p>}
+                      </>
+                    )}
+
+                    {question.type === 'select' && (
+                      <select
+                        className="select-input"
                         value={userAnswers[question.question] || ''}
                         onChange={(e) => handleAnswerQuestion(question.question, e.target.value)}
-                        placeholder="Votre réponse..."
-                      />
-                      {question.hint && <p className="question-hint">{question.hint}</p>}
-                    </>
-                  )}
-
-                  {question.type === 'select' && (
-                    <select
-                      className="select-input"
-                      value={userAnswers[question.question] || ''}
-                      onChange={(e) => handleAnswerQuestion(question.question, e.target.value)}
-                    >
-                      <option value="">-- Sélectionner --</option>
-                      {question.options.map((option, optIndex) => (
-                        <option key={optIndex} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                      >
+                        <option value="">-- Sélectionner --</option>
+                        {question.options.map((option, optIndex) => (
+                          <option key={optIndex} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ))
+              ) : (
+                // ÉTAPE 2: PREVIEW
+                <div className="reply-compose">
+                  <label className="question-label">Brouillon généré par l'IA (modifiable)</label>
+                  <textarea
+                    value={generatedDraft}
+                    onChange={(e) => setGeneratedDraft(e.target.value)}
+                    rows={12}
+                    className="text-input"
+                  />
                 </div>
-              ))}
+              )}
             </div>
 
             <div className="questionnaire-footer">
-              <button className="btn-cancel" onClick={() => setShowQuestionnaireModal(false)}>
-                Annuler
-              </button>
-              <button
-                className="btn-submit-questionnaire"
-                onClick={handleSubmitQuestionnaire}
-                disabled={submitting}
-              >
-                {submitting ? 'Envoi en cours...' : 'Générer et Envoyer la Réponse'}
-              </button>
+              {wizardStep === 'questions' ? (
+                <>
+                  <button className="btn-cancel" onClick={() => setShowQuestionnaireModal(false)}>
+                    Annuler
+                  </button>
+                  <button
+                    className="btn-submit-questionnaire"
+                    onClick={handleGenerateDraft}
+                    disabled={isGeneratingDraft}
+                  >
+                    {isGeneratingDraft ? (
+                      <>
+                        <span className="spinner-small" style={{ marginRight: '8px' }}></span>
+                        Génération...
+                      </>
+                    ) : (
+                      'Générer la proposition'
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn-cancel" onClick={() => setWizardStep('questions')}>
+                    ← Modifier les réponses
+                  </button>
+                  <button
+                    className="btn-submit-questionnaire"
+                    onClick={handleSubmitQuestionnaire}
+                    disabled={submitting}
+                    style={{ background: '#10b981' }} // Vert pour l'envoi
+                  >
+                    {submitting ? (
+                      <>
+                        <span className="spinner-small" style={{ marginRight: '8px' }}></span>
+                        Envoi...
+                      </>
+                    ) : (
+                      <>
+                        <FontAwesomeIcon icon={faPaperPlane} style={{ marginRight: '8px' }} />
+                        Envoyer l'email
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

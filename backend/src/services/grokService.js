@@ -388,7 +388,7 @@ Generate ONLY the email body text, no additional formatting or explanations.`;
    * Construit le prompt pour générer des questions contextuelles
    */
   buildContextualQuestionsPrompt(subject, content, sender, analysis) {
-    return `Analyze this email and generate 3-5 contextual questions to help the recipient respond appropriately.
+    return `Analyze this email and generate a MAXIMUM of 3 contextual questions to help the recipient respond appropriately.
 
 **Email Details:**
 - From: ${sender?.email || sender?.name || "Unknown"}
@@ -401,10 +401,11 @@ Generate ONLY the email body text, no additional formatting or explanations.`;
 - Sentiment: ${analysis.sentiment}
 
 **Instructions:**
-Generate questions that will help the user provide context for an AI-generated response. Questions should be:
-1. Specific to THIS email content (not generic)
-2. Actionable (help determine what to include in the response)
-3. Clear and concise
+1. Identify the missing information needed to write a complete reply.
+2. Generate specific questions to ask the user (e.g., "What is your availability?", "What price to quote?").
+3. LIMIT to a MAXIMUM of 3 questions. Fewer is better if enough.
+4. Use appropriate input types (radio/checkbox/text).
+5. Ensure questions are in the SAME LANGUAGE as the email.
 
 **Response Format (JSON only):**
 {
@@ -414,12 +415,6 @@ Generate questions that will help the user provide context for an AI-generated r
       "type": "radio",
       "options": ["Option 1", "Option 2", "Option 3"],
       "required": true
-    },
-    {
-      "question": "Another question?",
-      "type": "checkbox",
-      "options": ["Choice A", "Choice B"],
-      "required": false
     }
   ]
 }
@@ -427,8 +422,7 @@ Generate questions that will help the user provide context for an AI-generated r
 **Question Types:**
 - "radio": Single choice (use for mutually exclusive options)
 - "checkbox": Multiple choices (use when multiple apply)
-- "text": Free text input (use sparingly)
-- "select": Dropdown (use for many options)
+- "text": Free text input (use for specific values like dates, prices)
 
 Generate ONLY the JSON object, no additional text.`;
   }
@@ -462,6 +456,75 @@ Generate ONLY the JSON object, no additional text.`;
         },
       ];
     }
+  }
+
+  /**
+   * Génère un brouillon de réponse basé sur les réponses de l'utilisateur
+   * @param {Object} communication - Email original
+   * @param {Object} userAnswers - Réponses de l'utilisateur
+   * @param {Object} user - Utilisateur
+   */
+  async generateDraftFromQuestions(communication, userAnswers, user) {
+    console.log("🤖 Génération de brouillon (Preview) pour:", communication.subject);
+
+    try {
+      const prompt = this.buildDraftFromQuestionsPrompt(
+        communication,
+        userAnswers,
+        user
+      );
+
+      const completion = await this.client.chat.completions.create({
+        model: this.model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a professional email assistant. Draft a polite, complete response based on the original email and the user's instructions. Write in the SAME LANGUAGE as the original email.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 600,
+        temperature: 0.7,
+      });
+
+      return completion.choices[0].message.content.trim();
+    } catch (error) {
+      console.error("❌ Erreur génération brouillon:", error.message);
+      throw error;
+    }
+  }
+
+  buildDraftFromQuestionsPrompt(communication, userAnswers, user) {
+    // Convertir les réponses en texte lisible
+    const answersText = Object.entries(userAnswers)
+      .map(([question, answer]) => `- Q: ${question}\n  A: ${Array.isArray(answer) ? answer.join(", ") : answer}`)
+      .join("\n");
+
+    return `Draft a professional email response.
+
+**Original Email:**
+- Subject: ${communication.subject}
+- Content: ${communication.content?.substring(0, 500)}
+- From: ${communication.sender?.name || communication.sender?.email}
+
+**User Instructions (Context provided by user):**
+${answersText}
+
+**Sender Info (Sign as):**
+- Name: ${user.firstName} ${user.lastName}
+- Role: ${user.role}
+
+**Instructions:**
+1. Write a complete, polite response incorporating the user's instructions.
+2. If the user provided specific dates, prices, or decisions, include them clearly.
+3. Sign off with the user's name.
+4. Write in the SAME LANGUAGE as the original email.
+
+Generate ONLY the email body text.`;
   }
 
   /**

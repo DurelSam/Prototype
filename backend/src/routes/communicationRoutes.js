@@ -15,6 +15,7 @@ const {
   getAutoCandidateIds, // <--- IDS des candidats auto
   generateSuggestionForEmail, // <--- RÉGÉNÉRATION SUGGESTION
   generateQuestionsForEmail, // <--- RÉPONSES ASSISTÉES
+  previewDraftFromAnswers, // <--- RÉPONSES ASSISTÉES (PREVIEW)
   submitQuestionnaireAndReply, // <--- RÉPONSES ASSISTÉES
 } = require("../controllers/communicationController");
 const { protect } = require("../middleware/authMiddleware");
@@ -125,6 +126,13 @@ router.post("/:id/notes", protect, addNote);
  * @access  Private
  */
 router.post("/:id/generate-questions", protect, generateQuestionsForEmail);
+
+/**
+ * @route   POST /api/communications/:id/preview-reply
+ * @desc    Génère un brouillon de réponse basé sur les réponses du questionnaire (Preview)
+ * @access  Private
+ */
+router.post("/:id/preview-reply", protect, previewDraftFromAnswers);
 
 /**
  * @route   POST /api/communications/:id/submit-questionnaire

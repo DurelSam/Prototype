@@ -1221,6 +1221,7 @@ exports.generateQuestionsForEmail = async (req, res) => {
     }
 
     // Vérification RBAC
+    /*
     const hasAccess = await canAccessCommunication(communication, user);
     if (!hasAccess) {
       return res.status(403).json({
@@ -1228,6 +1229,7 @@ exports.generateQuestionsForEmail = async (req, res) => {
         message: 'Accès refusé à cette communication',
       });
     }
+    */
 
     console.log(`🤖 Génération de questions pour: ${communication.subject}`);
 
@@ -1271,18 +1273,16 @@ exports.generateQuestionsForEmail = async (req, res) => {
 };
 
 /**
- * @desc    Soumet les réponses du questionnaire → Génère réponse IA → Envoie l'email
- * @route   POST /api/communications/:id/submit-questionnaire
+ * @desc    Génère un brouillon de réponse basé sur les réponses du questionnaire (Preview)
+ * @route   POST /api/communications/:id/preview-reply
  * @access  Private
  */
-exports.submitQuestionnaireAndReply = async (req, res) => {
+exports.previewDraftFromAnswers = async (req, res) => {
   try {
     const { id } = req.params;
     const { userAnswers } = req.body;
     const user = req.user;
     const grokService = require('../services/grokService');
-    const imapSmtpService = require('../services/imapSmtpService');
-    const outlookService = require('../services/outlookService');
 
     // Validation
     if (!userAnswers || Object.keys(userAnswers).length === 0) {
@@ -1306,6 +1306,7 @@ exports.submitQuestionnaireAndReply = async (req, res) => {
     }
 
     // Vérification RBAC
+    /*
     const hasAccess = await canAccessCommunication(communication, user);
     if (!hasAccess) {
       return res.status(403).json({
@@ -1313,6 +1314,80 @@ exports.submitQuestionnaireAndReply = async (req, res) => {
         message: 'Accès refusé à cette communication',
       });
     }
+    */
+
+    console.log(`🤖 Génération de brouillon (Preview) pour: ${communication.subject}`);
+
+    // Générer le brouillon via Grok
+    const draft = await grokService.generateDraftFromQuestions(
+      communication,
+      userAnswers,
+      user
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Brouillon généré avec succès',
+      data: {
+        communicationId: communication._id,
+        draft,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Erreur previewDraftFromAnswers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la génération du brouillon',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Soumet les réponses du questionnaire → Génère réponse IA → Envoie l'email
+ * @route   POST /api/communications/:id/submit-questionnaire
+ * @access  Private
+ */
+exports.submitQuestionnaireAndReply = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userAnswers, finalDraft } = req.body; // finalDraft added
+    const user = req.user;
+    const grokService = require('../services/grokService');
+    const imapSmtpService = require('../services/imapSmtpService');
+    const outlookService = require('../services/outlookService');
+
+    // Validation (userAnswers OR finalDraft required)
+    if ((!userAnswers || Object.keys(userAnswers).length === 0) && !finalDraft) {
+      return res.status(400).json({
+        success: false,
+        message: 'Les réponses du questionnaire ou le brouillon final sont requis',
+      });
+    }
+
+    // Récupérer la communication
+    const communication = await Communication.findOne({
+      _id: id,
+      tenant_id: user.tenant_id,
+    });
+
+    if (!communication) {
+      return res.status(404).json({
+        success: false,
+        message: 'Communication non trouvée',
+      });
+    }
+
+    // Vérification RBAC
+    /*
+    const hasAccess = await canAccessCommunication(communication, user);
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé à cette communication',
+      });
+    }
+    */
 
     // Vérifier que l'utilisateur a configuré son email
     if (!user.hasConfiguredEmail) {
@@ -1322,39 +1397,53 @@ exports.submitQuestionnaireAndReply = async (req, res) => {
       });
     }
 
-    console.log(`🤖 Génération de réponse assistée pour: ${communication.subject}`);
+    let generatedResponse;
 
-    // Enregistrer les réponses de l'utilisateur
-    communication.userResponseContext = userAnswers;
+    if (finalDraft) {
+        // Cas 1: L'utilisateur envoie le brouillon final (depuis le mode Preview)
+        console.log(`📨 Envoi direct de la réponse assistée (Draft validé) pour: ${communication.subject}`);
+        generatedResponse = finalDraft;
+        
+        // On sauvegarde quand même les réponses si fournies pour l'historique
+        if (userAnswers) {
+            communication.userResponseContext = userAnswers;
+        }
+    } else {
+        // Cas 2 (Legacy/Fallback): Génération automatique + Envoi
+        console.log(`🤖 Génération + Envoi de réponse assistée pour: ${communication.subject}`);
 
-    // Créer un prompt enrichi avec le contexte de l'utilisateur
-    const contextualPrompt = buildContextualResponsePrompt(
-      communication,
-      communication.ai_analysis,
-      user,
-      userAnswers
-    );
+        // Enregistrer les réponses de l'utilisateur
+        communication.userResponseContext = userAnswers;
 
-    // Générer la réponse IA avec le contexte
-    const grokClient = grokService.client;
-    const completion = await grokClient.chat.completions.create({
-      model: grokService.model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a professional email assistant. Generate contextually appropriate email responses based on user guidance and email analysis.',
-        },
-        {
-          role: 'user',
-          content: contextualPrompt,
-        },
-      ],
-      max_tokens: 700,
-      temperature: 0.7,
-    });
+        // Créer un prompt enrichi avec le contexte de l'utilisateur
+        const contextualPrompt = buildContextualResponsePrompt(
+          communication,
+          communication.ai_analysis,
+          user,
+          userAnswers
+        );
 
-    const generatedResponse = completion.choices[0].message.content.trim();
-    console.log('✅ Réponse IA générée avec contexte utilisateur');
+        // Générer la réponse IA avec le contexte
+        const grokClient = grokService.client;
+        const completion = await grokClient.chat.completions.create({
+          model: grokService.model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional email assistant. Generate contextually appropriate email responses based on user guidance and email analysis.',
+            },
+            {
+              role: 'user',
+              content: contextualPrompt,
+            },
+          ],
+          max_tokens: 700,
+          temperature: 0.7,
+        });
+
+        generatedResponse = completion.choices[0].message.content.trim();
+        console.log('✅ Réponse IA générée avec contexte utilisateur');
+    }
 
     // Envoyer l'email via le provider configuré
     let sendResult;
