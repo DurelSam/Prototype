@@ -1,8 +1,8 @@
 /**
  * SLA Monitoring & Escalation Service
  *
- * Surveille les communications High/Critical non répondues après 24h
- * et les escalade automatiquement selon la hiérarchie:
+ * Surveille les communications High/Critical non répondues après un délai
+ * et les escalade automatiquement selon la hiérarchie (Transfert de propriété):
  * - Employee -> Admin
  * - Admin -> UpperAdmin
  */
@@ -16,6 +16,7 @@ let cronJob = null;
 
 /**
  * Escalader une communication Employee vers son Admin
+ * (Transfert de propriété, Statut inchangé)
  */
 async function escalateEmployeeToAdmin(communication) {
   try {
@@ -35,8 +36,11 @@ async function escalateEmployeeToAdmin(communication) {
       return;
     }
 
-    // Marquer comme escaladée
-    communication.status = 'Escalated';
+    // Marquer comme escaladée et transférer
+    communication.isEscalated = true;
+    communication.userId = admin._id; // TRANSFERT AU MANAGER
+    
+    // On garde le statut original (ex: 'To Validate') pour qu'il apparaisse dans la liste "À Répondre" de l'Admin
 
     // Ajouter l'Admin dans visibleToAdmins s'il n'y est pas déjà
     if (!communication.visibleToAdmins.includes(admin._id)) {
@@ -50,15 +54,15 @@ async function escalateEmployeeToAdmin(communication) {
       tenant_id: communication.tenant_id,
       userId: admin._id,
       type: 'sla_breach',
-      title: 'Email escaladé - SLA dépassé',
-      message: `L'email "${communication.subject}" de ${employee.firstName} ${employee.lastName} a dépassé le délai de 24h et vous a été escaladé.`,
+      title: 'Email escaladé (Reçu)',
+      message: `L'email "${communication.subject}" de ${employee.firstName} ${employee.lastName} a dépassé le délai et vous a été transféré.`,
       relatedEntityType: 'Communication',
       relatedEntityId: communication._id,
       priority: communication.ai_analysis.urgency,
       isRead: false,
     });
 
-    console.log(`✅ Escalation Employee->Admin: ${communication.subject} -> ${admin.email}`);
+    console.log(`✅ Escalation (Transfert) Employee->Admin: ${communication.subject} -> ${admin.email}`);
   } catch (error) {
     console.error(`❌ Erreur escalation Employee->Admin:`, error);
   }
@@ -66,6 +70,7 @@ async function escalateEmployeeToAdmin(communication) {
 
 /**
  * Escalader une communication Admin vers UpperAdmin
+ * (Transfert de propriété, Statut inchangé)
  */
 async function escalateAdminToUpperAdmin(communication) {
   try {
@@ -80,11 +85,12 @@ async function escalateAdminToUpperAdmin(communication) {
       return;
     }
 
-    // Récupérer l'Admin propriétaire
+    // Récupérer l'Admin propriétaire actuel
     const admin = await User.findById(communication.userId);
 
-    // Marquer comme escaladée
-    communication.status = 'Escalated';
+    // Marquer comme escaladée et transférer
+    communication.isEscalated = true;
+    communication.userId = upperAdmin._id; // TRANSFERT AU MANAGER SUPÉRIEUR
 
     await communication.save();
 
@@ -93,15 +99,15 @@ async function escalateAdminToUpperAdmin(communication) {
       tenant_id: communication.tenant_id,
       userId: upperAdmin._id,
       type: 'sla_breach',
-      title: 'Email escaladé - SLA dépassé',
-      message: `L'email "${communication.subject}" de ${admin?.firstName || 'Admin'} ${admin?.lastName || ''} a dépassé le délai de 24h et vous a été escaladé.`,
+      title: 'Email escaladé (Reçu)',
+      message: `L'email "${communication.subject}" de ${admin?.firstName || 'Admin'} ${admin?.lastName || ''} a dépassé le délai et vous a été transféré.`,
       relatedEntityType: 'Communication',
       relatedEntityId: communication._id,
       priority: communication.ai_analysis.urgency,
       isRead: false,
     });
 
-    console.log(`✅ Escalation Admin->UpperAdmin: ${communication.subject} -> ${upperAdmin.email}`);
+    console.log(`✅ Escalation (Transfert) Admin->UpperAdmin: ${communication.subject} -> ${upperAdmin.email}`);
   } catch (error) {
     console.error(`❌ Erreur escalation Admin->UpperAdmin:`, error);
   }
@@ -113,18 +119,27 @@ async function escalateAdminToUpperAdmin(communication) {
 async function checkAndEscalate() {
   try {
     const now = new Date();
+    // Utiliser la variable d'environnement ou 5 minutes par défaut
+    const timeoutMinutes = parseInt(process.env.ESCALATION_TIMEOUT_MINUTES) || 5;
+    // Calculer la date limite : Maintenant - X minutes
+    const thresholdDate = new Date(now.getTime() - timeoutMinutes * 60000);
+
+    console.log(`🔍 Vérification SLA (Timeout: ${timeoutMinutes} min, Seuil: ${thresholdDate.toLocaleTimeString()})`);
 
     // Trouver toutes les communications High/Critical:
-    // - SLA dépassé (slaDueDate < maintenant)
+    // - Reçues AVANT la date limite (donc le délai est écoulé)
+    // - Pas encore répondues (hasBeenReplied: false)
     // - Pas encore fermées ou archivées
-    // - Pas encore escaladées
+    // - Pas encore escaladées (isEscalated: false)
     const breachedCommunications = await Communication.find({
       'ai_analysis.urgency': { $in: ['High', 'Critical'] },
-      slaDueDate: { $lt: now },
-      status: { $nin: ['Closed', 'Archived', 'Escalated'] },
+      receivedAt: { $lt: thresholdDate },
+      hasBeenReplied: false,
+      status: { $nin: ['Closed', 'Archived'] }, // On ne filtre plus 'Escalated' status
+      isEscalated: false, // On vérifie le flag
     }).populate('userId', 'role firstName lastName managedBy tenant_id');
 
-    console.log(`📊 ${breachedCommunications.length} communication(s) en dépassement SLA`);
+    console.log(`📊 ${breachedCommunications.length} communication(s) en dépassement SLA (> ${timeoutMinutes} min)`);
 
     for (const comm of breachedCommunications) {
       const owner = comm.userId;
@@ -140,25 +155,29 @@ async function checkAndEscalate() {
       } else if (owner.role === 'Admin') {
         await escalateAdminToUpperAdmin(comm);
       } else if (owner.role === 'UpperAdmin') {
-        // Créer une notification critique pour l'UpperAdmin
-        // (pas d'escalation possible au-dessus)
+        // UpperAdmin est le sommet de la hiérarchie.
+        // On ne peut pas transférer, mais on marque comme escaladé pour ne pas spammer.
+        // On envoie une notification critique.
+        
         await Notification.create({
           tenant_id: comm.tenant_id,
           userId: owner._id,
           type: 'sla_breach',
           title: 'SLA dépassé - Action urgente requise',
-          message: `Votre email "${comm.subject}" a dépassé le délai de 24h et nécessite une action urgente.`,
+          message: `Votre email "${comm.subject}" a dépassé le délai de ${timeoutMinutes} minutes et nécessite une action urgente.`,
           relatedEntityType: 'Communication',
           relatedEntityId: comm._id,
           priority: 'Critical',
           isRead: false,
         });
 
-        // Marquer comme escaladé même si pas de niveau supérieur
-        comm.status = 'Escalated';
+        // Marquer comme escaladé (flag) pour sortir de la boucle de vérification
+        comm.isEscalated = true;
+        // Optionnel : Changer le status pour marquer visuellement l'urgence absolue ?
+        // comm.status = 'Escalated'; 
         await comm.save();
 
-        console.log(`⚠️  UpperAdmin SLA breach (pas d'escalation): ${comm.subject}`);
+        console.log(`⚠️  UpperAdmin SLA breach (pas d'escalation possible): ${comm.subject}`);
       }
     }
   } catch (error) {
@@ -168,9 +187,9 @@ async function checkAndEscalate() {
 
 /**
  * Démarrer le monitoring SLA
- * @param {Number} intervalMinutes - Intervalle en minutes (défaut: 60 = 1h)
+ * @param {Number} intervalMinutes - Intervalle en minutes (défaut: 1 min pour test réactif)
  */
-exports.startSlaMonitoring = (intervalMinutes = 60) => {
+exports.startSlaMonitoring = (intervalMinutes = 1) => {
   // Si un cron job est déjà en cours, le stopper d'abord
   if (cronJob) {
     cronJob.stop();
@@ -182,9 +201,8 @@ exports.startSlaMonitoring = (intervalMinutes = 60) => {
   console.log(`🔄 Démarrage du monitoring SLA (toutes les ${intervalMinutes} minutes)`);
 
   cronJob = cron.schedule(cronExpression, async () => {
-    console.log('🔄 Cron SLA Monitoring - Démarrage...');
+    console.log('🔄 Cron SLA Monitoring - Vérification...');
     await checkAndEscalate();
-    console.log('✅ Cron SLA Monitoring - Terminé');
   });
 
   console.log('✅ Cron SLA Monitoring activé');

@@ -746,7 +746,7 @@ exports.getUserStats = async (req, res) => {
       stats = {
         totalAdmins,
         totalEmployees,
-        totalUsers: totalAdmins + totalEmployees,
+        totalUsers: totalAdmins + totalEmployees + 1,
         totalCommunications,
       };
     } else if (req.user.role === 'Admin') {
@@ -800,17 +800,17 @@ exports.getAutoResponseSettings = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Erreur getAutoResponseSettings:', error);
+    console.error('Error getAutoResponseSettings:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la récupération des paramètres',
+      message: 'Error retrieving settings',
       error: error.message,
     });
   }
 };
 
 /**
- * @desc    Mettre à jour les paramètres de réponse automatique
+ * @desc    Update auto-response settings
  * @route   PUT /api/users/me/auto-response-settings
  * @access  Private
  */
@@ -822,19 +822,19 @@ exports.updateAutoResponseSettings = async (req, res) => {
     if (typeof autoResponseEnabled !== 'boolean') {
       return res.status(400).json({
         success: false,
-        message: 'autoResponseEnabled doit être un booléen',
+        message: 'autoResponseEnabled must be a boolean',
       });
     }
 
-    // Vérifier que l'utilisateur a configuré un email
+    // Verify if user has configured an email
     if (autoResponseEnabled && !req.user.hasConfiguredEmail) {
       return res.status(400).json({
         success: false,
-        message: 'Vous devez d\'abord configurer votre email dans Intégrations avant d\'activer les réponses automatiques',
+        message: 'You must first configure your email in Integrations before enabling auto-responses',
       });
     }
 
-    // Mettre à jour
+    // Update
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { autoResponseEnabled },
@@ -876,16 +876,16 @@ exports.updateAutoResponseSettings = async (req, res) => {
 
     res.json({
       success: true,
-      message: `Réponses automatiques ${autoResponseEnabled ? 'activées' : 'désactivées'} avec succès`,
+      message: `Auto-responses ${autoResponseEnabled ? 'enabled' : 'disabled'} successfully`,
       data: {
         autoResponseEnabled: user.autoResponseEnabled,
       },
     });
   } catch (error) {
-    console.error('Erreur updateAutoResponseSettings:', error);
+    console.error('Error updateAutoResponseSettings:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la mise à jour des paramètres',
+      message: 'Error updating settings',
       error: error.message,
     });
   }

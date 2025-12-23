@@ -56,8 +56,8 @@ function Employees() {
         setEmployees(response.data.data);
       }
     } catch (err) {
-      console.error('Erreur chargement employees:', err);
-      setError(err.response?.data?.message || 'Erreur lors du chargement');
+      console.error('Error loading employees:', err);
+      setError(err.response?.data?.message || 'Error loading');
     } finally {
       setLoading(false);
     }
@@ -79,16 +79,16 @@ function Employees() {
         const { emailSent, temporaryPassword, emailError } = response.data.data;
 
         if (emailSent) {
-          alert('✅ Employé créé avec succès ! Un email de bienvenue a été envoyé.');
+          alert('✅ Employee created successfully! A welcome email has been sent.');
         } else {
           // Email non envoyé - afficher le mot de passe
           alert(
-            `✅ Employé créé avec succès.\n\n` +
-            `⚠️ ATTENTION: L'email n'a pas pu être envoyé.\n` +
-            `Raison: ${emailError === 'Admin email not configured' ? 'Vous devez configurer votre email dans Intégrations' : emailError}\n\n` +
+            `✅ Employee created successfully.\n\n` +
+            `⚠️ WARNING: The email could not be sent.\n` +
+            `Reason: ${emailError === 'Admin email not configured' ? 'You must configure your email in Integrations' : emailError}\n\n` +
             `📧 Email: ${response.data.data.employee.email}\n` +
-            `🔑 Mot de passe temporaire: ${temporaryPassword}\n\n` +
-            `⚠️ Veuillez partager ces informations manuellement avec l'employé.`
+            `🔑 Temporary password: ${temporaryPassword}\n\n` +
+            `⚠️ Please share this information manually with the employee.`
           );
         }
 
@@ -97,7 +97,7 @@ function Employees() {
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la création');
+      alert(err.response?.data?.message || 'Error creating employee');
     }
   };
 
@@ -116,18 +116,18 @@ function Employees() {
       );
 
       if (response.data.success) {
-        alert('Employé mis à jour avec succès !');
+        alert('Employee updated successfully!');
         setShowEditModal(false);
         resetForm();
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la mise à jour');
+      alert(err.response?.data?.message || 'Error updating employee');
     }
   };
 
   const handleDeleteEmployee = async (employeeId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet Employé ?')) {
+    if (!window.confirm('Are you sure you want to delete this Employee?')) {
       return;
     }
 
@@ -141,11 +141,11 @@ function Employees() {
       );
 
       if (response.data.success) {
-        alert('Employé supprimé avec succès !');
+        alert('Employee deleted successfully!');
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors de la suppression');
+      alert(err.response?.data?.message || 'Error deleting employee');
     }
   };
 
@@ -161,11 +161,11 @@ function Employees() {
       );
 
       if (response.data.success) {
-        alert('Statut modifié avec succès !');
+        alert('Status changed successfully!');
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Erreur lors du changement de statut');
+      alert(err.response?.data?.message || 'Error changing status');
     }
   };
 
@@ -212,7 +212,7 @@ function Employees() {
       <div className="admin-management-page">
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p>Chargement...</p>
+          <p>Loading...</p>
         </div>
       </div>
     );
@@ -222,9 +222,9 @@ function Employees() {
     <div className="admin-management-page">
       <div className="admin-management-container">
         <div className="page-header animate-entry delay-1">
-          <h1>Gestion des Employés</h1>
+          <h1>Employees Management</h1>
           <button className="btn-primary" onClick={openCreateModal}>
-            <FontAwesomeIcon icon={faPlus} /> Créer un Employé
+            <FontAwesomeIcon icon={faPlus} /> Create Employee
           </button>
         </div>
 
@@ -236,7 +236,7 @@ function Employees() {
             <FontAwesomeIcon icon={faSearch} />
             <input
               type="text"
-              placeholder="Rechercher par nom ou email..."
+              placeholder="Search by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -257,7 +257,7 @@ function Employees() {
                       employee.isActive ? 'active' : 'inactive'
                     }`}
                   >
-                    {employee.isActive ? 'Actif' : 'Inactif'}
+                    {employee.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
 
@@ -267,13 +267,13 @@ function Employees() {
                   </p>
                   {employee.managedBy && (
                     <p className="admin-tenant">
-                      <strong>Géré par:</strong> {employee.managedBy.firstName}{' '}
+                      <strong>Managed by:</strong> {employee.managedBy.firstName}{' '}
                       {employee.managedBy.lastName}
                     </p>
                   )}
                   {employee.hasConfiguredEmail && (
                     <p className="admin-email-configured">
-                      ✓ Email configuré
+                      ✓ Email configured
                     </p>
                   )}
                 </div>
@@ -282,7 +282,7 @@ function Employees() {
                   <button
                     className="btn-icon view"
                     onClick={() => viewEmployeeCommunications(employee._id)}
-                    title="Voir les Communications"
+                    title="View Communications"
                   >
                     <FontAwesomeIcon icon={faComments} />
                   </button>
@@ -290,7 +290,7 @@ function Employees() {
                   <button
                     className="btn-icon edit"
                     onClick={() => openEditModal(employee)}
-                    title="Modifier"
+                    title="Edit"
                   >
                     <FontAwesomeIcon icon={faEdit} />
                   </button>
@@ -298,7 +298,7 @@ function Employees() {
                   <button
                     className="btn-icon toggle"
                     onClick={() => handleToggleStatus(employee._id)}
-                    title={employee.isActive ? 'Désactiver' : 'Activer'}
+                    title={employee.isActive ? 'Deactivate' : 'Activate'}
                   >
                     <FontAwesomeIcon
                       icon={employee.isActive ? faToggleOn : faToggleOff}
@@ -308,7 +308,7 @@ function Employees() {
                   <button
                     className="btn-icon delete"
                     onClick={() => handleDeleteEmployee(employee._id)}
-                    title="Supprimer"
+                    title="Delete"
                   >
                     <FontAwesomeIcon icon={faTrash} />
                   </button>
@@ -316,7 +316,7 @@ function Employees() {
               </div>
             ))
           ) : (
-            <p className="no-data">Aucun Employé trouvé</p>
+            <p className="no-data">No employees found</p>
           )}
         </div>
 
@@ -328,7 +328,7 @@ function Employees() {
           >
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Créer un nouvel Employé</h2>
+                <h2>Create New Employee</h2>
                 <button
                   className="modal-close"
                   onClick={() => setShowCreateModal(false)}
@@ -339,7 +339,7 @@ function Employees() {
 
               <form onSubmit={handleCreateEmployee}>
                 <div className="form-group">
-                  <label>Prénom *</label>
+                  <label>First Name *</label>
                   <input
                     type="text"
                     required
@@ -351,7 +351,7 @@ function Employees() {
                 </div>
 
                 <div className="form-group">
-                  <label>Nom *</label>
+                  <label>Last Name *</label>
                   <input
                     type="text"
                     required
@@ -376,7 +376,7 @@ function Employees() {
 
                 <div className="alert-info">
                   <p>
-                    Un mot de passe sécurisé sera généré automatiquement et envoyé par email à cet Employé.
+                    A secure password will be automatically generated and sent by email to this Employee.
                   </p>
                 </div>
 
@@ -386,10 +386,10 @@ function Employees() {
                     className="btn-secondary"
                     onClick={() => setShowCreateModal(false)}
                   >
-                    Annuler
+                    Cancel
                   </button>
                   <button type="submit" className="btn-primary">
-                    Créer l'Employé
+                    Create Employee
                   </button>
                 </div>
               </form>
@@ -405,7 +405,7 @@ function Employees() {
           >
             <div className="modal" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h2>Modifier l'Employé</h2>
+                <h2>Edit Employee</h2>
                 <button
                   className="modal-close"
                   onClick={() => setShowEditModal(false)}
@@ -416,7 +416,7 @@ function Employees() {
 
               <form onSubmit={handleUpdateEmployee}>
                 <div className="form-group">
-                  <label>Prénom *</label>
+                  <label>First Name *</label>
                   <input
                     type="text"
                     required
@@ -428,7 +428,7 @@ function Employees() {
                 </div>
 
                 <div className="form-group">
-                  <label>Nom *</label>
+                  <label>Last Name *</label>
                   <input
                     type="text"
                     required
@@ -457,10 +457,10 @@ function Employees() {
                     className="btn-secondary"
                     onClick={() => setShowEditModal(false)}
                   >
-                    Annuler
+                    Cancel
                   </button>
                   <button type="submit" className="btn-primary">
-                    Mettre à jour
+                    Update
                   </button>
                 </div>
               </form>

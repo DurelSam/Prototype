@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChartBar,
@@ -23,6 +24,7 @@ function Analytics() {
   const [period, setPeriod] = useState("week"); // week|month|quarter|year
   const [channel, setChannel] = useState("all"); // all|email|whatsapp
   const [data, setData] = useState(null);
+  const [actionItemsStatus, setActionItemsStatus] = useState({ completed: 0, inProgress: 0, pending: 0 });
   const [activeTab, setActiveTab] = useState("reports"); // reports | scheduled
   const [scheduledRules, setScheduledRules] = useState([]);
   const [creating, setCreating] = useState(false);
@@ -89,6 +91,20 @@ function Analytics() {
     }, 300);
   }, [period]);
 
+  useEffect(() => {
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    const daysMap = { week: 7, month: 30, quarter: 90, year: 365 };
+    const days = daysMap[period] || 30;
+    const token = localStorage.getItem('authToken');
+    axios.get(`${API_URL}/analytics/action-items-status?days=${days}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(res => {
+      if (res.data?.success) {
+        setActionItemsStatus(res.data.data.actionItemsStatus);
+      }
+    }).catch(() => {});
+  }, [period]);
+
   const handleBack = () => navigate("/dashboard");
 
   const handleExport = (format = "pdf") => {
@@ -130,10 +146,11 @@ function Analytics() {
 
   if (loading || !data) {
     return (
-      <div className="analytics-page">
+      <div className="dashboard-page">
+        <div className="dashboard-overlay"></div>
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p>Chargement des analytics...</p>
+          <p>Loading analytics...</p>
         </div>
       </div>
     );
@@ -145,134 +162,79 @@ function Analytics() {
   );
 
   return (
-    <div className="analytics-page">
-      <div className="page-header animate-entry delay-1">
-        <button className="back-button" onClick={handleBack}>
-          <FontAwesomeIcon icon={faChevronLeft} /> Back
-        </button>
-        <div className="header-content">
-          <h1 className="page-title">Analytics & Reporting</h1>
-          <div className="header-actions">
-            <div className="filter-row">
-              <label className="small-label">
-                Date range
-                <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  className="select-input"
-                >
-                  <option value="week">Last 7 Days</option>
-                  <option value="month">Last 30 Days</option>
-                  <option value="quarter">Last 3 Months</option>
-                  <option value="year">Last Year</option>
-                </select>
-              </label>
-
-              <label className="small-label">
-                Channel
-                <select
-                  value={channel}
-                  onChange={(e) => setChannel(e.target.value)}
-                  className="select-input"
-                >
-                  <option value="all">All</option>
-                  <option value="email">Email</option>
-                  <option value="whatsapp">WhatsApp</option>
-                </select>
-              </label>
-
-              <div className="export-buttons">
-                <button
-                  className="export-button small"
-                  onClick={() => handleExport("pdf")}
-                >
-                  <FontAwesomeIcon icon={faFilePdf} /> Export PDF
-                </button>
-                <button
-                  className="export-button small light"
-                  onClick={() => handleExport("csv")}
-                >
-                  <FontAwesomeIcon icon={faFileCsv} /> Export CSV
-                </button>
-              </div>
-            </div>
+    <div className="dashboard-page">
+      <div className="dashboard-overlay"></div>
+      <div className="dashboard-container">
+        <section className="welcome-section animate-entry delay-1">
+          <div className="welcome-card">
+            <h2 className="welcome-title">Analytics & Reporting</h2>
+            <p className="welcome-text">Your consolidated reports and insights.</p>
           </div>
+        </section>
+
+        <div className="dashboard-tabs animate-entry delay-2">
+          <button
+            className={`tab-button ${activeTab === "reports" ? "active" : ""}`}
+            onClick={() => setActiveTab("reports")}
+          >
+            <FontAwesomeIcon icon={faChartBar} /> Reports
+          </button>
+          <button
+            className={`tab-button ${activeTab === "scheduled" ? "active" : ""}`}
+            onClick={() => setActiveTab("scheduled")}
+          >
+            <FontAwesomeIcon icon={faCalendarAlt} /> Scheduled Reports
+          </button>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="analytics-tabs animate-entry delay-2">
-        <button
-          className={`tab-button ${activeTab === "reports" ? "active" : ""}`}
-          onClick={() => setActiveTab("reports")}
-        >
-          <FontAwesomeIcon icon={faChartBar} /> Reports
-        </button>
-        <button
-          className={`tab-button ${activeTab === "scheduled" ? "active" : ""}`}
-          onClick={() => setActiveTab("scheduled")}
-        >
-          <FontAwesomeIcon icon={faCalendarAlt} /> Scheduled Reports
-        </button>
-      </div>
-
-      <div className="analytics-container">
-        {/* Reports Tab */}
-        {activeTab === "reports" && (
+        <div className="analytics-container">
+          {/* Reports Tab */}
+          {activeTab === "reports" && (
           <div className="reports-view animate-entry delay-3">
-            <section className="overview-section">
-              <div className="stat-card">
-                <div className="stat-icon email">
-                  <FontAwesomeIcon icon={faPaperPlane} />
+            <section className="kpis-section">
+              <div className="kpis-grid">
+                <div className="kpi-card">
+                  <div className="kpi-icon" style={{ backgroundColor: "#3b82f6" }}>
+                    <FontAwesomeIcon icon={faPaperPlane} />
+                  </div>
+                  <div className="kpi-content">
+                    <h3 className="kpi-value">{data.overview.totalCommunications}</h3>
+                    <p className="kpi-title">Total Communications</p>
+                    <span className="kpi-change positive">{data.trends.communicationsGrowth}</span>
+                  </div>
                 </div>
-                <div className="stat-content">
-                  <h3 className="stat-number">
-                    {data.overview.totalCommunications}
-                  </h3>
-                  <p className="stat-label">Total Communications</p>
-                  <span className="stat-trend positive">
-                    {data.trends.communicationsGrowth}
-                  </span>
+                <div className="kpi-card">
+                  <div className="kpi-icon" style={{ backgroundColor: "#14b8a6" }}>
+                    <FontAwesomeIcon icon={faBell} />
+                  </div>
+                  <div className="kpi-content">
+                    <h3 className="kpi-value">{data.overview.emailCount}</h3>
+                    <p className="kpi-title">Emails</p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <FontAwesomeIcon icon={faBell} />
+                <div className="kpi-card">
+                  <div className="kpi-icon" style={{ backgroundColor: "#3b82f6" }}>
+                    <FontAwesomeIcon icon={faSyncAlt} />
+                  </div>
+                  <div className="kpi-content">
+                    <h3 className="kpi-value">{data.overview.whatsappCount}</h3>
+                    <p className="kpi-title">WhatsApp</p>
+                  </div>
                 </div>
-                <div className="stat-content">
-                  <h3 className="stat-number">{data.overview.emailCount}</h3>
-                  <p className="stat-label">Emails</p>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon whatsapp">
-                  <FontAwesomeIcon icon={faSyncAlt} />
-                </div>
-                <div className="stat-content">
-                  <h3 className="stat-number">{data.overview.whatsappCount}</h3>
-                  <p className="stat-label">WhatsApp</p>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon ai">
-                  <FontAwesomeIcon icon={faCog} />
-                </div>
-                <div className="stat-content">
-                  <h3 className="stat-number">
-                    {data.overview.aiAnalysisCount}
-                  </h3>
-                  <p className="stat-label">AI Analyses</p>
-                  <span className="stat-accuracy">
-                    {data.trends.aiAccuracy} accurate
-                  </span>
+                <div className="kpi-card">
+                  <div className="kpi-icon" style={{ backgroundColor: "#6b7280" }}>
+                    <FontAwesomeIcon icon={faCog} />
+                  </div>
+                  <div className="kpi-content">
+                    <h3 className="kpi-value">{data.overview.aiAnalysisCount}</h3>
+                    <p className="kpi-title">AI Analyses</p>
+                    <span className="kpi-change positive">{data.trends.aiAccuracy} accurate</span>
+                  </div>
                 </div>
               </div>
             </section>
 
-            <section className="charts-grid">
+            <section className="charts-section">
               <div className="chart-card">
                 <h3 className="chart-title">Communications by Day</h3>
                 <div className="bar-chart">
@@ -342,7 +304,7 @@ function Analytics() {
                     <div className="bar-info">
                       <span className="bar-name">Completed</span>
                       <span className="bar-value">
-                        {data.actionItemsStatus.completed}
+                        {actionItemsStatus.completed}
                       </span>
                     </div>
                     <div className="bar-track">
@@ -350,10 +312,10 @@ function Analytics() {
                         className="bar-fill completed"
                         style={{
                           width: `${
-                            (data.actionItemsStatus.completed /
-                              (data.actionItemsStatus.completed +
-                                data.actionItemsStatus.inProgress +
-                                data.actionItemsStatus.pending)) *
+                            (actionItemsStatus.completed /
+                              (actionItemsStatus.completed +
+                                actionItemsStatus.inProgress +
+                                actionItemsStatus.pending || 1)) *
                             100
                           }%`,
                         }}
@@ -365,7 +327,7 @@ function Analytics() {
                     <div className="bar-info">
                       <span className="bar-name">In Progress</span>
                       <span className="bar-value">
-                        {data.actionItemsStatus.inProgress}
+                        {actionItemsStatus.inProgress}
                       </span>
                     </div>
                     <div className="bar-track">
@@ -373,10 +335,10 @@ function Analytics() {
                         className="bar-fill in-progress"
                         style={{
                           width: `${
-                            (data.actionItemsStatus.inProgress /
-                              (data.actionItemsStatus.completed +
-                                data.actionItemsStatus.inProgress +
-                                data.actionItemsStatus.pending)) *
+                            (actionItemsStatus.inProgress /
+                              (actionItemsStatus.completed +
+                                actionItemsStatus.inProgress +
+                                actionItemsStatus.pending || 1)) *
                             100
                           }%`,
                         }}
@@ -388,7 +350,7 @@ function Analytics() {
                     <div className="bar-info">
                       <span className="bar-name">Pending</span>
                       <span className="bar-value">
-                        {data.actionItemsStatus.pending}
+                        {actionItemsStatus.pending}
                       </span>
                     </div>
                     <div className="bar-track">
@@ -396,10 +358,10 @@ function Analytics() {
                         className="bar-fill pending"
                         style={{
                           width: `${
-                            (data.actionItemsStatus.pending /
-                              (data.actionItemsStatus.completed +
-                                data.actionItemsStatus.inProgress +
-                                data.actionItemsStatus.pending)) *
+                            (actionItemsStatus.pending /
+                              (actionItemsStatus.completed +
+                                actionItemsStatus.inProgress +
+                                actionItemsStatus.pending || 1)) *
                             100
                           }%`,
                         }}
@@ -410,7 +372,7 @@ function Analytics() {
               </div>
             </section>
 
-            <section className="insights-section">
+            <section className="actions-section">
               <h3 className="section-title">
                 <FontAwesomeIcon icon={faChartBar} /> Key Insights
               </h3>
@@ -545,6 +507,7 @@ function Analytics() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

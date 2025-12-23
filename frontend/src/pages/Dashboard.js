@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios"; // Import Axios
 import { useAuth } from "../context/AuthContext";
 import {
   BarChart,
@@ -11,6 +12,10 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  PieChart, // Nouveau
+  Pie, // Nouveau
+  Cell, // Nouveau
+  Legend, // Nouveau
 } from "recharts";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -43,13 +48,134 @@ function Dashboard() {
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) {
-      setGreeting("Bonjour");
+      setGreeting("Good morning");
     } else if (hour < 18) {
-      setGreeting("Bon après-midi");
+      setGreeting("Good afternoon");
     } else {
-      setGreeting("Bonsoir");
+      setGreeting("Good evening");
     }
   }, []);
+
+  // --- Stats Dynamiques ---
+  const [stats, setStats] = useState({
+    emailsProcessed: 0,
+    whatsappMessages: 0,
+    aiSummaries: 0,
+    workload: { pendingAuto: 0, pendingManual: 0, pendingAssisted: 0, pendingNoResponse: 0 },
+    charts: [], // Nouveau champ pour les graphiques historiques
+    loading: true
+  });
+  const [userStats, setUserStats] = useState({
+    totalUsers: 0,
+    totalEmployees: 0,
+    loading: true,
+  });
+  const [adminsPerf, setAdminsPerf] = useState({
+    overall: { totalSummaries: 0, avgResponseTimeHours: 0, onTimeFollowUpRate: 0, productivity: [] },
+    members: [],
+    loading: true,
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('authToken'); // Correction de la clé (authToken vs token)
+        console.log("DEBUG DASHBOARD - Token envoyé:", token ? token.substring(0, 20) + "..." : "NULL");
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        console.log("Fetching dashboard stats from:", `${API_URL}/communications/stats/dashboard`);
+        
+        const response = await axios.get(`${API_URL}/communications/stats/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log("Dashboard stats response:", response.data);
+        if (response.data?.data?.charts) {
+          console.log("Charts[0..4]:", response.data.data.charts.slice(0, 5));
+        }
+        // alert(`DEBUG: Emails Processed du Backend: ${response.data.data.emailsProcessed}`); // Décommentez pour tester si besoin
+
+        if (response.data.success) {
+          setStats({ ...response.data.data, loading: false });
+        }
+      } catch (error) {
+        console.error("Erreur chargement stats:", error);
+        setStats(prev => ({ ...prev, loading: false }));
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const res1 = await axios.get(`${API_URL}/communications/stats/dashboard`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res1.data?.success) {
+          setStats({ ...res1.data.data, loading: false });
+        }
+        if (isAdmin || isUpperAdmin) {
+          const res2 = await axios.get(`${API_URL}/users/stats`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res2.data?.success) {
+            setUserStats({ ...res2.data.data, loading: false });
+          }
+        }
+      } catch (e) {
+        // no-op
+      }
+    }, 120000); // 2 minutes
+    return () => clearInterval(interval);
+  }, [isAdmin, isUpperAdmin]);
+
+  useEffect(() => {
+    const fetchAdminsPerf = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const res = await axios.get(`${API_URL}/analytics/admins/performance?days=30`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data?.success) {
+          setAdminsPerf({ ...res.data.data, loading: false });
+        } else {
+          setAdminsPerf((p) => ({ ...p, loading: false }));
+        }
+      } catch (e) {
+        setAdminsPerf((p) => ({ ...p, loading: false }));
+      }
+    };
+    if (activeTab === 'performance' && (isAdminOrAbove)) {
+      fetchAdminsPerf();
+    }
+  }, [activeTab, isAdminOrAbove]);
+
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const res = await axios.get(`${API_URL}/users/stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data?.success) {
+          setUserStats({ ...res.data.data, loading: false });
+        } else {
+          setUserStats((prev) => ({ ...prev, loading: false }));
+        }
+      } catch (e) {
+        setUserStats((prev) => ({ ...prev, loading: false }));
+      }
+    };
+    // Charger seulement pour Admin ou UpperAdmin
+    if (isAdmin || isUpperAdmin) {
+      fetchUserStats();
+    }
+  }, [isAdmin, isUpperAdmin]);
 
   // --- Données (Identiques à votre fichier) ---
   const teamPerformanceData = [
@@ -75,35 +201,13 @@ function Dashboard() {
     },
   ];
 
-  const emailVolumeData = [
-    { date: "Jan 1", count: 45 },
-    { date: "Jan 2", count: 52 },
-    { date: "Jan 3", count: 48 },
-    { date: "Jan 4", count: 61 },
-    { date: "Jan 5", count: 55 },
-    { date: "Jan 6", count: 67 },
-    { date: "Jan 7", count: 58 },
-  ];
-
-  const whatsappVolumeData = [
-    { date: "Jan 1", count: 23 },
-    { date: "Jan 2", count: 31 },
-    { date: "Jan 3", count: 28 },
-    { date: "Jan 4", count: 35 },
-    { date: "Jan 5", count: 29 },
-    { date: "Jan 6", count: 42 },
-    { date: "Jan 7", count: 38 },
-  ];
-
-  const aiSummariesData = [
-    { date: "Jan 1", auto: 38, manual: 7 },
-    { date: "Jan 2", auto: 45, manual: 8 },
-    { date: "Jan 3", auto: 41, manual: 7 },
-    { date: "Jan 4", auto: 52, manual: 9 },
-    { date: "Jan 5", auto: 48, manual: 7 },
-    { date: "Jan 6", auto: 58, manual: 9 },
-    { date: "Jan 7", auto: 51, manual: 7 },
-  ];
+  // Données dynamiques pour les graphiques (30 jours)
+  const emailVolumeData = stats.charts?.map(d => ({ date: d.date, count: d.emails })) || [];
+  if (stats.charts && stats.charts.length) {
+    console.log("EmailVolume mapped sample:", emailVolumeData.slice(0, 5));
+  }
+  const whatsappVolumeData = stats.charts?.map(d => ({ date: d.date, count: d.whatsapp })) || [];
+  const aiSummariesData = stats.charts || []; // Déjà formaté avec date, auto, manual
 
   const productivityData = [
     { month: "Jul", efficiency: 72 },
@@ -115,70 +219,101 @@ function Dashboard() {
     { month: "Jan", efficiency: 92 },
   ];
 
-  const homeKPIs = [
-    {
-      id: 1,
-      title: "Emails Processed",
-      value: "386",
-      change: "+18%",
-      icon: faEnvelope,
-      color: "#3b82f6",
-    },
-    {
-      id: 2,
-      title: "WhatsApp Messages",
-      value: "226",
-      change: "+12%",
-      icon: faCommentDots,
-      color: "#14b8a6",
-    },
-    {
-      id: 3,
-      title: "AI Summaries",
-      value: "403",
-      change: "+23%",
-      icon: faRobot,
-      color: "#3b82f6",
-    },
-    {
-      id: 4,
-      title: "Active Users",
-      value: teamPerformanceData.length.toString(),
-      change: "+2",
-      icon: faUserCheck,
-      color: "#14b8a6",
-    },
+  // Données dynamiques pour la répartition de la charge de travail
+  const workloadDistributionData = [
+    { name: 'Ready Responses (Auto)', value: stats.workload?.pendingAuto || 0, color: '#3b82f6' },
+    { name: 'Awaiting Context', value: stats.workload?.pendingAssisted || 0, color: '#8b5cf6' },
+    { name: 'Urgent / Manual', value: stats.workload?.pendingManual || 0, color: '#ef4444' },
+    { name: 'No Response Required', value: stats.workload?.pendingNoResponse || 0, color: '#9ca3af' },
   ];
+
+  const homeKPIs = (() => {
+    const epChange = stats?.change?.emailsProcessed ?? 0;
+    const waChange = stats?.change?.whatsappMessages ?? 0;
+    const aiChange = stats?.change?.aiSummaries ?? 0;
+    const fmt = (n) => `${n > 0 ? "+" : ""}${n}%`;
+    const base = [
+      {
+        id: 1,
+        title: "Emails Processed",
+        value: stats.loading ? "..." : stats.emailsProcessed.toString(),
+        changeText: stats.loading ? "..." : fmt(epChange),
+        isPositive: epChange >= 0,
+        icon: faEnvelope,
+        color: "#3b82f6",
+      },
+      {
+        id: 2,
+        title: "WhatsApp Messages",
+        value: stats.loading ? "..." : stats.whatsappMessages.toString(),
+        changeText: stats.loading ? "..." : fmt(waChange),
+        isPositive: waChange >= 0,
+        icon: faCommentDots,
+        color: "#14b8a6",
+      },
+      {
+        id: 3,
+        title: "AI Summaries",
+        value: stats.loading ? "..." : stats.aiSummaries.toString(),
+        changeText: stats.loading ? "..." : fmt(aiChange),
+        isPositive: aiChange >= 0,
+        icon: faRobot,
+        color: "#3b82f6",
+      },
+    ];
+    if (isUpperAdmin) {
+      base.push({
+        id: 4,
+        title: "Tenant Users",
+        value: userStats.loading ? "..." : (userStats.totalUsers || 0).toString(),
+        changeText: "+0",
+        isPositive: true,
+        icon: faUserCheck,
+        color: "#14b8a6",
+      });
+    } else if (isAdmin) {
+      base.push({
+        id: 4,
+        title: "Users (me + employees)",
+        value: userStats.loading ? "..." : ((userStats.totalEmployees || 0) + 1).toString(),
+        changeText: "+0",
+        isPositive: true,
+        icon: faUserCheck,
+        color: "#14b8a6",
+      });
+    }
+    return base;
+  })();
 
   const quickActions = [
     {
       id: 1,
-      title: "Connecter Outlook",
-      desc: "Synchroniser votre compte Outlook",
+      title: "Connect Email",
+      desc: "Sync your Email account",
       icon: faEnvelope,
       action: () => navigate("/integrations"),
       color: "#3b82f6",
     },
     {
       id: 2,
-      title: "Connecter WhatsApp",
-      desc: "Intégrer WhatsApp Business",
+      title: "Connect WhatsApp",
+      desc: "Integrate WhatsApp Business",
       icon: faMobileAlt,
       action: () => navigate("/integrations"),
       color: "#14b8a6",
     },
     {
       id: 3,
-      title: "Voir Communications",
-      desc: "Consulter vos messages avec analyse IA",
+      title: "View Communications",
+      desc: "Browse messages with AI analysis",
       icon: faRobot,
       action: () => navigate("/communications"),
       color: "#3b82f6",
     },
     {
       id: 4,
-      title: "Paramètres",
-      desc: "Configurer votre compte",
+      title: "Settings",
+      desc: "Configure your account",
       icon: faCog,
       action: () => navigate("/settings"),
       color: "#6b7280",
@@ -188,8 +323,8 @@ function Dashboard() {
   const managementActions = [
     {
       id: 1,
-      title: "Gérer les Admins",
-      desc: "Créer et gérer vos Administrateurs",
+      title: "Manage Admins",
+      desc: "Create and manage Administrators",
       icon: faUsers,
       action: () => navigate("/admins"),
       color: "#3b82f6",
@@ -197,8 +332,8 @@ function Dashboard() {
     },
     {
       id: 2,
-      title: "Gérer les Employés",
-      desc: "Créer et gérer vos Employés",
+      title: "Manage Employees",
+      desc: "Create and manage Employees",
       icon: faUsers,
       action: () => navigate("/employees"),
       color: "#3b82f6",
@@ -207,7 +342,7 @@ function Dashboard() {
     {
       id: 3,
       title: "Analytics",
-      desc: "Voir les statistiques et rapports",
+      desc: "View statistics and reports",
       icon: faChartBar,
       action: () => navigate("/analytics"),
       color: "#14b8a6",
@@ -216,7 +351,7 @@ function Dashboard() {
     {
       id: 4,
       title: "Subscription",
-      desc: "Gérer votre plan et facturation",
+      desc: "Manage your plan and billing",
       icon: faCreditCard,
       action: () => navigate("/subscription"),
       color: "#14b8a6",
@@ -230,7 +365,7 @@ function Dashboard() {
         <div className="dashboard-overlay"></div>
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p>Chargement...</p>
+          <p>Loading...</p>
         </div>
       </div>
     );
@@ -245,10 +380,10 @@ function Dashboard() {
         <section className="welcome-section animate-entry delay-2">
           <div className="welcome-card">
             <h2 className="welcome-title">
-              {greeting}, {user?.firstName || "Utilisateur"} !
+              {greeting}, {user?.firstName || "User"}!
             </h2>
             <p className="welcome-text">
-              Bienvenue sur votre tableau de bord de gestion des communications.
+              Welcome to your communications management dashboard.
             </p>
           </div>
         </section>
@@ -259,15 +394,15 @@ function Dashboard() {
             className={`tab-button ${activeTab === "home" ? "active" : ""}`}
             onClick={() => setActiveTab("home")}
           >
-            <FontAwesomeIcon icon={faTachometerAlt} /> Accueil
+            <FontAwesomeIcon icon={faTachometerAlt} /> Home
           </button>
           <button
             className={`tab-button ${
-              activeTab === "communications" ? "active" : ""
+              activeTab === "activity" ? "active" : ""
             }`}
-            onClick={() => setActiveTab("communications")}
+            onClick={() => setActiveTab("activity")}
           >
-            <FontAwesomeIcon icon={faMessage} /> Communications
+            <FontAwesomeIcon icon={faArrowTrendUp} /> Activity
           </button>
           {/* Only show Team Performance for Admins and UpperAdmins */}
           {isAdminOrAbove && (
@@ -277,7 +412,7 @@ function Dashboard() {
               }`}
               onClick={() => setActiveTab("performance")}
             >
-              <FontAwesomeIcon icon={faChartBar} /> {isUpperAdmin ? "Performance Admins" : "Performance Employés"}
+              <FontAwesomeIcon icon={faChartBar} /> {isUpperAdmin ? "Admin Performance" : "Employee Performance"}
             </button>
           )}
         </div>
@@ -299,7 +434,7 @@ function Dashboard() {
                     <div className="kpi-content">
                       <h3 className="kpi-value">{kpi.value}</h3>
                       <p className="kpi-title">{kpi.title}</p>
-                      <span className="kpi-change positive">{kpi.change}</span>
+                      <span className={`kpi-change ${kpi.isPositive ? "positive" : "negative"}`}>{kpi.changeText || kpi.change}</span>
                     </div>
                   </div>
                 ))}
@@ -309,7 +444,7 @@ function Dashboard() {
             {/* Quick Actions - Delay 5 */}
             <section className="actions-section animate-entry delay-5">
               <h3 className="section-title">
-                <FontAwesomeIcon icon={faBell} /> Actions Rapides
+                <FontAwesomeIcon icon={faBell} /> Quick Actions
               </h3>
               <div className="action-cards">
                 {quickActions.map((action) => (
@@ -334,7 +469,7 @@ function Dashboard() {
             {managementActions.filter((action) => action.show !== false).length > 0 && (
               <section className="actions-section animate-entry delay-6">
                 <h3 className="section-title">
-                  <FontAwesomeIcon icon={faUsers} /> Gestion
+                  <FontAwesomeIcon icon={faUsers} /> Management
                 </h3>
                 <div className="action-cards">
                   {managementActions
@@ -360,62 +495,39 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Communications Dashboard */}
-        {activeTab === "communications" && (
+        {/* Activity Dashboard (Renamed from Communications) */}
+        {activeTab === "activity" && (
           <div className="communications-dashboard">
-            <section className="communications-stats-section animate-entry delay-4">
-              <div className="comm-stat-card">
-                <div className="stat-icon email">
-                  <FontAwesomeIcon icon={faEnvelope} />
-                </div>
-                <div className="stat-content">
-                  <p className="stat-label">Total Emails (7 days)</p>
-                  <h3 className="stat-number-large">386</h3>
-                  <span className="stat-change positive">
-                    +18% from last week
-                  </span>
-                </div>
-              </div>
-              <div className="comm-stat-card">
-                <div className="stat-icon whatsapp">
-                  <FontAwesomeIcon icon={faCommentDots} />
-                </div>
-                <div className="stat-content">
-                  <p className="stat-label">WhatsApp Messages (7 days)</p>
-                  <h3 className="stat-number-large">226</h3>
-                  <span className="stat-change positive">
-                    +12% from last week
-                  </span>
-                </div>
-              </div>
-              <div className="comm-stat-card">
-                <div className="stat-icon ai">
-                  <FontAwesomeIcon icon={faRobot} />
-                </div>
-                <div className="stat-content">
-                  <p className="stat-label">AI Summaries Generated</p>
-                  <h3 className="stat-number-large">403</h3>
-                  <span className="stat-change positive">
-                    +23% from last week
-                  </span>
-                </div>
-              </div>
-              <div className="comm-stat-card">
-                <div className="stat-icon productivity">
-                  <FontAwesomeIcon icon={faArrowTrendUp} />
-                </div>
-                <div className="stat-content">
-                  <p className="stat-label">Team Efficiency</p>
-                  <h3 className="stat-number-large">92%</h3>
-                  <span className="stat-change positive">
-                    +7% from last month
-                  </span>
-                </div>
-              </div>
-            </section>
+            {/* REMOVED: Redundant Stats Section */}
 
             {/* Charts Section - Delay 5 */}
             <section className="charts-section animate-entry delay-5">
+              {/* Workload Distribution */}
+              <div className="chart-card">
+                <h3>Emails to Process by Category</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={workloadDistributionData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {workloadDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: "#1f2937", borderColor: "#374151", color: "#f3f4f6" }}
+                    />
+                    <Legend verticalAlign="bottom" height={36}/>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
               <div className="chart-card">
                 <h3>
                   <FontAwesomeIcon icon={faEnvelope} /> Email Volume Over Time
@@ -517,18 +629,49 @@ function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </section>
+          </div>
+        )}
 
+        {/* Team Performance Dashboard */}
+        {activeTab === "performance" && (
+          <div className="performance-dashboard">
+            <section className="performance-stats-section animate-entry delay-4">
+              <div className="performance-stat-card">
+                <div className="stat-content">
+                  <p className="stat-label">Total Summaries</p>
+                  <h3 className="stat-number-large">{adminsPerf.loading ? '...' : adminsPerf.overall.totalSummaries}</h3>
+                  <span className="stat-change positive"> </span>
+                </div>
+              </div>
+              <div className="performance-stat-card">
+                <div className="stat-content">
+                  <p className="stat-label">Average Response Time</p>
+                  <h3 className="stat-number-large">{adminsPerf.loading ? '...' : `${adminsPerf.overall.avgResponseTimeHours}h`}</h3>
+                  <span className="stat-change negative"> </span>
+                </div>
+              </div>
+              <div className="performance-stat-card">
+                <div className="stat-content">
+                  <p className="stat-label">On-Time Follow-Ups</p>
+                  <h3 className="stat-number-large">{adminsPerf.loading ? '...' : `${adminsPerf.overall.onTimeFollowUpRate}%`}</h3>
+                  <span className="stat-change positive"> </span>
+                </div>
+              </div>
+            </section>
+
+            <section className="charts-section animate-entry delay-5">
               <div className="chart-card">
                 <h3>
                   <FontAwesomeIcon icon={faArrowTrendUp} /> Team Productivity
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={productivityData}>
+                  <LineChart data={adminsPerf.loading ? [] : adminsPerf.overall.productivity}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="rgba(255,255,255,0.1)"
                     />
-                    <XAxis dataKey="month" stroke="rgba(255,255,255,0.7)" />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.7)" />
                     <YAxis stroke="rgba(255,255,255,0.7)" domain={[0, 100]} />
                     <Tooltip
                       contentStyle={{
@@ -548,58 +691,21 @@ function Dashboard() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </section>
-          </div>
-        )}
 
-        {/* Team Performance Dashboard */}
-        {activeTab === "performance" && (
-          <div className="performance-dashboard">
-            <section className="performance-stats-section animate-entry delay-4">
-              <div className="performance-stat-card">
-                <div className="stat-content">
-                  <p className="stat-label">Total Summaries</p>
-                  <h3 className="stat-number-large">372</h3>
-                  <span className="stat-change positive">
-                    +12% from last week
-                  </span>
-                </div>
-              </div>
-              <div className="performance-stat-card">
-                <div className="stat-content">
-                  <p className="stat-label">Average Response Time</p>
-                  <h3 className="stat-number-large">2.3h</h3>
-                  <span className="stat-change negative">
-                    +0.2h from last week
-                  </span>
-                </div>
-              </div>
-              <div className="performance-stat-card">
-                <div className="stat-content">
-                  <p className="stat-label">On-Time Follow-Ups</p>
-                  <h3 className="stat-number-large">86%</h3>
-                  <span className="stat-change positive">
-                    +4% from last week
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <section className="charts-section animate-entry delay-5">
               <div className="chart-card">
                 <h3>Team Progress - Total Summaries</h3>
                 <div className="team-progress-bars">
-                  {teamPerformanceData.map((member, index) => (
+                  {(adminsPerf.loading ? [] : adminsPerf.members).map((member, index) => (
                     <div key={index} className="progress-item">
                       <div className="progress-label">
                         <span className="member-name">{member.name}</span>
-                        <span className="member-count">{member.summaries}</span>
+                        <span className="member-count">{member.totals?.aiSummariesCount || 0}</span>
                       </div>
                       <div className="progress-bar">
                         <div
                           className="progress-bar-fill"
                           style={{
-                            width: `${(member.summaries / 100) * 100}%`,
+                            width: `${Math.min(100, (member.totals?.aiSummariesCount || 0))}%`,
                             transitionDelay: `${index * 0.1}s`,
                           }}
                         ></div>
@@ -620,21 +726,21 @@ function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {teamPerformanceData.map((member, index) => (
+                    {(adminsPerf.loading ? [] : adminsPerf.members).map((member, index) => (
                       <tr key={index}>
                         <td>{member.name}</td>
-                        <td>{member.responseTime}h</td>
+                        <td>{member.avgResponseTimeHours}h</td>
                         <td>
                           <span
                             className={`follow-up-rate ${
-                              member.followUpRate >= 85
+                              (member.onTimeFollowUpRate || 0) >= 85
                                 ? "high"
-                                : member.followUpRate >= 70
+                                : (member.onTimeFollowUpRate || 0) >= 70
                                 ? "medium"
                                 : "low"
                             }`}
                           >
-                            {member.followUpRate}%
+                            {member.onTimeFollowUpRate}%
                           </span>
                         </td>
                       </tr>
@@ -651,15 +757,15 @@ function Dashboard() {
           <section className="subscription-section animate-entry delay-6">
             <div className="subscription-card">
               <div className="subscription-header">
-                <h3>Abonnement</h3>
+                <h3>Subscription</h3>
                 <span
                   className={`subscription-badge ${user?.tenant?.subscriptionStatus?.toLowerCase()}`}
                 >
-                  {user?.tenant?.subscriptionStatus || "Essai"}
+                  {user?.tenant?.subscriptionStatus || "Trial"}
                 </span>
               </div>
               <p className="subscription-text">
-                Votre compte est actuellement en période d'essai.
+                Your account is currently in trial period.
               </p>
             </div>
           </section>

@@ -41,17 +41,17 @@ function Register() {
 
     // Validation
     if (!formData.email || !formData.password || !formData.companyName || !formData.firstName || !formData.lastName) {
-      setError('Veuillez remplir tous les champs obligatoires');
+      setError('Please fill in all required fields');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
+      setError('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -72,7 +72,7 @@ function Register() {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess('Inscription réussie ! Un email de vérification a été envoyé à votre adresse. Veuillez vérifier votre boîte mail.');
+        setSuccess('Sign up successful! A verification email has been sent to your address. Please check your inbox.');
         setFormData({
           email: '',
           password: '',
@@ -81,14 +81,14 @@ function Register() {
           lastName: '',
           companyName: ''
         });
-        // Redirection vers login après 3 secondes
+        // Redirect to login after 3 seconds
         setTimeout(() => navigate('/login'), 3000);
       } else {
-        setError(data.message || 'Erreur lors de l\'inscription');
+        setError(data.message || 'Error during sign up');
       }
     } catch (error) {
-      setError('Erreur de connexion au serveur');
-      console.error('Erreur inscription:', error);
+      setError('Server connection error');
+      console.error('Sign up error:', error);
     }
 
     setLoading(false);
@@ -101,67 +101,67 @@ function Register() {
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="login-header">
             <h1>SaaS Communications</h1>
-            <h2>Créer votre compte</h2>
-            <p>Inscription en tant que propriétaire d'entreprise (UpperAdmin)</p>
+            <h2>Create your account</h2>
+            <p>Sign up as a business owner (UpperAdmin)</p>
           </div>
 
           <div className="input-group">
-            <label htmlFor="companyName">Nom de l'entreprise *</label>
+            <label htmlFor="companyName">Company Name *</label>
             <input
               type="text"
               id="companyName"
               name="companyName"
               value={formData.companyName}
               onChange={handleChange}
-              placeholder="Ma Société"
+              placeholder="My Company"
               required
             />
           </div>
 
           <div className="input-row">
             <div className="input-group">
-              <label htmlFor="firstName">Prénom *</label>
+              <label htmlFor="firstName">First Name *</label>
               <input
                 type="text"
                 id="firstName"
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
-                placeholder="Jean"
+                placeholder="John"
                 required
               />
             </div>
 
             <div className="input-group">
-              <label htmlFor="lastName">Nom *</label>
+              <label htmlFor="lastName">Last Name *</label>
               <input
                 type="text"
                 id="lastName"
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
-                placeholder="Dupont"
+                placeholder="Doe"
                 required
               />
             </div>
           </div>
 
           <div className="input-group">
-            <label htmlFor="email">Adresse email *</label>
+            <label htmlFor="email">Email Address *</label>
             <input
               type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="votre@email.com"
+              placeholder="your@email.com"
               required
               autoComplete="email"
             />
           </div>
 
           <div className="input-group">
-            <label htmlFor="password">Mot de passe *</label>
+            <label htmlFor="password">Password *</label>
             <input
               type="password"
               id="password"
@@ -175,7 +175,7 @@ function Register() {
           </div>
 
           <div className="input-group">
-            <label htmlFor="confirmPassword">Confirmer le mot de passe *</label>
+            <label htmlFor="confirmPassword">Confirm Password *</label>
             <input
               type="password"
               id="confirmPassword"
@@ -201,12 +201,12 @@ function Register() {
           )}
 
           <button type="submit" disabled={loading} className="login-button">
-            {loading ? 'Inscription en cours...' : 'S\'inscrire'}
+            {loading ? 'Signing up...' : 'Sign up'}
           </button>
 
           <div className="login-footer">
             <p>
-              Vous avez déjà un compte ? <Link to="/login">Se connecter</Link>
+              Already have an account? <Link to="/login">Login</Link>
             </p>
           </div>
         </form>

@@ -97,7 +97,7 @@ function Integrations() {
         let communicationsCount = 0;
         try {
           const countResponse = await axios.get(
-            `${API_URL}/auth/communications?limit=1`,
+            `${API_URL}/communications?limit=1`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }

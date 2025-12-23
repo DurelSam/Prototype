@@ -202,7 +202,7 @@ const UrgentEmailsTab = () => {
         }
       }
     } catch (error) {
-      console.error('Erreur chargement emails urgents:', error);
+      console.error('Error loading urgent emails:', error);
       setUrgentEmails([]);
     } finally {
       setLoading(false);
@@ -226,7 +226,7 @@ const UrgentEmailsTab = () => {
   }, [searchTerm, filterPriority, filterDateRange]);
   const handleReply = async () => {
     if (!replyContent.trim()) {
-      alert('Veuillez saisir un message de réponse');
+      alert('Please enter a reply message');
       return;
     }
 
@@ -239,14 +239,14 @@ const UrgentEmailsTab = () => {
       );
 
       if (response.data.success) {
-        alert('✅ Réponse envoyée avec succès !');
+        alert('✅ Reply sent successfully!');
         setSelectedEmail(null);
         setReplyContent('');
         fetchUrgentEmails(); // Recharger la liste
       }
     } catch (error) {
-      console.error('Erreur envoi réponse:', error);
-      alert(`❌ Erreur: ${error.response?.data?.message || error.message}`);
+      console.error('Error sending reply:', error);
+      alert(`❌ Error: ${error.response?.data?.message || error.message}`);
     } finally {
       setSending(false);
     }
@@ -265,7 +265,7 @@ const UrgentEmailsTab = () => {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Chargement des emails urgents...</p>
+        <p>Loading urgent emails...</p>
       </div>
     );
   }
@@ -274,22 +274,22 @@ const UrgentEmailsTab = () => {
     <div className="urgent-emails-tab">
       <div className="urgent-header">
         <h2>
-          <FontAwesomeIcon icon={faExclamationTriangle} /> Emails Urgents à Répondre
+          <FontAwesomeIcon icon={faExclamationTriangle} /> Urgent Emails to Reply
         </h2>
         <p className="urgent-subtitle">
-          Emails High/Critical nécessitant une réponse manuelle ({urgentEmails.length})
+          High/Critical emails requiring manual reply ({urgentEmails.length})
         </p>
       </div>
 
       <div className="controls-section">
         <div className="filter-controls">
           <div className="filter-group search-group">
-            <label>Recherche</label>
+            <label>Search</label>
             <div className="search-wrapper">
               <FontAwesomeIcon icon={faSearch} className="search-icon" />
               <input
                 type="text"
-                placeholder="Sujet, Expéditeur, ou Contenu..."
+                placeholder="Subject, Sender, or Content..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -297,38 +297,38 @@ const UrgentEmailsTab = () => {
             </div>
           </div>
           <div className="filter-group">
-            <label>Priorité</label>
+            <label>Priority</label>
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
               className="filter-select"
             >
-              <option value="All">Toutes urgences</option>
+              <option value="All">Any Priority</option>
               <option value="High">High</option>
               <option value="Critical">Critical</option>
             </select>
           </div>
           <div className="filter-group">
-            <label>Période</label>
+            <label>Date Range</label>
             <select
               value={filterDateRange}
               onChange={(e) => setFilterDateRange(e.target.value)}
               className="filter-select"
             >
-              <option value="All">Tout temps</option>
-              <option value="Today">Aujourd'hui</option>
-              <option value="Yesterday">Hier</option>
-              <option value="Last7Days">7 derniers jours</option>
-              <option value="Last30Days">30 derniers jours</option>
-              <option value="ThisMonth">Ce mois</option>
-              <option value="LastMonth">Mois dernier</option>
+              <option value="All">All Time</option>
+              <option value="Today">Today</option>
+              <option value="Yesterday">Yesterday</option>
+              <option value="Last7Days">Last 7 Days</option>
+              <option value="Last30Days">Last 30 Days</option>
+              <option value="ThisMonth">This Month</option>
+              <option value="LastMonth">Last Month</option>
             </select>
           </div>
         </div>
       </div>
       {urgentEmails.length === 0 ? (
         <div className="no-urgent-emails">
-          <p>Aucun email urgent en attente. Tous les emails High/Critical ont été traités.</p>
+          <p>No urgent emails pending. All High/Critical emails have been processed.</p>
         </div>
       ) : (
         <>
@@ -350,10 +350,10 @@ const UrgentEmailsTab = () => {
                     <h3 className="comm-subject">{email.subject}</h3>
                   </div>
                   <div className="comm-meta">
-                    <span className="comm-from">{email.sender?.email || "Inconnu"}</span>
+                    <span className="comm-from">{email.sender?.email || "Unknown"}</span>
                     <span>•</span>
                     <span className="comm-date">
-                      {new Date(email.receivedAt).toLocaleDateString('fr-FR', {
+                      {new Date(email.receivedAt).toLocaleDateString('en-US', {
                         day: '2-digit',
                         month: 'short',
                         hour: '2-digit',
@@ -370,26 +370,26 @@ const UrgentEmailsTab = () => {
                       <span
                         className="ai-tag priority"
                         data-priority={email.ai_analysis?.urgency || 'High'}
-                        title="Urgence IA"
+                        title="AI Priority"
                       >
                         <FontAwesomeIcon icon={faExclamationTriangle} /> {email.ai_analysis?.urgency || 'High'}
                       </span>
                       {email.hasAutoResponse && (
                         <span className="ai-tag auto-response">
-                          ✓ Auto-Response envoyée
+                          ✓ Auto-Response sent
                         </span>
                       )}
                       {email.hasBeenReplied && !email.hasAutoResponse && (
                         <span
                           className="ai-tag replied"
-                          title="Email répondu"
+                          title="Email replied"
                         >
-                          <FontAwesomeIcon icon={faReply} /> Répondu
+                          <FontAwesomeIcon icon={faReply} /> Replied
                         </span>
                       )}
                     </div>
                     <button className="btn-reply" onClick={() => setSelectedEmail(email)}>
-                      <FontAwesomeIcon icon={faReply} /> Répondre
+                      <FontAwesomeIcon icon={faReply} /> Reply
                     </button>
                   </div>
                 </div>
@@ -400,7 +400,7 @@ const UrgentEmailsTab = () => {
         </>
       )}
 
-      {/* Pagination Component - Identique à Summary & Search */}
+      {/* Pagination Component - Same as Summary & Search */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}
@@ -411,15 +411,15 @@ const UrgentEmailsTab = () => {
         loading={loading}
       />
 
-      {/* Modal de réponse */}
+      {/* Reply Modal */}
       {selectedEmail && (
         <div className="reply-modal" onClick={() => setSelectedEmail(null)}>
           <div className="reply-modal-content" onClick={(e) => e.stopPropagation()}>
-            {console.log('📧 Email sélectionné:', selectedEmail)}
+            {console.log('📧 Selected email:', selectedEmail)}
             {console.log('🤖 AI Analysis:', selectedEmail.ai_analysis)}
             <div className="reply-modal-header">
               <h3>
-                <FontAwesomeIcon icon={faReply} /> Répondre à l'email
+                <FontAwesomeIcon icon={faReply} /> Reply to email
               </h3>
               <button className="close-modal-btn" onClick={() => setSelectedEmail(null)}>
                 <FontAwesomeIcon icon={faTimes} />
@@ -428,13 +428,13 @@ const UrgentEmailsTab = () => {
 
             <div className="reply-email-info">
               <p>
-                <strong>À:</strong> <span>{selectedEmail.sender.email}</span>
+                <strong>To:</strong> <span>{selectedEmail.sender.email}</span>
               </p>
               <p>
-                <strong>Sujet:</strong> <span>Re: {selectedEmail.subject}</span>
+                <strong>Subject:</strong> <span>Re: {selectedEmail.subject}</span>
               </p>
               <p>
-                <strong>Priorité:</strong>{' '}
+                <strong>Priority:</strong>{' '}
                 <span className={`urgent-email-priority ${selectedEmail.ai_analysis?.urgency?.toLowerCase()}`}>
                   <FontAwesomeIcon icon={faExclamationTriangle} /> {selectedEmail.ai_analysis?.urgency}
                 </span>
@@ -442,28 +442,28 @@ const UrgentEmailsTab = () => {
             </div>
 
             <div className="reply-original-email">
-              <h4>Message original</h4>
+              <h4>Original message</h4>
               <div className="original-content">
-                {selectedEmail.content?.substring(0, 500) || 'Contenu non disponible'}
+                {selectedEmail.content?.substring(0, 500) || 'Content not available'}
               </div>
             </div>
 
             <div className="reply-ai-summary">
               <h4>
-                <FontAwesomeIcon icon={faRobot} /> Résumé AI
+                <FontAwesomeIcon icon={faRobot} /> AI Summary
               </h4>
               <div className="ai-summary-content">
-                {selectedEmail.ai_analysis?.summary || 'Résumé AI non disponible pour cet email.'}
+                {selectedEmail.ai_analysis?.summary || 'AI summary not available for this email.'}
               </div>
             </div>
 
             <div className="reply-compose">
-              <h4>Votre réponse</h4>
+              <h4>Your response</h4>
               <textarea
                 id="reply-content"
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
-                placeholder="Composez votre réponse ici..."
+                placeholder="Compose your response here..."
               />
             </div>
 
@@ -473,7 +473,7 @@ const UrgentEmailsTab = () => {
                 onClick={() => setSelectedEmail(null)}
                 disabled={sending}
               >
-                Annuler
+                Cancel
               </button>
               <button
                 className="btn-send"
@@ -482,11 +482,11 @@ const UrgentEmailsTab = () => {
               >
                 {sending ? (
                   <>
-                    <span className="spinner-small"></span> Envoi...
+                    <span className="spinner-small"></span> Sending...
                   </>
                 ) : (
                   <>
-                    <FontAwesomeIcon icon={faPaperPlane} /> Envoyer
+                    <FontAwesomeIcon icon={faPaperPlane} /> Send
                   </>
                 )}
               </button>
@@ -756,7 +756,7 @@ const CommunicationListTab = ({ navigate }) => {
             onClick={() => setShowAdvancedFilters((v) => !v)}
             style={{ alignSelf: "flex-end" }}
           >
-            {showAdvancedFilters ? "Moins de filtres" : "Plus de filtres"}
+            {showAdvancedFilters ? "Fewer filters" : "More filters"}
           </button>
         </div>
         {showAdvancedFilters && (
@@ -870,7 +870,7 @@ const CommunicationListTab = ({ navigate }) => {
                           borderColor: "rgba(239, 68, 68, 0.3)",
                           fontWeight: "700",
                         }}
-                        title="Email escaladé (SLA dépassé)"
+                        title="Email escalated (SLA breached)"
                       >
                         <FontAwesomeIcon icon={faArrowUp} /> ESCALATED
                       </span>
@@ -878,7 +878,7 @@ const CommunicationListTab = ({ navigate }) => {
                     {comm.hasAutoResponse && (
                       <span
                         className="ai-tag auto-response"
-                        title="Réponse automatique envoyée"
+                        title="Auto-response sent"
                       >
                         ✓ Auto-Response
                       </span>
@@ -892,9 +892,9 @@ const CommunicationListTab = ({ navigate }) => {
                           borderColor: "rgba(59, 130, 246, 0.3)",
                           fontWeight: "600",
                         }}
-                        title="Email répondu manuellement"
+                        title="Email replied manually"
                       >
-                        <FontAwesomeIcon icon={faReply} /> Répondu
+                        <FontAwesomeIcon icon={faReply} /> Replied
                       </span>
                     )}
                     {comm.awaitingUserInput && (
@@ -907,9 +907,9 @@ const CommunicationListTab = ({ navigate }) => {
                           fontWeight: "600",
                           animation: "pulse 2s infinite",
                         }}
-                        title="En attente de vos réponses pour générer une réponse IA"
+                        title="Awaiting your input to generate an AI response"
                       >
-                        <FontAwesomeIcon icon={faRobot} /> En attente
+                        <FontAwesomeIcon icon={faRobot} /> Awaiting
                       </span>
                     )}
                     {comm.aiAnalysis.requiresResponse === false && (
@@ -921,9 +921,9 @@ const CommunicationListTab = ({ navigate }) => {
                           borderColor: "rgba(107, 114, 128, 0.3)",
                           fontWeight: "600",
                         }}
-                        title="L'IA a déterminé qu'aucune réponse n'est nécessaire"
+                        title="AI determined no response is needed"
                       >
-                        <FontAwesomeIcon icon={faQuestionCircle} /> Aucune réponse nécessaire
+                        <FontAwesomeIcon icon={faQuestionCircle} /> No response needed
                       </span>
                     )}
                   </div>
@@ -962,7 +962,7 @@ const AwaitingSummary = ({ summary }) => {
       </p>
       {isLong && (
         <button className="btn-link" onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Voir moins' : 'Voir plus'}
+          {expanded ? 'Show less' : 'Show more'}
         </button>
       )}
     </div>
@@ -1026,7 +1026,7 @@ const AssistedResponseTab = () => {
         }
       }
     } catch (error) {
-      console.error('Erreur chargement emails en attente:', error);
+      console.error('Error loading awaiting emails:', error);
       setError(error);
       setAwaitingEmails([]);
       setTotalPages(1);
@@ -1071,8 +1071,8 @@ const AssistedResponseTab = () => {
         setGeneratedDraft('');
       }
     } catch (error) {
-      console.error('Erreur génération questions:', error);
-      setToast({ show: true, message: `Erreur: ${error.response?.data?.message || error.message}`, type: 'error' });
+      console.error('Error generating questions:', error);
+      setToast({ show: true, message: `Error: ${error.response?.data?.message || error.message}`, type: 'error' });
       setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
     } finally {
       setLoading(false);
@@ -1110,8 +1110,8 @@ const AssistedResponseTab = () => {
         setWizardStep('preview');
       }
     } catch (error) {
-      console.error('Erreur génération brouillon:', error);
-      setToast({ show: true, message: `Erreur: ${error.response?.data?.message || error.message}`, type: 'error' });
+      console.error('Error generating draft:', error);
+      setToast({ show: true, message: `Error: ${error.response?.data?.message || error.message}`, type: 'error' });
       setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
     } finally {
       setIsGeneratingDraft(false);
@@ -1120,7 +1120,7 @@ const AssistedResponseTab = () => {
 
   const handleSubmitQuestionnaire = async () => {
     // Confirmation avant envoi
-    const confirmSend = window.confirm('Êtes-vous sûr de vouloir envoyer cette réponse ?');
+    const confirmSend = window.confirm('Are you sure you want to send this response?');
     if (!confirmSend) return;
 
     try {
@@ -1138,7 +1138,7 @@ const AssistedResponseTab = () => {
       );
 
       if (response.data.success) {
-        setToast({ show: true, message: 'Réponse envoyée avec succès !', type: 'success' });
+        setToast({ show: true, message: 'Response sent successfully!', type: 'success' });
         setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
         setShowQuestionnaireModal(false);
         setSelectedEmail(null);
@@ -1149,8 +1149,8 @@ const AssistedResponseTab = () => {
         fetchAwaitingEmails(); // Recharger la liste
       }
     } catch (error) {
-      console.error('Erreur soumission questionnaire:', error);
-      setToast({ show: true, message: `Erreur: ${error.response?.data?.message || error.message}`, type: 'error' });
+      console.error('Error submitting questionnaire:', error);
+      setToast({ show: true, message: `Error: ${error.response?.data?.message || error.message}`, type: 'error' });
       setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
     } finally {
       setSubmitting(false);
@@ -1161,7 +1161,7 @@ const AssistedResponseTab = () => {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Chargement des emails en attente...</p>
+        <p>Loading awaiting emails...</p>
       </div>
     );
   }
@@ -1212,10 +1212,10 @@ const AssistedResponseTab = () => {
     <div className="assisted-response-tab">
       <div className="assisted-header">
         <h2>
-          <FontAwesomeIcon icon={faRobot} /> Réponses Automatiques Assistées
+          <FontAwesomeIcon icon={faRobot} /> Assisted Automatic Responses
         </h2>
         <p className="assisted-subtitle">
-          Emails Low/Medium en attente de votre contexte pour générer une réponse IA ({totalFiltered})
+          Low/Medium emails awaiting your context to generate an AI response ({totalFiltered})
         </p>
       </div>
 
@@ -1227,16 +1227,16 @@ const AssistedResponseTab = () => {
         </div>
       )}
 
-      {/* Barre de recherche et filtres */}
+      {/* Search bar and filters */}
       <div className="controls-section">
         <div className="filter-controls">
           <div className="filter-group search-group">
-            <label>Recherche</label>
+            <label>Search</label>
             <div className="search-wrapper">
               <FontAwesomeIcon icon={faSearch} className="search-icon" />
               <input
                 type="text"
-                placeholder="Sujet, Expéditeur, ou Contenu..."
+                placeholder="Subject, Sender, or Content..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -1245,32 +1245,32 @@ const AssistedResponseTab = () => {
           </div>
 
           <div className="filter-group">
-            <label>Priorité</label>
+            <label>Priority</label>
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
               className="filter-select"
             >
-              <option value="All">Toute priorité</option>
+              <option value="All">Any Priority</option>
               <option value="Medium">Medium</option>
               <option value="Low">Low</option>
             </select>
           </div>
 
           <div className="filter-group">
-            <label>Période</label>
+            <label>Date Range</label>
             <select
               value={filterDateRange}
               onChange={(e) => setFilterDateRange(e.target.value)}
               className="filter-select"
             >
-              <option value="All">Tout temps</option>
-              <option value="Today">Aujourd'hui</option>
-              <option value="Yesterday">Hier</option>
-              <option value="Last7Days">7 derniers jours</option>
-              <option value="Last30Days">30 derniers jours</option>
-              <option value="ThisMonth">Ce mois</option>
-              <option value="LastMonth">Mois dernier</option>
+              <option value="All">All Time</option>
+              <option value="Today">Today</option>
+              <option value="Yesterday">Yesterday</option>
+              <option value="Last7Days">Last 7 Days</option>
+              <option value="Last30Days">Last 30 Days</option>
+              <option value="ThisMonth">This Month</option>
+              <option value="LastMonth">Last Month</option>
             </select>
           </div>
         </div>
@@ -1281,13 +1281,13 @@ const AssistedResponseTab = () => {
           <FontAwesomeIcon icon={faRobot} size="3x" style={{ color: '#6b7280', marginBottom: '1rem' }} />
           {error ? (
             <>
-              <p>Erreur de chargement : {error.message}</p>
-              <button className="btn-retry" onClick={fetchAwaitingEmails}>Réessayer</button>
+              <p>Loading error: {error.message}</p>
+              <button className="btn-retry" onClick={fetchAwaitingEmails}>Retry</button>
             </>
           ) : (
             <>
-              <p>{searchTerm || filterPriority !== 'All' || filterDateRange !== 'All' ? 'Aucun résultat avec ces filtres.' : 'Aucun email en attente de réponse assistée.'}</p>
-              <p className="subtitle">Les emails Low/Medium nécessitant une réponse apparaîtront ici.</p>
+              <p>{searchTerm || filterPriority !== 'All' || filterDateRange !== 'All' ? 'No results with these filters.' : 'No emails awaiting assisted response.'}</p>
+              <p className="subtitle">Low/Medium emails requiring a response will appear here.</p>
             </>
           )}
         </div>
@@ -1311,10 +1311,10 @@ const AssistedResponseTab = () => {
                     <h3 className="comm-subject">{email.subject}</h3>
                   </div>
                   <div className="comm-meta">
-                    <span className="comm-from">{email.sender?.email || "Inconnu"}</span>
+                    <span className="comm-from">{email.sender?.email || "Unknown"}</span>
                     <span>•</span>
                     <span className="comm-date">
-                      {new Date(email.receivedAt).toLocaleDateString('fr-FR', {
+                      {new Date(email.receivedAt).toLocaleDateString('en-US', {
                         day: '2-digit',
                         month: 'short',
                         hour: '2-digit',
@@ -1330,7 +1330,7 @@ const AssistedResponseTab = () => {
                       <span
                         className="ai-tag priority"
                         data-priority={email.ai_analysis?.urgency || 'Medium'}
-                        title="Urgence IA"
+                        title="AI Urgency"
                       >
                         <FontAwesomeIcon icon={faClock} /> {email.ai_analysis?.urgency || 'Medium'}
                       </span>
@@ -1352,7 +1352,7 @@ const AssistedResponseTab = () => {
                     >
                       <FontAwesomeIcon icon={faRobot} />
                       {email.aiGeneratedQuestions && email.aiGeneratedQuestions.length > 0
-                        ? ' Continuer'
+                        ? ' Continue'
                         : ' Assistant'}
                     </button>
                   </div>
@@ -1381,7 +1381,7 @@ const AssistedResponseTab = () => {
               <div>
                 <h3>
                   <FontAwesomeIcon icon={faRobot} />{' '}
-                  {wizardStep === 'questions' ? 'Questions Contextuelles' : 'Prévisualisation de la Réponse'}
+                  {wizardStep === 'questions' ? 'Contextual Questions' : 'Response Preview'}
                 </h3>
                 {wizardStep === 'questions' && (
                   <>
@@ -1391,7 +1391,7 @@ const AssistedResponseTab = () => {
                         style={{ width: `${((userAnswers ? Object.keys(userAnswers).length : 0) / questionnaireData.questions.length) * 100}%` }}
                       />
                     </div>
-                    <span className="progress-text">{Object.keys(userAnswers).length} / {questionnaireData.questions.length} répondues</span>
+                    <span className="progress-text">{Object.keys(userAnswers).length} / {questionnaireData.questions.length} answered</span>
                   </>
                 )}
               </div>
@@ -1405,7 +1405,7 @@ const AssistedResponseTab = () => {
                 <strong>Email:</strong> <span>{selectedEmail?.subject}</span>
               </p>
               <p>
-                <strong>De:</strong> <span>{selectedEmail?.sender?.email}</span>
+                <strong>From:</strong> <span>{selectedEmail?.sender?.email}</span>
               </p>
             </div>
 
@@ -1477,7 +1477,7 @@ const AssistedResponseTab = () => {
                           rows="3"
                           value={userAnswers[question.question] || ''}
                           onChange={(e) => handleAnswerQuestion(question.question, e.target.value)}
-                          placeholder="Votre réponse..."
+                          placeholder="Your answer..."
                         />
                         {question.hint && <p className="question-hint">{question.hint}</p>}
                       </>
@@ -1489,7 +1489,7 @@ const AssistedResponseTab = () => {
                         value={userAnswers[question.question] || ''}
                         onChange={(e) => handleAnswerQuestion(question.question, e.target.value)}
                       >
-                        <option value="">-- Sélectionner --</option>
+                        <option value="">-- Select --</option>
                         {question.options.map((option, optIndex) => (
                           <option key={optIndex} value={option}>
                             {option}
@@ -1502,7 +1502,7 @@ const AssistedResponseTab = () => {
               ) : (
                 // ÉTAPE 2: PREVIEW
                 <div className="reply-compose">
-                  <label className="question-label">Brouillon généré par l'IA (modifiable)</label>
+                  <label className="question-label">AI generated draft (editable)</label>
                   <textarea
                     value={generatedDraft}
                     onChange={(e) => setGeneratedDraft(e.target.value)}
@@ -1517,7 +1517,7 @@ const AssistedResponseTab = () => {
               {wizardStep === 'questions' ? (
                 <>
                   <button className="btn-cancel" onClick={() => setShowQuestionnaireModal(false)}>
-                    Annuler
+                    Cancel
                   </button>
                   <button
                     className="btn-submit-questionnaire"
@@ -1527,17 +1527,17 @@ const AssistedResponseTab = () => {
                     {isGeneratingDraft ? (
                       <>
                         <span className="spinner-small" style={{ marginRight: '8px' }}></span>
-                        Génération...
+                        Generating...
                       </>
                     ) : (
-                      'Générer la proposition'
+                      'Generate proposal'
                     )}
                   </button>
                 </>
               ) : (
                 <>
                   <button className="btn-cancel" onClick={() => setWizardStep('questions')}>
-                    ← Modifier les réponses
+                    ← Edit answers
                   </button>
                   <button
                     className="btn-submit-questionnaire"
@@ -1548,12 +1548,12 @@ const AssistedResponseTab = () => {
                     {submitting ? (
                       <>
                         <span className="spinner-small" style={{ marginRight: '8px' }}></span>
-                        Envoi...
+                        Sending...
                       </>
                     ) : (
                       <>
                         <FontAwesomeIcon icon={faPaperPlane} style={{ marginRight: '8px' }} />
-                        Envoyer l'email
+                        Send email
                       </>
                     )}
                   </button>
@@ -1631,7 +1631,7 @@ const AutoResponsesTab = () => {
         }
       }
     } catch (e) {
-      console.error('Erreur chargement réponses auto:', e);
+      console.error('Error loading auto-responses:', e);
       setError(e.message);
       setItems([]);
       setTotalPages(1);
@@ -1668,7 +1668,7 @@ const AutoResponsesTab = () => {
 
   const handleSend = async () => {
     if (!draftContent.trim()) {
-      alert('Veuillez saisir ou vérifier le contenu de la réponse auto');
+      alert('Please enter or verify the auto-response content');
       return;
     }
     try {
@@ -1679,13 +1679,13 @@ const AutoResponsesTab = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
-        alert('✅ Réponse automatique envoyée');
+        alert('✅ Auto-response sent');
         closeCompose();
         fetchAutoCandidates();
       }
     } catch (error) {
-      console.error('Erreur envoi auto-réponse:', error);
-      alert(`❌ Erreur: ${error.response?.data?.message || error.message}`);
+      console.error('Error sending auto-response:', error);
+      alert(`❌ Error: ${error.response?.data?.message || error.message}`);
     } finally {
       setSending(false);
     }
@@ -1712,11 +1712,11 @@ const AutoResponsesTab = () => {
           setDraftContent(updated || '');
         }
       } else {
-        alert("La régénération n'a pas abouti.");
+        alert("Regeneration failed.");
       }
     } catch (error) {
-      console.error('Erreur régénération suggestion:', error);
-      alert(`❌ Erreur: ${error.response?.data?.message || error.message}`);
+      console.error('Error regenerating suggestion:', error);
+      alert(`❌ Error: ${error.response?.data?.message || error.message}`);
     } finally {
       setRegenerating(false);
     }
@@ -1752,7 +1752,7 @@ const AutoResponsesTab = () => {
         setSelectedItems(result.data || []);
       }
     } catch (e) {
-      console.error('Erreur sélection globale:', e);
+      console.error('Error global selection:', e);
     }
   };
 
@@ -1763,7 +1763,7 @@ const AutoResponsesTab = () => {
   const handleBulkSend = async () => {
     if (selectedItems.length === 0) return;
     
-    if (!window.confirm(`Voulez-vous vraiment envoyer ces ${selectedItems.length} réponses automatiques ?`)) {
+    if (!window.confirm(`Do you really want to send these ${selectedItems.length} auto responses?`)) {
       return;
     }
 
@@ -1782,7 +1782,7 @@ const AutoResponsesTab = () => {
             item = resp.data.data;
           }
         } catch (fetchErr) {
-          console.error(`Erreur récupération item ${id}:`, fetchErr);
+          console.error(`Error fetching item ${id}:`, fetchErr);
         }
       }
       if (!item) {
@@ -1791,7 +1791,7 @@ const AutoResponsesTab = () => {
       }
       try {
         const content = item.ai_analysis?.suggestedResponse;
-        if (!content) throw new Error("Pas de suggestion");
+        if (!content) throw new Error("No suggestion");
         await axios.post(
           `${API_URL}/communications/${id}/reply`,
           { replyContent: content },
@@ -1799,12 +1799,12 @@ const AutoResponsesTab = () => {
         );
         successCount++;
       } catch (error) {
-        console.error(`Erreur envoi auto pour ${id}:`, error);
+        console.error(`Error sending auto for ${id}:`, error);
         failCount++;
       }
     }
 
-    alert(`Traitement terminé.\n✅ Envoyés: ${successCount}\n❌ Échecs: ${failCount}`);
+    alert(`Processing completed.\n✅ Sent: ${successCount}\n❌ Failures: ${failCount}`);
     setBulkSending(false);
     setSelectedItems([]);
     fetchAutoCandidates();
@@ -1824,12 +1824,12 @@ const AutoResponsesTab = () => {
       <div className="controls-section">
         <div className="filter-controls">
           <div className="filter-group search-group">
-            <label>Recherche</label>
+            <label>Search</label>
             <div className="search-wrapper">
               <FontAwesomeIcon icon={faSearch} className="search-icon" />
               <input
                 type="text"
-                placeholder="Sujet, Expéditeur, ou Contenu..."
+                placeholder="Subject, Sender, or Content..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input"
@@ -1838,13 +1838,13 @@ const AutoResponsesTab = () => {
           </div>
 
           <div className="filter-group">
-            <label>Priorité</label>
+            <label>Priority</label>
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
               className="filter-select"
             >
-              <option value="All">Toute priorité</option>
+              <option value="All">Any priority</option>
               <option value="Critical">Critical</option>
               <option value="High">High</option>
               <option value="Medium">Medium</option>
@@ -1853,32 +1853,32 @@ const AutoResponsesTab = () => {
           </div>
 
           <div className="filter-group">
-            <label>Période</label>
+            <label>Time Period</label>
             <select
               value={filterDateRange}
               onChange={(e) => setFilterDateRange(e.target.value)}
               className="filter-select"
             >
-              <option value="All">Tout temps</option>
-              <option value="Today">Aujourd'hui</option>
-              <option value="Yesterday">Hier</option>
-              <option value="Last7Days">7 derniers jours</option>
-              <option value="Last30Days">30 derniers jours</option>
-              <option value="ThisMonth">Ce mois</option>
-              <option value="LastMonth">Mois dernier</option>
+              <option value="All">All time</option>
+              <option value="Today">Today</option>
+              <option value="Yesterday">Yesterday</option>
+              <option value="Last7Days">Last 7 days</option>
+              <option value="Last30Days">Last 30 days</option>
+              <option value="ThisMonth">This month</option>
+              <option value="LastMonth">Last month</option>
             </select>
           </div>
 
           <div className="filter-group">
-            <label>Statut</label>
+            <label>Status</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               className="filter-select"
             >
-              <option value="Pending">À envoyer</option>
-              <option value="Sent">Envoyées</option>
-              <option value="All">Toutes</option>
+              <option value="Pending">To send</option>
+              <option value="Sent">Sent</option>
+              <option value="All">All</option>
             </select>
           </div>
         </div>
@@ -1891,25 +1891,25 @@ const AutoResponsesTab = () => {
             disabled={totalItems === 0}
             className="btn-reply"
           >
-            Sélectionner les résultats ({totalItems})
+            Select results ({totalItems})
           </button>
           <button
             onClick={deselectAllGlobal}
             disabled={selectedItems.length === 0}
             className="btn-cancel"
           >
-            Tout désélectionner
+            Deselect all
           </button>
         </div>
         <div style={{ fontWeight: 600 }}>
-          {selectedItems.length} sélectionné(s)
+          {selectedItems.length} selected
         </div>
       </div>
 
       <div className="communications-list">
         {items.length === 0 ? (
           <div className="empty-state">
-            {error ? `Erreur: ${error}` : "Aucune réponse automatique prête."}
+            {error ? `Error: ${error}` : "No auto-response ready."}
           </div>
         ) : (
           items.map((comm) => (
@@ -1928,14 +1928,14 @@ const AutoResponsesTab = () => {
               </div>
               <div className="comm-content">
                 <div className="comm-header-row">
-                  <h3 className="comm-subject">{comm.subject || "(Sans sujet)"}</h3>
+                  <h3 className="comm-subject">{comm.subject || "(No subject)"}</h3>
                 </div>
                 <div className="comm-meta">
-                  <span className="comm-from">{comm.sender?.email || "Inconnu"}</span>
+                  <span className="comm-from">{comm.sender?.email || "Unknown"}</span>
                   <span>•</span>
                   <span className="comm-date">
                     {comm.receivedAt
-                      ? new Date(comm.receivedAt).toLocaleDateString('fr-FR', {
+                      ? new Date(comm.receivedAt).toLocaleDateString('en-US', {
                           day: '2-digit',
                           month: 'short',
                           hour: '2-digit',
@@ -1953,18 +1953,18 @@ const AutoResponsesTab = () => {
                     <span
                       className="ai-tag priority"
                       data-priority={comm.ai_analysis?.urgency || 'Medium'}
-                      title="Urgence IA"
+                      title="AI Urgency"
                     >
                       {comm.ai_analysis?.urgency || 'Medium'}
                     </span>
                     {comm.hasAutoResponse && (
                       <span className="ai-tag auto-response">
-                        ✓ Auto-Response envoyée
+                        ✓ Auto-Response sent
                       </span>
                     )}
                   </div>
                   <button className="btn-reply" onClick={() => openCompose(comm)}>
-                    <FontAwesomeIcon icon={faPaperPlane} /> Prévisualiser/Envoyer
+                    <FontAwesomeIcon icon={faPaperPlane} /> Preview/Send
                   </button>
                 </div>
               </div>
@@ -1979,7 +1979,7 @@ const AutoResponsesTab = () => {
           disabled={bulkSending || selectedItems.length === 0}
           className="btn-send"
         >
-          {bulkSending ? 'Envoi en cours...' : `Envoyer (${selectedItems.length})`}
+          {bulkSending ? 'Sending...' : `Send (${selectedItems.length})`}
         </button>
       </div>
 
@@ -1998,7 +1998,7 @@ const AutoResponsesTab = () => {
           <div className="reply-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="reply-modal-header">
               <h3>
-                <FontAwesomeIcon icon={faPaperPlane} /> Réponse Automatique
+                <FontAwesomeIcon icon={faPaperPlane} /> Auto Response
               </h3>
               <button className="close-modal-btn" onClick={closeCompose}>
                 <FontAwesomeIcon icon={faTimes} />
@@ -2007,13 +2007,13 @@ const AutoResponsesTab = () => {
 
             <div className="reply-email-info">
               <p>
-                <strong>À:</strong> <span>{selectedItem.sender?.email}</span>
+                <strong>To:</strong> <span>{selectedItem.sender?.email}</span>
               </p>
               <p>
-                <strong>Sujet:</strong> <span>Re: {selectedItem.subject}</span>
+                <strong>Subject:</strong> <span>Re: {selectedItem.subject}</span>
               </p>
               <p>
-                <strong>Priorité:</strong>{' '}
+                <strong>Priority:</strong>{' '}
                 <span className={`urgent-email-priority ${selectedItem.ai_analysis?.urgency?.toLowerCase()}`}>
                   <FontAwesomeIcon icon={faExclamationTriangle} /> {selectedItem.ai_analysis?.urgency}
                 </span>
@@ -2022,41 +2022,41 @@ const AutoResponsesTab = () => {
 
             <div className="reply-ai-summary">
               <h4>
-                <FontAwesomeIcon icon={faRobot} /> Résumé IA
+                <FontAwesomeIcon icon={faRobot} /> AI Summary
               </h4>
               <div className="ai-summary-content">
-                {selectedItem.ai_analysis?.summary || "Résumé IA non disponible."}
+                {selectedItem.ai_analysis?.summary || "AI summary not available."}
               </div>
             </div>
 
             <div className="reply-compose">
-              <h4>Contenu à envoyer</h4>
+              <h4>Content to send</h4>
               <textarea
                 value={draftContent}
                 onChange={(e) => setDraftContent(e.target.value)}
-                placeholder="Vérifiez/éditez la réponse auto proposée..."
+                placeholder="Verify/edit the proposed auto-response..."
               />
             </div>
 
             <div className="reply-modal-actions">
               <button className="btn-cancel" onClick={closeCompose} disabled={sending}>
-                Annuler
+                Cancel
               </button>
               <button
                 className="btn-cancel"
                 onClick={() => handleRegenerate(selectedItem)}
                 disabled={regenerating}
               >
-                {regenerating ? 'Régénération...' : 'Régénérer'}
+                {regenerating ? 'Regenerating...' : 'Regenerate'}
               </button>
               <button className="btn-send" onClick={handleSend} disabled={sending || !draftContent.trim()}>
                 {sending ? (
                   <>
-                    <span className="spinner-small"></span> Envoi...
+                    <span className="spinner-small"></span> Sending...
                   </>
                 ) : (
                   <>
-                    <FontAwesomeIcon icon={faPaperPlane} /> Envoyer
+                    <FontAwesomeIcon icon={faPaperPlane} /> Send
                   </>
                 )}
               </button>
@@ -2133,20 +2133,20 @@ function Communications() {
             className={`tab-button ${activeTab === "urgent" ? "active" : ""}`}
             onClick={() => setActiveTab("urgent")}
           >
-            <FontAwesomeIcon icon={faExclamationTriangle} /> À Répondre
+            <FontAwesomeIcon icon={faExclamationTriangle} /> To Reply
           </button>
           <button
             className={`tab-button ${activeTab === "assisted" ? "active" : ""}`}
             onClick={() => setActiveTab("assisted")}
           >
-            <FontAwesomeIcon icon={faRobot} /> Réponses Assistées
+            <FontAwesomeIcon icon={faRobot} /> Assisted Responses
           </button>
           {autoResponseEnabled && (
             <button
               className={`tab-button ${activeTab === "auto" ? "active" : ""}`}
               onClick={() => setActiveTab("auto")}
             >
-              <FontAwesomeIcon icon={faRobot} /> Réponses Auto
+              <FontAwesomeIcon icon={faRobot} /> Auto Responses
             </button>
           )}
           {user?.role !== 'UpperAdmin' && (

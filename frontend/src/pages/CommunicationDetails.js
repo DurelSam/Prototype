@@ -90,6 +90,8 @@ function CommunicationDetails() {
             },
             status: data.status,
             externalId: data.externalId, // Pour les réponses
+            responseContent: data.autoResponseContent,
+            repliedAt: data.repliedAt || data.autoResponseSentAt,
           };
 
           setCommunication(mappedCommunication);
@@ -262,7 +264,7 @@ function CommunicationDetails() {
   }
 
   const formatDate = (date) => {
-    return date.toLocaleDateString("fr-FR", {
+    return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -289,14 +291,14 @@ function CommunicationDetails() {
           className="back-button"
           onClick={() => navigate("/communications")}
         >
-          <FontAwesomeIcon icon={faArrowLeft} /> Retour au Hub des Communications
+          <FontAwesomeIcon icon={faArrowLeft} /> Back to Communications Hub
         </button>
 
         {/* Reply Button - Only show for emails */}
         {(communication.type === "Outlook" || communication.type === "Email") &&
           communication.from && (
             <button className="reply-button" onClick={handleReply}>
-              <FontAwesomeIcon icon={faReply} /> Répondre
+              <FontAwesomeIcon icon={faReply} /> Reply
             </button>
           )}
       </div>
@@ -310,33 +312,33 @@ function CommunicationDetails() {
       >
         {/* Main Content: Email Body */}
         <div className="main-content">
-          {/* NOUVELLE STRUCTURE : HEADER (ICÔNE SEULE EN HAUT À DROITE) */}
-          <div className="comm-header">
-            <div
-              className="comm-type-indicator"
-              data-type={communication.type.toLowerCase()}
-            >
-              <FontAwesomeIcon
-                icon={
-                  isEmailType(communication.type) ? faEnvelope : faCommentDots
-                }
-              />{" "}
-              {communication.type}
-            </div>
-          </div>
-
           {/* NOUVELLE STRUCTURE : WRAPPER METADATA & CORPS DU MAIL */}
-          <div className="comm-metadata-wrapper">
+          <div className="comm-metadata-wrapper" style={{ paddingTop: 'var(--space-24)' }}>
+            
+            {/* BADGE en haut à droite (Flux Normal) */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-8)' }}>
+              <div
+                className="comm-type-badge"
+                data-type={communication.type.toLowerCase()}
+              >
+                <FontAwesomeIcon
+                  icon={
+                    isEmailType(communication.type) ? faEnvelope : faCommentDots
+                  }
+                />
+              </div>
+            </div>
+
             <div className="comm-metadata">
               {/* SUJET (Maintenant dans la grille) */}
               <div className="metadata-row subject-row">
-                <span className="label">Sujet</span>
+                <span className="label">Subject</span>
                 <span className="value">{communication.subject}</span>
               </div>
 
               {/* FROM */}
               <div className="metadata-row">
-                <span className="label">De</span>
+                <span className="label">From</span>
                 <span className="value">
                   {communication.fromName} &lt;{communication.from}&gt;
                 </span>
@@ -344,7 +346,7 @@ function CommunicationDetails() {
 
               {/* TO */}
               <div className="metadata-row">
-                <span className="label">À</span>
+                <span className="label">To</span>
                 <span className="value">
                   {communication.toName} &lt;{communication.to}&gt;
                 </span>
@@ -352,7 +354,7 @@ function CommunicationDetails() {
 
               {/* DATE/TIME */}
               <div className="metadata-row">
-                <span className="label">Date/Heure</span>
+                <span className="label">Date/Time</span>
                 <span className="value">{formatDate(communication.date)}</span>
               </div>
             </div>
@@ -365,7 +367,7 @@ function CommunicationDetails() {
               communication.attachments.length > 0 && (
                 <div className="attachments-section">
                   <h3>
-                    <FontAwesomeIcon icon={faPaperclip} /> Pièces jointes (
+                    <FontAwesomeIcon icon={faPaperclip} /> Attachments (
                     {communication.attachments.length})
                   </h3>
                   <div className="attachments-list">
@@ -390,15 +392,46 @@ function CommunicationDetails() {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            Télécharger
+                            Download
                           </a>
                         ) : (
                           <button className="download-button" disabled>
-                            Indisponible
+                            Unavailable
                           </button>
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sent Reply (Read-Only) */}
+              {communication.responseContent && (
+                <div className="sent-response-section">
+                  <div className="response-header">
+                    <FontAwesomeIcon icon={faReply} />
+                    <span>
+                      Reply sent on{' '}
+                      {communication.repliedAt
+                        ? new Date(communication.repliedAt).toLocaleDateString('en-US', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Unknown date'}
+                    </span>
+                  </div>
+                  <div className="response-body">
+                    {/* Gestion simple des sauts de ligne si c'est du texte brut, ou affichage HTML si nécessaire */}
+                    {communication.responseContent.includes('<') ? (
+                       <div dangerouslySetInnerHTML={{ __html: cleanHtmlContent(communication.responseContent) }} />
+                    ) : (
+                       communication.responseContent.split('\n').map((line, i) => (
+                         <p key={i}>{line}</p>
+                       ))
+                    )}
                   </div>
                 </div>
               )}
@@ -408,11 +441,11 @@ function CommunicationDetails() {
         {/* AI Analysis Sidebar: HUD Style */}
         <div className="ai-analysis-sidebar">
           <h2 className="sidebar-title">
-            <FontAwesomeIcon icon={faRobot} /> Analyse IA
+            <FontAwesomeIcon icon={faRobot} /> AI Analysis
           </h2>
 
           <div className="analysis-section">
-            <h3>Analyse du sentiment</h3>
+            <h3>Sentiment Analysis</h3>
             <div
               className="sentiment-badge"
               data-sentiment={communication.aiAnalysis.sentiment}
@@ -422,7 +455,7 @@ function CommunicationDetails() {
           </div>
 
           <div className="analysis-section">
-            <h3>Niveau d'urgence</h3>
+            <h3>Urgency Level</h3>
             <div
               className="priority-badge"
               data-priority={communication.aiAnalysis.priority}
@@ -432,13 +465,13 @@ function CommunicationDetails() {
           </div>
 
           <div className="analysis-section">
-            <h3>Résumé exécutif</h3>
+            <h3>Executive Summary</h3>
             <p className="summary-text">{communication.aiAnalysis.summary}</p>
           </div>
 
           {communication.aiAnalysis.suggestedResponse && (
             <div className="analysis-section">
-              <h3>Suggestion IA</h3>
+              <h3>AI Suggestion</h3>
               <p className="summary-text">
                 {communication.aiAnalysis.suggestedResponse}
               </p>
@@ -448,7 +481,7 @@ function CommunicationDetails() {
           {communication.aiAnalysis.keyPoints &&
             communication.aiAnalysis.keyPoints.length > 0 && (
               <div className="analysis-section">
-                <h3>Points clés</h3>
+                <h3>Key Points</h3>
                 <ul className="key-points-list">
                   {communication.aiAnalysis.keyPoints.map((point, index) => (
                     <li key={index}>{point}</li>
@@ -460,7 +493,7 @@ function CommunicationDetails() {
           {communication.aiAnalysis.actionItems &&
             communication.aiAnalysis.actionItems.length > 0 && (
               <div className="analysis-section">
-                <h3>Actions proposées</h3>
+                <h3>Suggested Actions</h3>
                 <ul className="action-items-list">
                   {communication.aiAnalysis.actionItems.map((item, index) => (
                     <li key={index}>
@@ -480,7 +513,7 @@ function CommunicationDetails() {
           {communication.aiAnalysis.entities &&
             communication.aiAnalysis.entities.length > 0 && (
               <div className="analysis-section">
-                <h3>Entités détectées</h3>
+                <h3>Detected Entities</h3>
                 <div className="entities-tags">
                   {communication.aiAnalysis.entities.map((entity, index) => (
                     <span key={index} className="entity-tag">
@@ -504,34 +537,34 @@ function CommunicationDetails() {
               <FontAwesomeIcon icon={faTimes} />
             </button>
 
-            <h2>Répondre à l'email</h2>
+            <h2>Reply to email</h2>
             <p className="modal-subtitle">
-              Envoyez une réponse via votre configuration email
+              Send a reply via your email configuration
             </p>
-
+            
             <form onSubmit={handleSendEmail}>
               <div className="form-group">
-                <label htmlFor="to">À *</label>
+                <label htmlFor="to">To *</label>
                 <input
                   type="email"
                   name="to"
                   id="to"
                   value={replyForm.to}
                   onChange={handleReplyFormChange}
-                  placeholder="destinataire@example.com"
+                  placeholder="recipient@example.com"
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label htmlFor="subject">Sujet *</label>
+                <label htmlFor="subject">Subject *</label>
                 <input
                   type="text"
                   name="subject"
                   id="subject"
                   value={replyForm.subject}
                   onChange={handleReplyFormChange}
-                  placeholder="Sujet de l'email"
+                  placeholder="Email subject"
                   required
                 />
               </div>
@@ -543,7 +576,7 @@ function CommunicationDetails() {
                   id="body"
                   value={replyForm.body}
                   onChange={handleReplyFormChange}
-                  placeholder="Rédigez votre message ici..."
+                  placeholder="Write your message here..."
                   rows="10"
                   required
                 />
@@ -563,16 +596,16 @@ function CommunicationDetails() {
                   className="btn-cancel"
                   onClick={handleCloseReplyForm}
                 >
-                  Annuler
+                  Cancel
                 </button>
                 <button type="submit" className="btn-submit" disabled={sending}>
                   {sending ? (
                     <>
-                      <FontAwesomeIcon icon={faSpinner} spin /> Envoi en cours...
+                      <FontAwesomeIcon icon={faSpinner} spin /> Sending...
                     </>
                   ) : (
                     <>
-                      <FontAwesomeIcon icon={faPaperPlane} /> Envoyer l'email
+                      <FontAwesomeIcon icon={faPaperPlane} /> Send email
                     </>
                   )}
                 </button>
@@ -585,7 +618,7 @@ function CommunicationDetails() {
   );
 }
 
-// Sous-composant: Corps de l'email avec Voir plus/Voir moins
+// Sub-component: Email body with Show more/Show less
 function EmailBody({ body, cleanHtmlContent }) {
   const [expanded, setExpanded] = useState(false);
   const text = cleanHtmlContent(body || "");
@@ -620,7 +653,7 @@ function EmailBody({ body, cleanHtmlContent }) {
         style={{ marginTop: 8 }}
         onClick={() => setExpanded(!expanded)}
       >
-        {expanded ? "Voir moins" : "Voir plus"}
+        {expanded ? "Show less" : "Show more"}
       </button>
     </div>
   );

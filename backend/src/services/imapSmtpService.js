@@ -517,6 +517,11 @@ exports.syncAllFolders = async (userId) => {
       }
     }
 
+    // --- CORRECTIF : Mettre à jour la date de dernière synchronisation ---
+    user.imapSmtpConfig.lastSyncDate = new Date();
+    await user.save();
+    console.log(`✅ Date de synchro mise à jour pour ${user.email}: ${user.imapSmtpConfig.lastSyncDate}`);
+
     return {
       success: true,
       results,

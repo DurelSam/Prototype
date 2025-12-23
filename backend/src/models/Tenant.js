@@ -40,7 +40,7 @@ const tenantSchema = new mongoose.Schema(
       language: {
         type: String,
         enum: ["fr", "en", "es"],
-        default: "fr", // Langue de l'interface et des emails système
+        default: "en",
       },
       timezone: {
         type: String,

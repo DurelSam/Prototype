@@ -199,6 +199,13 @@ const communicationSchema = new mongoose.Schema(
       default: "To Validate",
     },
 
+    // --- AJOUT : Flag d'escalade (pour garder le statut original lors du transfert) ---
+    isEscalated: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

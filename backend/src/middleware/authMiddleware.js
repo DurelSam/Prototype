@@ -4,6 +4,7 @@ const User = require("../models/User");
 // Middleware pour vérifier le token JWT et récupérer l'utilisateur
 exports.protect = async (req, res, next) => {
   try {
+    // console.log(`🔒 AUTH CHECK: ${req.method} ${req.originalUrl}`); // Debug URL
     let token;
 
     // Vérifier si le token est dans les headers
@@ -16,6 +17,7 @@ exports.protect = async (req, res, next) => {
 
     // Vérifier si le token existe
     if (!token) {
+      console.log("🔒 AUTH FAIL: Token manquant dans header");
       return res.status(401).json({
         success: false,
         message: "Non autorisé - Token manquant",
@@ -27,6 +29,7 @@ exports.protect = async (req, res, next) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
+      console.log("🔒 AUTH FAIL: Token invalide/expiré", err.message);
       if (err.name === "TokenExpiredError") {
         return res.status(401).json({
           success: false,
@@ -43,6 +46,7 @@ exports.protect = async (req, res, next) => {
     const user = await User.findById(decoded.userId).populate('tenant_id', 'companyName');
 
     if (!user) {
+      console.log("🔒 AUTH FAIL: User ID non trouvé en DB:", decoded.userId);
       return res.status(401).json({
         success: false,
         message: "Utilisateur non trouvé",

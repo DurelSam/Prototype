@@ -1549,3 +1549,232 @@ ${answersText}
 
 Generate ONLY the email body text, no additional formatting or explanations.`;
 }
+
+/**
+ * @desc    Récupérer les statistiques pour le Dashboard (KPIs)
+ * @route   GET /api/communications/stats/dashboard
+ * @access  Private
+ */
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    const tenantId = (user.tenant_id && user.tenant_id._id) ? user.tenant_id._id : user.tenant_id;
+    let filter = { tenant_id: tenantId };
+
+    // --- LOGIQUE RBAC ---
+    if (user.role === 'Employee') {
+      // Employee voit uniquement ses propres communications
+      filter.userId = user._id;
+    } else if (user.role === 'Admin') {
+      // Admin voit ses communications + celles de ses employés directs
+      const employees = await User.find({ managedBy: user._id }).select('_id');
+      const employeeIds = employees.map((e) => e._id);
+      filter.userId = { $in: [user._id, ...employeeIds] };
+    } else if (user.role === 'UpperAdmin') {
+      // UpperAdmin voit TOUT le tenant (déjà couvert par filter.tenant_id)
+      // Pas de filtre userId supplémentaire
+    }
+
+    // --- CALCUL DES KPIS ---
+
+    // 1. Emails Processed (Répondus OU Clos/Archivés/Validés) ET de type Email
+    const processedFilter = {
+      ...filter,
+      $or: [
+        { hasBeenReplied: true },
+        { status: { $in: ['Validated', 'Closed', 'Archived'] } },
+      ],
+      // Exclure WhatsApp pour ne compter que les vrais emails (Outlook/IMAP)
+      source: { $ne: 'whatsapp' }
+    };
+    const emailsProcessed = await Communication.countDocuments(processedFilter);
+
+    // 2. WhatsApp Messages (Total)
+    const whatsappFilter = {
+      ...filter,
+      source: 'whatsapp',
+    };
+    const whatsappMessages = await Communication.countDocuments(whatsappFilter);
+
+    // 3. AI Summaries (Ceux qui ont une analyse IA)
+    const aiSummariesFilter = {
+      ...filter,
+      'ai_analysis.summary': { $exists: true, $ne: null },
+    };
+    const aiSummaries = await Communication.countDocuments(aiSummariesFilter);
+
+    const now = new Date();
+    const startCurrent = new Date(now);
+    startCurrent.setMonth(startCurrent.getMonth() - 1);
+    const startPrev = new Date(now);
+    startPrev.setMonth(startPrev.getMonth() - 2);
+    const endPrev = startCurrent;
+
+    const processedCurrent = await Communication.countDocuments({
+      ...processedFilter,
+      receivedAt: { $gte: startCurrent, $lt: now },
+    });
+    const processedPrev = await Communication.countDocuments({
+      ...processedFilter,
+      receivedAt: { $gte: startPrev, $lt: endPrev },
+    });
+    const whatsappCurrent = await Communication.countDocuments({
+      ...whatsappFilter,
+      receivedAt: { $gte: startCurrent, $lt: now },
+    });
+    const whatsappPrev = await Communication.countDocuments({
+      ...whatsappFilter,
+      receivedAt: { $gte: startPrev, $lt: endPrev },
+    });
+    const aiCurrent = await Communication.countDocuments({
+      ...aiSummariesFilter,
+      receivedAt: { $gte: startCurrent, $lt: now },
+    });
+    const aiPrev = await Communication.countDocuments({
+      ...aiSummariesFilter,
+      receivedAt: { $gte: startPrev, $lt: endPrev },
+    });
+
+    const pct = (cur, prev) =>
+      prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100);
+
+    // --- NOUVEAU : Répartition de la Charge de Travail (Emails en Attente) ---
+
+    const basePendingFilter = {
+      ...filter,
+      source: { $ne: 'whatsapp' },
+      status: 'To Validate',
+      hasBeenReplied: false,
+    };
+
+    // SCÉNARIO C : PAS DE RÉPONSE (Onglet Summaries & Search)
+    const pendingNoResponse = await Communication.countDocuments({
+      ...basePendingFilter,
+      'ai_analysis.requiresResponse': false,
+    });
+
+    // SCÉNARIO B1 : À RÉPONDRE (Manuel/Urgent - Onglet À Répondre)
+    const pendingManual = await Communication.countDocuments({
+      ...basePendingFilter,
+      'ai_analysis.requiresResponse': true,
+      'ai_analysis.urgency': { $in: ['High', 'Critical'] },
+    });
+
+    // SCÉNARIO A vs B2 (Low/Medium)
+    const lowMediumFilter = {
+      ...basePendingFilter,
+      'ai_analysis.requiresResponse': true,
+      'ai_analysis.urgency': { $in: ['Low', 'Medium'] },
+    };
+
+    // SCÉNARIO B2 : ASSISTÉ (Besoin Contexte - Onglet Réponses Assistées)
+    const pendingAssisted = await Communication.countDocuments({
+      ...lowMediumFilter,
+      $or: [{ awaitingUserInput: true }, { autoActivation: 'assisted' }],
+    });
+
+    // SCÉNARIO A : AUTO (Réponses Auto - Onglet Réponses Auto)
+    const pendingAuto = await Communication.countDocuments({
+      ...lowMediumFilter,
+      awaitingUserInput: false,
+      autoActivation: { $ne: 'assisted' },
+    });
+
+    // --- NOUVEAU : Historique sur 30 jours (Graphiques) ---
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const aggMatch = {
+      tenant_id: tenantId,
+      receivedAt: { $gte: thirtyDaysAgo, $lte: new Date() }
+    };
+    if (filter.userId) {
+      aggMatch.userId = filter.userId;
+    }
+    const historyAggregation = await Communication.aggregate([
+      { $match: aggMatch },
+      {
+        $project: {
+          date: { $dateToString: { format: "%Y-%m-%d", date: "$receivedAt" } },
+          source: 1,
+          hasAutoResponse: 1,
+          hasBeenReplied: 1,
+          isWhatsApp: { $eq: ["$source", "whatsapp"] },
+          isEmail: { $ne: ["$source", "whatsapp"] }
+        }
+      },
+      {
+        $group: {
+          _id: "$date",
+          emails: { $sum: { $cond: ["$isEmail", 1, 0] } },
+          whatsapp: { $sum: { $cond: ["$isWhatsApp", 1, 0] } },
+          auto: { $sum: { $cond: ["$hasAutoResponse", 1, 0] } },
+          manual: { 
+            $sum: { 
+              $cond: [
+                { $and: ["$hasBeenReplied", { $not: "$hasAutoResponse" }] }, 
+                1, 
+                0
+              ] 
+            } 
+          }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    const historyMap = new Map(historyAggregation.map(item => [item._id, item]));
+    const chartsData = [];
+    
+    for (let i = 0; i < 30; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      const dateStr = d.toISOString().split('T')[0];
+      
+      const dayData = historyMap.get(dateStr) || { emails: 0, whatsapp: 0, auto: 0, manual: 0 };
+      // Format "23 Dec"
+      const displayDate = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+
+      chartsData.push({
+        date: displayDate,
+        count: dayData.emails || 0, // Pour le graph email (alias count)
+        emails: dayData.emails || 0,
+        whatsapp: dayData.whatsapp || 0,
+        auto: dayData.auto || 0,
+        manual: dayData.manual || 0
+      });
+    }
+
+    const responseData = {
+      emailsProcessed,
+      whatsappMessages,
+      aiSummaries,
+      workload: {
+        pendingAuto, // Scénario A
+        pendingManual, // Scénario B1
+        pendingAssisted, // Scénario B2
+        pendingNoResponse, // Scénario C
+      },
+      change: {
+        emailsProcessed: pct(processedCurrent, processedPrev),
+        whatsappMessages: pct(whatsappCurrent, whatsappPrev),
+        aiSummaries: pct(aiCurrent, aiPrev),
+      },
+      charts: chartsData, // <--- NOUVEAU
+    };
+
+    res.status(200).json({
+      success: true,
+      data: responseData,
+    });
+  } catch (error) {
+    console.error('❌ Erreur getDashboardStats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des statistiques',
+      error: error.message,
+    });
+  }
+};

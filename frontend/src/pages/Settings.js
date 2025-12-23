@@ -27,7 +27,7 @@ function Settings() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
-  // États des formulaires
+  // Form states
   const [profileData, setProfileData] = useState({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
@@ -56,13 +56,21 @@ function Settings() {
     theme: "dark",
   });
 
-  // NOUVEAU: État pour les réponses automatiques
+  const notificationLabels = {
+    emailNotifications: "Email Notifications",
+    whatsappNotifications: "WhatsApp Notifications",
+    aiAnalysisNotifications: "AI Analysis Notifications",
+    weeklyReport: "Weekly Report",
+    instantAlerts: "Instant Alerts",
+  };
+
+  // NEW: State for auto-responses
   const [autoResponseSettings, setAutoResponseSettings] = useState({
     autoResponseEnabled: false,
   });
   const [autoResponseLoading, setAutoResponseLoading] = useState(false);
 
-  // Charger les paramètres de réponse automatique au montage
+  // Load auto-response settings on mount
   useEffect(() => {
     fetchAutoResponseSettings();
   }, []);
@@ -77,16 +85,16 @@ function Settings() {
         setAutoResponseSettings(response.data.data);
       }
     } catch (error) {
-      console.error("Erreur chargement paramètres auto-response:", error);
+      console.error("Error loading auto-response settings:", error);
     }
   };
 
   const handleAutoResponseToggle = async () => {
-    // Vérifier si l'utilisateur a configuré un email
+    // Check if user has configured an email
     if (!user?.hasConfiguredEmail && !autoResponseSettings.autoResponseEnabled) {
       setMessage({
         type: "error",
-        text: "Vous devez d'abord configurer votre email dans Intégrations avant d'activer les réponses automatiques.",
+        text: "You must first configure your email in Integrations before enabling auto-responses.",
       });
       setTimeout(() => setMessage({ type: "", text: "" }), 5000);
       return;
@@ -110,14 +118,14 @@ function Settings() {
         });
         setTimeout(() => setMessage({ type: "", text: "" }), 3000);
 
-        // Rafraîchir le contexte utilisateur
+        // Refresh user context
         checkAuth();
       }
     } catch (error) {
-      console.error("Erreur toggle auto-response:", error);
+      console.error("Error toggling auto-response:", error);
       setMessage({
         type: "error",
-        text: error.response?.data?.message || "Erreur lors de la mise à jour",
+        text: error.response?.data?.message || "Error updating settings",
       });
       setTimeout(() => setMessage({ type: "", text: "" }), 5000);
     } finally {
@@ -149,12 +157,12 @@ function Settings() {
       {/* Header */}
       <header className="settings-header">
         <button className="back-button" onClick={() => navigate("/dashboard")}>
-          <FontAwesomeIcon icon={faArrowLeft} /> Retour au Dashboard
+          <FontAwesomeIcon icon={faArrowLeft} /> Back to Dashboard
         </button>
-        <h1 className="page-title">Paramètres</h1>
+        <h1 className="page-title">Settings</h1>
       </header>
 
-      {/* Message global */}
+      {/* Global Message */}
       {message.text && (
         <div className={`message-banner ${message.type}`}>
           <FontAwesomeIcon icon={message.type === "success" ? faCheck : faTimes} />
@@ -169,19 +177,19 @@ function Settings() {
             className={`tab-button ${activeTab === "profile" ? "active" : ""}`}
             onClick={() => setActiveTab("profile")}
           >
-            <FontAwesomeIcon icon={faUser} /> Profil
+            <FontAwesomeIcon icon={faUser} /> Profile
           </button>
           <button
             className={`tab-button ${activeTab === "password" ? "active" : ""}`}
             onClick={() => setActiveTab("password")}
           >
-            <FontAwesomeIcon icon={faLock} /> Mot de passe
+            <FontAwesomeIcon icon={faLock} /> Password
           </button>
           <button
             className={`tab-button ${activeTab === "autoresponse" ? "active" : ""}`}
             onClick={() => setActiveTab("autoresponse")}
           >
-            <FontAwesomeIcon icon={faRobot} /> Réponse Automatique
+            <FontAwesomeIcon icon={faRobot} /> Auto Response
           </button>
           <button
             className={`tab-button ${activeTab === "notifications" ? "active" : ""}`}
@@ -193,7 +201,7 @@ function Settings() {
             className={`tab-button ${activeTab === "preferences" ? "active" : ""}`}
             onClick={() => setActiveTab("preferences")}
           >
-            <FontAwesomeIcon icon={faCog} /> Préférences
+            <FontAwesomeIcon icon={faCog} /> Preferences
           </button>
         </aside>
 
@@ -202,32 +210,32 @@ function Settings() {
           {/* Profile */}
           {activeTab === "profile" && (
             <div className="tab-content">
-              <h2 className="tab-title">Informations du profil</h2>
+              <h2 className="tab-title">Profile Information</h2>
               <form onSubmit={handleSubmit} className="settings-form">
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Prénom</label>
+                    <label>First Name</label>
                     <input
                       type="text"
                       name="firstName"
                       value={profileData.firstName}
                       onChange={handleProfileChange}
-                      placeholder="Votre prénom"
+                      placeholder="Your first name"
                     />
                   </div>
                   <div className="form-group">
-                    <label>Nom</label>
+                    <label>Last Name</label>
                     <input
                       type="text"
                       name="lastName"
                       value={profileData.lastName}
                       onChange={handleProfileChange}
-                      placeholder="Votre nom"
+                      placeholder="Your last name"
                     />
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>Adresse email</label>
+                  <label>Email Address</label>
                   <input
                     type="email"
                     name="email"
@@ -237,11 +245,11 @@ function Settings() {
                     placeholder="Email"
                   />
                   <span className="helper-text">
-                    L'email ne peut pas être modifié
+                    Email cannot be changed
                   </span>
                 </div>
                 <div className="form-group">
-                  <label>Rôle</label>
+                  <label>Role</label>
                   <select
                     value={profileData.role}
                     disabled
@@ -250,7 +258,7 @@ function Settings() {
                     <option>{profileData.role}</option>
                   </select>
                   <span className="helper-text">
-                    Contactez un administrateur pour changer de rôle
+                    Contact an administrator to change role
                   </span>
                 </div>
                 <button
@@ -258,7 +266,7 @@ function Settings() {
                   className="submit-button"
                   disabled={loading}
                 >
-                  {loading ? "Enregistrement..." : "Enregistrer les modifications"}
+                  {loading ? "Saving..." : "Save Changes"}
                 </button>
               </form>
             </div>
@@ -267,35 +275,35 @@ function Settings() {
           {/* Password */}
           {activeTab === "password" && (
             <div className="tab-content">
-              <h2 className="tab-title">Changer le mot de passe</h2>
+              <h2 className="tab-title">Change Password</h2>
               <form onSubmit={handleSubmit} className="settings-form">
                 <div className="form-group">
-                  <label>Mot de passe actuel</label>
+                  <label>Current Password</label>
                   <input
                     type="password"
                     name="currentPassword"
                     onChange={handlePasswordChange}
-                    placeholder="Entrez votre mot de passe actuel"
+                    placeholder="Enter your current password"
                     required
                   />
                 </div>
                 <div className="form-group">
-                  <label>Nouveau mot de passe</label>
+                  <label>New Password</label>
                   <input
                     type="password"
                     name="newPassword"
                     onChange={handlePasswordChange}
-                    placeholder="Entrez un nouveau mot de passe"
+                    placeholder="Enter a new password"
                     required
                   />
                 </div>
                 <div className="form-group">
-                  <label>Confirmer le nouveau mot de passe</label>
+                  <label>Confirm New Password</label>
                   <input
                     type="password"
                     name="confirmPassword"
                     onChange={handlePasswordChange}
-                    placeholder="Confirmez le nouveau mot de passe"
+                    placeholder="Confirm new password"
                     required
                   />
                 </div>
@@ -304,33 +312,33 @@ function Settings() {
                   className="submit-button"
                   disabled={loading}
                 >
-                  {loading ? "Mise à jour..." : "Mettre à jour le mot de passe"}
+                  {loading ? "Updating..." : "Update Password"}
                 </button>
               </form>
             </div>
           )}
 
-          {/* NOUVEAU: Auto-Response Tab */}
+          {/* NEW: Auto-Response Tab */}
           {activeTab === "autoresponse" && (
             <div className="tab-content">
-              <h2 className="tab-title">Réponse Automatique AI</h2>
+              <h2 className="tab-title">AI Auto Response</h2>
 
               <div className="info-card">
                 <div className="info-icon">
                   <FontAwesomeIcon icon={faRobot} />
                 </div>
                 <div className="info-content">
-                  <h3>Comment ça fonctionne ?</h3>
+                  <h3>How does it work?</h3>
                   <p>
-                    Lorsque la réponse automatique est activée, l'IA analysera automatiquement
-                    tous les emails de <strong>priorité Low et Medium</strong> et enverra une réponse
-                    intelligente si nécessaire.
+                    When auto-response is enabled, AI will automatically analyze
+                    all <strong>Low and Medium priority</strong> emails and send an
+                    intelligent response if necessary.
                   </p>
                   <ul>
-                    <li>✓ Réponses uniquement pour les emails Low/Medium</li>
-                    <li>✓ L'IA vérifie si une réponse est nécessaire</li>
-                    <li>✓ Les emails High/Critical nécessitent une réponse manuelle</li>
-                    <li>✓ Fonctionne toutes les 5 minutes avec le système de synchronisation</li>
+                    <li>✓ Responses only for Low/Medium emails</li>
+                    <li>✓ AI checks if a response is necessary</li>
+                    <li>✓ High/Critical emails require manual response</li>
+                    <li>✓ Runs every 5 minutes with the synchronization system</li>
                   </ul>
                 </div>
               </div>
@@ -339,16 +347,16 @@ function Settings() {
                 <div className="warning-card">
                   <FontAwesomeIcon icon={faTimes} />
                   <div>
-                    <h4>Email non configuré</h4>
+                    <h4>Email not configured</h4>
                     <p>
-                      Vous devez d'abord configurer votre email dans la page
+                      You must first configure your email in the
                       <button
                         className="link-button"
                         onClick={() => navigate("/integrations")}
                       >
-                        Intégrations
+                        Integrations
                       </button>
-                      avant d'activer les réponses automatiques.
+                      page before enabling auto-responses.
                     </p>
                   </div>
                 </div>
@@ -357,11 +365,11 @@ function Settings() {
               <div className="auto-response-card">
                 <div className="card-header-inline">
                   <div>
-                    <h3>Activer les réponses automatiques</h3>
+                    <h3>Enable Auto Responses</h3>
                     <p className="card-subtitle">
                       {autoResponseSettings.autoResponseEnabled
-                        ? "Les réponses automatiques sont actuellement activées"
-                        : "Les réponses automatiques sont actuellement désactivées"}
+                        ? "Auto responses are currently enabled"
+                        : "Auto responses are currently disabled"}
                     </p>
                   </div>
                   <label className="toggle-switch-large">
@@ -380,10 +388,10 @@ function Settings() {
                 <div className="success-card">
                   <FontAwesomeIcon icon={faCheck} />
                   <div>
-                    <h4>Réponses automatiques actives</h4>
+                    <h4>Auto Responses Active</h4>
                     <p>
-                      L'IA répond automatiquement aux emails de priorité Low et Medium
-                      lors de chaque synchronisation (toutes les 5 minutes).
+                      AI automatically responds to Low and Medium priority emails
+                      during each synchronization (every 5 minutes).
                     </p>
                   </div>
                 </div>
@@ -394,16 +402,15 @@ function Settings() {
           {/* Notifications */}
           {activeTab === "notifications" && (
             <div className="tab-content">
-              <h2 className="tab-title">Paramètres de notification</h2>
+              <h2 className="tab-title">Notification Settings</h2>
               <form onSubmit={handleSubmit} className="settings-form">
                 <div className="toggle-group">
                   {Object.entries(notificationSettings).map(([key, value]) => (
                     <div className="toggle-item" key={key}>
                       <div className="toggle-info">
-                        <h3>{key.replace(/([A-Z])/g, " $1").trim()}</h3>
+                        <h3>{notificationLabels[key] || key}</h3>
                         <p>
-                          Activer {key.replace(/([A-Z])/g, " $1").toLowerCase()}{" "}
-                          notifications
+                          Enable {notificationLabels[key] || key}
                         </p>
                       </div>
                       <label className="toggle-switch">
@@ -422,7 +429,7 @@ function Settings() {
                   className="submit-button"
                   disabled={loading}
                 >
-                  Enregistrer les modifications
+                  Save Changes
                 </button>
               </form>
             </div>
@@ -431,22 +438,22 @@ function Settings() {
           {/* Preferences */}
           {activeTab === "preferences" && (
             <div className="tab-content">
-              <h2 className="tab-title">Préférences de l'application</h2>
+              <h2 className="tab-title">Application Preferences</h2>
               <form onSubmit={handleSubmit} className="settings-form">
                 <div className="form-group">
-                  <label>Langue</label>
+                  <label>Language</label>
                   <select
                     name="language"
                     value={preferences.language}
                     onChange={handlePreferenceChange}
                   >
                     <option value="en">English</option>
-                    <option value="fr">Français</option>
-                    <option value="es">Español</option>
+                    <option value="fr">French</option>
+                    <option value="es">Spanish</option>
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Fuseau horaire</label>
+                  <label>Timezone</label>
                   <select
                     name="timezone"
                     value={preferences.timezone}
@@ -458,7 +465,7 @@ function Settings() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Format de date</label>
+                  <label>Date Format</label>
                   <select
                     name="dateFormat"
                     value={preferences.dateFormat}
@@ -469,14 +476,14 @@ function Settings() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Thème</label>
+                  <label>Theme</label>
                   <select
                     name="theme"
                     value={preferences.theme}
                     onChange={handlePreferenceChange}
                   >
-                    <option value="dark">Sombre</option>
-                    <option value="light">Clair</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
                   </select>
                 </div>
                 <button
@@ -484,7 +491,7 @@ function Settings() {
                   className="submit-button"
                   disabled={loading}
                 >
-                  Enregistrer les préférences
+                  Save Preferences
                 </button>
               </form>
             </div>

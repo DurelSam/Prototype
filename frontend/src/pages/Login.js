@@ -89,7 +89,7 @@ function Login() {
                 fontWeight: '500',
               }}
             >
-              Mot de passe oublié ?
+              Forgot password?
             </Link>
           </div>
 

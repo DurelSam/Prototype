@@ -280,7 +280,8 @@
   flex-shrink: 0;
 }
 
-.comm-type-badge[data-type="outlook"] {
+.comm-type-badge[data-type="outlook"],
+.comm-type-badge[data-type="email"] {
   background: rgba(59, 130, 246, 0.1);
   color: var(--primary-blue);
   border: 1px solid rgba(59, 130, 246, 0.2);
@@ -292,7 +293,8 @@
   border: 1px solid rgba(20, 184, 166, 0.2);
 }
 
-.comm-type-badge[data-type="imap_smtp"] {
+.comm-type-badge[data-type="imap_smtp"],
+.comm-type-badge[data-type="imap-smtp"] {
   background: rgba(168, 85, 247, 0.1);
   color: #a855f7;
   border: 1px solid rgba(168, 85, 247, 0.2);

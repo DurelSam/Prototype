@@ -3,23 +3,19 @@ const express = require("express");
 const cors = require("cors");
 
 // ----------------------------------------------------------------------
-// CORRECTION CRITIQUE POUR LA CONNEXION INTERNE RENDER
+// Critical fix for internal Render connection
 // ----------------------------------------------------------------------
-// En environnement de production (Render), nous forçons l'utilisation de l'hôte interne
-// connu (mongodb-o9gm) et supprimons les identifiants pour garantir une connexion SANS AUTHENTIFICATION,
-// car la fonction connectDB() va utiliser ces variables.
+// In production (Render), force internal host and remove credentials to ensure unauthenticated internal connection.
 
 if (process.env.NODE_ENV === "production") {
-  // 1. Définir l'hôte interne correct (celui qui a réussi le build)
-  //    Ceci corrige également la mauvaise valeur 'mongodbprototypeconfiguration' vue dans les logs d'échec.
+  // 1. Set the correct internal host (as used in successful build)
   process.env.MONGO_HOST = "mongodb-o9gm";
 
-  // 2. Supprimer les identifiants d'authentification pour empêcher la connexion d'échouer.
-  //    Ceci garantit que l'URI construite dans connectDB sera de format: mongodb://host:port/db
+  // 2. Remove auth credentials to prevent connection failures.
   delete process.env.MONGO_USER;
   delete process.env.MONGO_PASS;
 
-  // 3. (Optionnel) Si d'anciennes variables MONGO_URI complètes existent, on les supprime aussi
+  // 3. Optionally clear legacy MONGO_URI variables
   delete process.env.MONGO_URI;
   delete process.env.MONGODB_URI;
 }
@@ -33,34 +29,34 @@ const slaMonitoringService = require("./src/services/slaMonitoringService");
 
 const app = express();
 
-// Connexion à la base de données (utilise les variables d'environnement ajustées ci-dessus)
+// Connect to database (using environment variables adjusted above)
 connectDB();
 
-// Initialiser le cron job de synchronisation Outlook (toutes les 10 minutes)
-// Démarrage du cron job seulement en production ou si explicitement activé
+// Initialize Outlook sync cron (every 10 minutes)
+// Start cron only in production or when explicitly enabled
 if (
   process.env.NODE_ENV === "production" ||
   process.env.ENABLE_OUTLOOK_SYNC === "true"
 ) {
-  outlookSyncService.scheduledSync(10); // Sync toutes les 10 minutes
+  outlookSyncService.scheduledSync(10); // Sync every 10 minutes
 }
 
-// Initialiser le cron job de synchronisation Email (Outlook + IMAP/SMTP) toutes les 5 minutes
-// Démarrage en production ou si explicitement activé
+// Initialize Email sync cron (Outlook + IMAP/SMTP) every 5 minutes
+// Start in production or when explicitly enabled
 if (
   process.env.NODE_ENV === "production" ||
   process.env.ENABLE_EMAIL_SYNC === "true"
 ) {
-  emailSyncCron.startEmailSyncCron(5); // Sync toutes les 5 minutes
+  emailSyncCron.startEmailSyncCron(5); // Sync every 5 minutes
 }
 
-// Initialiser le cron job de monitoring SLA (toutes les heures)
-// Démarrage en production ou si explicitement activé
+// Initialize SLA monitoring cron (every hour)
+// Start in production or when explicitly enabled
 if (
   process.env.NODE_ENV === "production" ||
   process.env.ENABLE_SLA_MONITORING === "true"
 ) {
-  slaMonitoringService.startSlaMonitoring(60); // Check toutes les 60 minutes
+  slaMonitoringService.startSlaMonitoring(60); // Check every 60 minutes
 }
 
 // Middlewares
@@ -73,38 +69,38 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Route de test du serveur
+// Server health route
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "OK",
-    message: "Serveur SaaS Multi-tenant opérationnel",
+    message: "SaaS Multi-tenant server operational",
     timestamp: new Date().toISOString(),
   });
 });
 
-// Route de test de la connexion MongoDB
+// MongoDB connection test route
 app.get("/api/test-db", async (req, res) => {
   const mongoose = require("mongoose");
 
   try {
-    // Vérifier l'état de la connexion
+    // Check connection state
     const dbState = mongoose.connection.readyState;
     const states = {
-      0: "Déconnecté",
-      1: "Connecté",
-      2: "En cours de connexion",
-      3: "En cours de déconnexion",
+      0: "Disconnected",
+      1: "Connected",
+      2: "Connecting",
+      3: "Disconnecting",
     };
 
     if (dbState !== 1) {
       return res.status(503).json({
         success: false,
-        message: "Base de données non connectée",
+        message: "Database not connected",
         state: states[dbState],
       });
     }
 
-    // Test rapide d'écriture/lecture
+    // Quick write/read test
     const models = require("./src/models");
     const testData = {
       companyName: "Test-DB-Check-" + Date.now(),
@@ -119,7 +115,7 @@ app.get("/api/test-db", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Connexion MongoDB Locale réussie",
+      message: "Local MongoDB connection successful",
       database: {
         host: mongoose.connection.host,
         name: mongoose.connection.name,
@@ -135,10 +131,10 @@ app.get("/api/test-db", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Erreur test DB:", error);
+    console.error("DB test error:", error);
     res.status(500).json({
       success: false,
-      message: "Erreur lors du test de la base de données",
+      message: "Error during database test",
       error: error.message,
     });
   }
@@ -151,22 +147,23 @@ app.use("/api/auth/outlook", require("./src/routes/outlookRoutes"));
 app.use("/api/email", require("./src/routes/emailRoutes")); // Routes IMAP/SMTP
 app.use("/api/communications", require("./src/routes/communicationRoutes")); // Routes communications (GET, POST, etc.)
 app.use("/api/superuser", require("./src/routes/superUserRoutes"));
+app.use("/api/analytics", require("./src/routes/analyticsRoutes"));
 // app.use('/api/tenants', require('./src/routes/tenantRoutes'));
 
-// Gestion des erreurs 404
+// 404 error handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: "Route non trouvée",
+    message: "Route not found",
   });
 });
 
-// Gestion globale des erreurs
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error("Erreur:", err.stack);
+  console.error("Error:", err.stack);
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || "Erreur serveur interne",
+    message: err.message || "Internal server error",
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
@@ -174,8 +171,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Serveur démarré sur le port ${PORT}`);
-  console.log(`📡 Environnement: ${process.env.NODE_ENV}`);
+  console.log(`🚀 Server started on port ${PORT}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV}`);
   console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
 });
 

@@ -6,6 +6,7 @@ const {
   updateStatus,
   addNote,
   getStats,
+  getDashboardStats, // <--- NOUVEAU
   markAsRead, // <--- NOUVEAU
   assignUser, // <--- NOUVEAU
   triggerAiAnalysis, // <--- NOUVEAU
@@ -23,6 +24,14 @@ const { protect } = require("../middleware/authMiddleware");
 // ============================================
 // ROUTES COMMUNICATIONS
 // ============================================
+
+/**
+ * @route   GET /api/communications/stats/dashboard
+ * @desc    Récupère les statistiques spécifiques au Dashboard (RBAC)
+ * @access  Private
+ * ⚠️ IMPORTANT : Doit rester AVANT la route /:id
+ */
+router.get("/stats/dashboard", protect, getDashboardStats);
 
 /**
  * @route   GET /api/communications/stats
