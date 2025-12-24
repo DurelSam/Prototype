@@ -175,6 +175,7 @@ class OutlookSyncService {
 
         status: "To Validate",
         receivedAt: receivedDate,
+        slaStartTime: new Date(), // Timer SLA démarre à la synchro
 
         // CORRECTION MAJEURE : On set explicitement le SLA ici
         slaDueDate: slaDate,

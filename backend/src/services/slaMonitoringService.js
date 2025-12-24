@@ -36,12 +36,27 @@ async function escalateEmployeeToAdmin(communication) {
       return;
     }
 
-    // Marquer comme escaladée et transférer
-    communication.isEscalated = true;
-    communication.userId = admin._id; // TRANSFERT AU MANAGER
-    
-    // On garde le statut original (ex: 'To Validate') pour qu'il apparaisse dans la liste "À Répondre" de l'Admin
+    // --- SIGNATURE & TRANSFERT ---
+    // 1. Ajouter l'Employee à l'historique (Signature)
+    communication.escalationHistory.push({
+      responsibleUser: employee._id,
+      role: 'Employee',
+      escalatedAt: new Date(),
+      reason: 'SLA Breach (Timeout)',
+      signature: `${employee.firstName} ${employee.lastName}`
+    });
 
+    // 2. Reset du Timer pour l'Admin (il a droit à son propre délai)
+    communication.slaStartTime = new Date();
+
+    // 3. Transfert
+    communication.userId = admin._id; 
+    
+    // IMPORTANT : On laisse isEscalated à FALSE pour permettre une future escalade Admin -> UpperAdmin
+    communication.isEscalated = false;
+
+    // On garde le statut original (ex: 'To Validate') pour qu'il apparaisse dans la liste "À Répondre" de l'Admin
+    
     // Ajouter l'Admin dans visibleToAdmins s'il n'y est pas déjà
     if (!communication.visibleToAdmins.includes(admin._id)) {
       communication.visibleToAdmins.push(admin._id);
@@ -52,13 +67,12 @@ async function escalateEmployeeToAdmin(communication) {
     // Créer une notification pour l'Admin
     await Notification.create({
       tenant_id: communication.tenant_id,
-      userId: admin._id,
-      type: 'sla_breach',
+      recipient_id: admin._id,
+      type: 'SLA_BREACH',
       title: 'Email escaladé (Reçu)',
       message: `L'email "${communication.subject}" de ${employee.firstName} ${employee.lastName} a dépassé le délai et vous a été transféré.`,
-      relatedEntityType: 'Communication',
-      relatedEntityId: communication._id,
-      priority: communication.ai_analysis.urgency,
+      communication_id: communication._id,
+      priority: 'High',
       isRead: false,
     });
 
@@ -88,22 +102,36 @@ async function escalateAdminToUpperAdmin(communication) {
     // Récupérer l'Admin propriétaire actuel
     const admin = await User.findById(communication.userId);
 
-    // Marquer comme escaladée et transférer
-    communication.isEscalated = true;
-    communication.userId = upperAdmin._id; // TRANSFERT AU MANAGER SUPÉRIEUR
+    // --- SIGNATURE & TRANSFERT ---
+    communication.escalationHistory.push({
+      responsibleUser: admin._id,
+      role: 'Admin',
+      escalatedAt: new Date(),
+      reason: 'SLA Breach (Timeout)',
+      signature: `${admin.firstName || 'Admin'} ${admin.lastName || ''}`
+    });
+
+    // Reset du Timer pour le UpperAdmin
+    communication.slaStartTime = new Date();
+
+    // Transfert
+    communication.userId = upperAdmin._id; 
+    
+    // On laisse isEscalated à FALSE (le UpperAdmin est surveillé aussi, bien qu'il soit le dernier)
+    // S'il ne répond pas, le bloc "UpperAdmin" du checkAndEscalate se déclenchera
+    communication.isEscalated = false;
 
     await communication.save();
 
     // Créer une notification pour l'UpperAdmin
     await Notification.create({
       tenant_id: communication.tenant_id,
-      userId: upperAdmin._id,
-      type: 'sla_breach',
+      recipient_id: upperAdmin._id,
+      type: 'SLA_BREACH',
       title: 'Email escaladé (Reçu)',
       message: `L'email "${communication.subject}" de ${admin?.firstName || 'Admin'} ${admin?.lastName || ''} a dépassé le délai et vous a été transféré.`,
-      relatedEntityType: 'Communication',
-      relatedEntityId: communication._id,
-      priority: communication.ai_analysis.urgency,
+      communication_id: communication._id,
+      priority: 'High',
       isRead: false,
     });
 
@@ -126,19 +154,17 @@ async function checkAndEscalate() {
 
     console.log(`🔍 Vérification SLA (Timeout: ${timeoutMinutes} min, Seuil: ${thresholdDate.toLocaleTimeString()})`);
 
-    // Trouver toutes les communications High/Critical:
-    // - Reçues AVANT la date limite (donc le délai est écoulé)
+    // Trouver TOUTES les communications (Peu importe l'urgence Low/Medium/High):
     // - Qui NÉCESSITENT une réponse (requiresResponse: true)
-    // - Pas encore répondues (hasBeenReplied: false)
-    // - Pas encore fermées, archivées ou validées
-    // - Pas encore escaladées (isEscalated: false)
+    // - Dont le Timer (slaStartTime) a dépassé la limite
+    // - Pas encore répondues
+    // - Pas encore fermées
     const breachedCommunications = await Communication.find({
-      'ai_analysis.urgency': { $in: ['High', 'Critical'] },
-      'ai_analysis.requiresResponse': true, // ✅ Ajouté : Seulement ceux qui nécessitent une réponse
-      receivedAt: { $lt: thresholdDate },
+      'ai_analysis.requiresResponse': true,
+      slaStartTime: { $lt: thresholdDate }, // Utilisation du Timer SLA (Sync Time ou Reset Time)
       hasBeenReplied: false,
-      status: { $nin: ['Closed', 'Archived', 'Validated'] }, // ✅ Ajouté : Validated arrête aussi l'escalade
-      isEscalated: false, // On vérifie le flag
+      status: { $nin: ['Closed', 'Archived', 'Validated'] },
+      isEscalated: false,
     }).populate('userId', 'role firstName lastName managedBy tenant_id');
 
     console.log(`📊 ${breachedCommunications.length} communication(s) en dépassement SLA (> ${timeoutMinutes} min)`);
@@ -163,12 +189,11 @@ async function checkAndEscalate() {
         
         await Notification.create({
           tenant_id: comm.tenant_id,
-          userId: owner._id,
-          type: 'sla_breach',
+          recipient_id: owner._id,
+          type: 'SLA_BREACH',
           title: 'SLA dépassé - Action urgente requise',
           message: `Votre email "${comm.subject}" a dépassé le délai de ${timeoutMinutes} minutes et nécessite une action urgente.`,
-          relatedEntityType: 'Communication',
-          relatedEntityId: comm._id,
+          communication_id: comm._id,
           priority: 'Critical',
           isRead: false,
         });

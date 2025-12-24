@@ -372,8 +372,11 @@ exports.fetchEmailsFromFolder = async (userId, folder = 'INBOX', sinceDays = 30)
                         source: 'imap_smtp', // Toujours utiliser 'imap_smtp' pour tous les providers IMAP/SMTP
                         externalId: parsed.messageId || `imap-${Date.now()}-${Math.random()}`,
                         status: 'To Validate',
+                        hasAutoResponse: false, // CRUCIAL : Pas encore répondu
+                        hasBeenReplied: false,  // CRUCIAL
                         receivedAt: parsed.date || new Date(),
-                        slaDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                        slaStartTime: new Date(), // Timer SLA démarre à la synchro
+                        slaDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // J+1
                         tenant_id: user.tenant_id,
                         userId: user._id, // FIX CRITIQUE: Associer l'email à l'utilisateur qui l'a synced
                         attachments: (parsed.attachments || []).map((att) => ({

@@ -206,6 +206,25 @@ const communicationSchema = new mongoose.Schema(
       index: true,
     },
 
+    // --- AJOUT : Historique d'escalade (Signature/Traçabilité) ---
+    escalationHistory: [
+      {
+        responsibleUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        role: String,
+        escalatedAt: { type: Date, default: Date.now },
+        reason: String,
+        signature: String // Nom complet ou identifiant lisible
+      }
+    ],
+
+    // --- AJOUT : Timer pour SLA (Démarre à la synchro, Reset à l'escalade) ---
+    slaStartTime: {
+      type: Date,
+      default: Date.now,
+      required: true,
+      index: true
+    },
+
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
