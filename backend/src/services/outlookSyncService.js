@@ -125,7 +125,9 @@ class OutlookSyncService {
         source: "Outlook",
         externalId: email.id,
 
-        // Liaison avec l'utilisateur (important pour l'affichage)
+        // Liaison avec l'utilisateur (Propriétaire)
+        userId: userId,
+        // Liaison avec l'assigné (initialement le propriétaire)
         assignedTo: userId,
 
         sender: {

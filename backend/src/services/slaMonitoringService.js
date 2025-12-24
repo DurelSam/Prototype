@@ -128,14 +128,16 @@ async function checkAndEscalate() {
 
     // Trouver toutes les communications High/Critical:
     // - Reçues AVANT la date limite (donc le délai est écoulé)
+    // - Qui NÉCESSITENT une réponse (requiresResponse: true)
     // - Pas encore répondues (hasBeenReplied: false)
-    // - Pas encore fermées ou archivées
+    // - Pas encore fermées, archivées ou validées
     // - Pas encore escaladées (isEscalated: false)
     const breachedCommunications = await Communication.find({
       'ai_analysis.urgency': { $in: ['High', 'Critical'] },
+      'ai_analysis.requiresResponse': true, // ✅ Ajouté : Seulement ceux qui nécessitent une réponse
       receivedAt: { $lt: thresholdDate },
       hasBeenReplied: false,
-      status: { $nin: ['Closed', 'Archived'] }, // On ne filtre plus 'Escalated' status
+      status: { $nin: ['Closed', 'Archived', 'Validated'] }, // ✅ Ajouté : Validated arrête aussi l'escalade
       isEscalated: false, // On vérifie le flag
     }).populate('userId', 'role firstName lastName managedBy tenant_id');
 

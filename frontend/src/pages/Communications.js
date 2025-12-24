@@ -21,61 +21,99 @@ import {
   faPaperPlane,
   faTimes,
   faRobot,
+  faEye,
+  faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../components/Pagination";
 import "../styles/Communications.css";
 
 // --- SUB-COMPONENT: Escalation Dashboard (CEO View) ---
-const EscalationDashboardTab = () => {
-  // Mock Data pour le tableau de bord (À connecter au backend plus tard via /stats)
-  const escalationStats = {
-    level1: 12,
-    level2: 3,
-    overdue: 5,
+const EscalationDashboardTab = ({ navigate }) => {
+  const [stats, setStats] = useState({
+    level1: 0,
+    level2: 0,
+    overdue: 0,
+  });
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const token = localStorage.getItem("authToken");
+
+  useEffect(() => {
+    fetchEscalationData();
+  }, []);
+
+  const fetchEscalationData = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/communications/escalations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.success) {
+        setStats(response.data.data.stats);
+        setHistory(response.data.data.history);
+      }
+    } catch (err) {
+      console.error("Error loading escalation data:", err);
+      setError("Failed to load escalation data.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const escalationHistory = [
-    {
-      id: 101,
-      subject: "Critical system outage reported by VIP client.",
-      level: 2,
-      escalatedBy: "Jane Doe",
-      date: new Date("2025-12-06T14:30:00"),
-      status: "Escalated-2",
-    },
-    {
-      id: 102,
-      subject: "Payment delay impacting Q1 forecast.",
-      level: 1,
-      escalatedBy: "John Smith",
-      date: new Date("2025-12-05T10:00:00"),
-      status: "Escalated-1",
-    },
-    {
-      id: 103,
-      subject: "Unresolved bug in production environment.",
-      level: 2,
-      escalatedBy: "Alice Johnson",
-      date: new Date("2025-12-04T16:45:00"),
-      status: "Escalated-2",
-    },
-    {
-      id: 104,
-      subject: "Follow-up needed on sales agreement.",
-      level: 1,
-      escalatedBy: "Bob Brown",
-      date: new Date("2025-12-03T11:20:00"),
-      status: "Closed",
-    },
-  ];
+  const handleResolve = async (id) => {
+    if (!window.confirm("Are you sure you want to mark this escalation as Resolved (Closed)?")) return;
+    
+    try {
+      await axios.patch(
+        `${API_URL}/communications/${id}/status`,
+        { status: "Closed" },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      // Refresh data
+      fetchEscalationData();
+    } catch (err) {
+      alert("Error resolving escalation: " + (err.response?.data?.message || err.message));
+    }
+  };
 
-  const formatTime = (date) =>
-    date.toLocaleString("en-US", {
+  const handleView = (id) => {
+    // Navigate to detail view (assuming it exists or reuse a modal)
+    // For now, let's assume we can navigate to a detail page or switch tab
+    // Ideally, we should pass `navigate` prop to this component
+    if (navigate) {
+      navigate(`/communications?id=${id}`);
+    } else {
+       // Fallback or just log
+       console.log("Navigate to", id);
+    }
+  };
+
+  const formatTime = (dateStr) => {
+    if (!dateStr) return "N/A";
+    const date = new Date(dateStr);
+    return date.toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="error-message">{error}</div>;
+  }
 
   return (
     <div className="tab-content">
@@ -89,7 +127,7 @@ const EscalationDashboardTab = () => {
               className="card-icon"
             />
           </div>
-          <p className="card-value">{escalationStats.level1}</p>
+          <p className="card-value">{stats.level1}</p>
         </div>
 
         {/* KPI Card 2: Level 2 Escalations */}
@@ -98,7 +136,7 @@ const EscalationDashboardTab = () => {
             <h4 className="card-title">Level 2 (Critical)</h4>
             <FontAwesomeIcon icon={faArrowUp} className="card-icon" />
           </div>
-          <p className="card-value">{escalationStats.level2}</p>
+          <p className="card-value">{stats.level2}</p>
         </div>
 
         {/* KPI Card 3: Overdue Follow-ups */}
@@ -107,42 +145,72 @@ const EscalationDashboardTab = () => {
             <h4 className="card-title">Overdue Follow-ups</h4>
             <FontAwesomeIcon icon={faClock} className="card-icon" />
           </div>
-          <p className="card-value">{escalationStats.overdue}</p>
+          <p className="card-value">{stats.overdue}</p>
         </div>
 
         {/* Escalation History Table */}
         <div className="escalation-table-section">
           <h3>Escalation History & Tracking</h3>
-          <table className="escalation-table">
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Level</th>
-                <th>Escalated By</th>
-                <th>Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {escalationHistory.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.subject}</td>
-                  <td>{item.level}</td>
-                  <td>{item.escalatedBy}</td>
-                  <td>{formatTime(item.date)}</td>
-                  <td>
-                    <span
-                      className={`status-badge ${item.status
-                        .toLowerCase()
-                        .replace("-", "")}`}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
+          {history.length === 0 ? (
+            <p className="no-data">No active escalations.</p>
+          ) : (
+            <table className="escalation-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Level</th>
+                  <th>Escalated By</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((item) => (
+                  <tr key={item._id}>
+                    <td>
+                      <div style={{ fontWeight: "500" }}>{item.subject}</div>
+                      <div style={{ fontSize: "0.8em", color: "#666" }}>
+                        {item.reason}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`level-badge level-${item.level}`}>
+                        Level {item.level}
+                      </span>
+                    </td>
+                    <td>{item.escalatedBy}</td>
+                    <td>{formatTime(item.date)}</td>
+                    <td>
+                      <span
+                        className={`status-badge ${
+                          item.isOverdue ? "overdue" : item.status.toLowerCase()
+                        }`}
+                      >
+                        {item.isOverdue ? "Overdue" : item.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button 
+                        className="btn-icon view" 
+                        title="View Details"
+                        onClick={() => handleView(item._id)}
+                      >
+                        <FontAwesomeIcon icon={faEye} />
+                      </button>
+                      <button 
+                        className="btn-icon check" 
+                        title="Resolve"
+                        onClick={() => handleResolve(item._id)}
+                      >
+                        <FontAwesomeIcon icon={faCheckCircle} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
@@ -2100,7 +2168,7 @@ function Communications() {
       case "assisted":
         return <AssistedResponseTab />;
       case "escalation":
-        return <EscalationDashboardTab />;
+        return <EscalationDashboardTab navigate={navigate} />;
       default:
         return <CommunicationListTab navigate={navigate} />;
     }

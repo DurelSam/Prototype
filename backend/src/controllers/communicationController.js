@@ -1551,6 +1551,122 @@ Generate ONLY the email body text, no additional formatting or explanations.`;
 }
 
 /**
+ * @desc    Récupère les données pour le Dashboard d'Escalade (KPIs + Liste)
+ * @route   GET /api/communications/escalations
+ * @access  Private
+ */
+exports.getEscalationData = async (req, res) => {
+  try {
+    const user = req.user;
+
+    if (!user.tenant_id) {
+      return res.status(400).json({
+        success: false,
+        message: "User does not belong to a tenant.",
+      });
+    }
+
+    // Construire le filtre RBAC de base
+    const baseFilter = await buildRbacFilter(user);
+
+    // 1. Récupérer tous les items pertinents (Escaladés OU En retard)
+    // On cherche :
+    // - Status = "Escalated"
+    // - OU isEscalated = true
+    // - OU SLA dépassé ET statut pas clos
+    const escalationFilter = {
+      ...baseFilter,
+      $or: [
+        { status: "Escalated" },
+        { isEscalated: true },
+        {
+          slaDueDate: { $lt: new Date() },
+          status: { $nin: ["Closed", "Archived", "Validated"] },
+        },
+      ],
+    };
+
+    const escalatedItems = await Communication.find(escalationFilter)
+      .populate("assignedTo", "firstName lastName")
+      .sort({ "ai_analysis.urgency": -1, receivedAt: -1 }) // Critiques d'abord, puis récents
+      .lean();
+
+    // 2. Calculer les KPIs à partir de la liste récupérée (plus efficace que faire 3 countDocuments)
+    let level1Count = 0; // Escalated but NOT Critical
+    let level2Count = 0; // Escalated AND Critical
+    let overdueCount = 0; // SLA Breached
+
+    const now = new Date();
+
+    const formattedHistory = escalatedItems.map((item) => {
+      const isCritical = item.ai_analysis?.urgency === "Critical";
+      const isEscalatedStatus = item.status === "Escalated" || item.isEscalated;
+      const isOverdue =
+        new Date(item.slaDueDate) < now &&
+        !["Closed", "Archived", "Validated"].includes(item.status);
+
+      // KPIs Increment
+      if (isEscalatedStatus) {
+        if (isCritical) {
+          level2Count++;
+        } else {
+          level1Count++;
+        }
+      }
+      
+      // Overdue is counted independently (an item can be both Escalated and Overdue)
+      if (isOverdue) {
+        overdueCount++;
+      }
+
+      // Déterminer le "niveau" pour l'affichage tableau
+      let displayLevel = 1;
+      if (isCritical) displayLevel = 2;
+
+      // Déterminer la raison (mock ou déduit)
+      let reason = "Manual Escalation";
+      if (isOverdue) reason = "SLA Breach";
+      if (isCritical && isEscalatedStatus) reason = "Critical Issue";
+
+      return {
+        _id: item._id,
+        subject: item.subject,
+        level: displayLevel,
+        escalatedBy: item.assignedTo
+          ? `${item.assignedTo.firstName} ${item.assignedTo.lastName}`
+          : "System",
+        date: item.receivedAt,
+        status: item.status,
+        slaDueDate: item.slaDueDate,
+        isOverdue: isOverdue,
+        urgency: item.ai_analysis?.urgency || "Medium",
+        reason: reason,
+        sender: item.sender?.email || item.sender?.name || "Unknown",
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        stats: {
+          level1: level1Count,
+          level2: level2Count,
+          overdue: overdueCount,
+        },
+        history: formattedHistory,
+      },
+    });
+  } catch (error) {
+    console.error("Erreur getEscalationData:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des données d'escalade",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * @desc    Récupérer les statistiques pour le Dashboard (KPIs)
  * @route   GET /api/communications/stats/dashboard
  * @access  Private

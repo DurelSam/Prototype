@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+/* src/pages/Employees.js */
+import React, { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlus,
   faEdit,
@@ -11,75 +10,82 @@ import {
   faToggleOn,
   faToggleOff,
   faSearch,
+  faEye,
+  faTimes,
+  faInfoCircle,
+  faCheckCircle,
+  faTimesCircle,
+  faUser,
   faComments,
-} from '@fortawesome/free-solid-svg-icons';
-import '../styles/AdminManagement.css';
-import '../animations/dashboardAnimations.css';
+} from "@fortawesome/free-solid-svg-icons";
+import Pagination from "../components/Pagination";
+import { useNavigate } from "react-router-dom";
+import "../styles/AdminManagement.css";
 
-function Employees() {
-  const { user } = useAuth();
+// --- SUB-COMPONENT: Employee List Tab ---
+const EmployeeListTab = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("All");
 
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+
   // Form state
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
+    firstName: "",
+    lastName: "",
+    email: "",
   });
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
 
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/users/employees`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await axios.get(`${API_URL}/users/employees`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.data.success) {
         setEmployees(response.data.data);
       }
     } catch (err) {
-      console.error('Error loading employees:', err);
-      setError(err.response?.data?.message || 'Error loading');
+      console.error("Error loading employees:", err);
+      setError(err.response?.data?.message || "Error loading");
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
 
   const handleCreateEmployee = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/users/employees`,
-        formData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const token = localStorage.getItem("authToken");
+      const response = await axios.post(`${API_URL}/users/employees`, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.data.success) {
         const { emailSent, temporaryPassword, emailError } = response.data.data;
 
         if (emailSent) {
-          alert('✅ Employee created successfully! A welcome email has been sent.');
+          alert("✅ Employee created successfully! A welcome email has been sent.");
         } else {
           // Email non envoyé - afficher le mot de passe
           alert(
@@ -92,23 +98,22 @@ function Employees() {
           );
         }
 
-        setShowCreateModal(false);
-        resetForm();
+        closeCreateModal();
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Error creating employee');
+      alert(err.response?.data?.message || "Error creating employee");
     }
   };
 
   const handleUpdateEmployee = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('authToken');
-      const { password, ...updateData } = formData; // Ne pas envoyer le mot de passe lors de l'édition
+      const token = localStorage.getItem("authToken");
+      const { password, ...updateData } = formData;
 
       const response = await axios.put(
-        `${process.env.REACT_APP_API_URL}/users/employees/${selectedEmployee._id}`,
+        `${API_URL}/users/employees/${selectedEmployee._id}`,
         updateData,
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -116,44 +121,49 @@ function Employees() {
       );
 
       if (response.data.success) {
-        alert('Employee updated successfully!');
+        alert("Employee updated successfully!");
         setShowEditModal(false);
         resetForm();
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Error updating employee');
+      alert(err.response?.data?.message || "Error updating employee");
     }
   };
 
   const handleDeleteEmployee = async (employeeId) => {
-    if (!window.confirm('Are you sure you want to delete this Employee?')) {
+    // Première confirmation
+    if (
+      !window.confirm(
+        "⚠️ WARNING: Are you sure you want to delete this Employee? This action is irreversible."
+      )
+    ) {
       return;
     }
 
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       const response = await axios.delete(
-        `${process.env.REACT_APP_API_URL}/users/employees/${employeeId}`,
+        `${API_URL}/users/employees/${employeeId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (response.data.success) {
-        alert('Employee deleted successfully!');
+        alert("✅ Employee deleted successfully!");
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting employee');
+      alert(err.response?.data?.message || "Error deleting employee");
     }
   };
 
   const handleToggleStatus = async (employeeId) => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       const response = await axios.patch(
-        `${process.env.REACT_APP_API_URL}/users/employees/${employeeId}/toggle-status`,
+        `${API_URL}/users/employees/${employeeId}/toggle-status`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -161,11 +171,11 @@ function Employees() {
       );
 
       if (response.data.success) {
-        alert('Status changed successfully!');
+        alert("Status changed successfully!");
         fetchEmployees();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Error changing status');
+      alert(err.response?.data?.message || "Error changing status");
     }
   };
 
@@ -173,9 +183,22 @@ function Employees() {
     navigate(`/communications?userId=${employeeId}`);
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     resetForm();
     setShowCreateModal(true);
+  };
+
+  const closeCreateModal = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setShowCreateModal(false);
+    resetForm();
   };
 
   const openEditModal = (employee) => {
@@ -190,123 +213,187 @@ function Employees() {
 
   const resetForm = () => {
     setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
+      firstName: "",
+      lastName: "",
+      email: "",
     });
     setSelectedEmployee(null);
   };
 
-  // Filter employees based on search
+  // Filter employees based on search and status
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
       employee.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesSearch;
+    const matchesStatus =
+      filterStatus === "All" ||
+      (filterStatus === "Active" && employee.isActive) ||
+      (filterStatus === "Inactive" && !employee.isActive);
+
+    return matchesSearch && matchesStatus;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  const totalItems = filteredEmployees.length;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedEmployees = filteredEmployees.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    setCurrentPage(1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   if (loading) {
     return (
-      <div className="admin-management-page">
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading...</p>
-        </div>
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p className="loading-text">Loading employees...</p>
       </div>
     );
   }
 
   return (
-    <div className="admin-management-page">
-      <div className="admin-management-container">
-        <div className="page-header animate-entry delay-1">
-          <h1>Employees Management</h1>
-          <button className="btn-primary" onClick={openCreateModal}>
-            <FontAwesomeIcon icon={faPlus} /> Create Employee
-          </button>
-        </div>
+    <div className="tab-content">
+      {/* Action Bar */}
+      <div className="action-bar">
+        <button type="button" className="btn-create" onClick={openCreateModal}>
+          <FontAwesomeIcon icon={faPlus} />
+          <span>Create Employee</span>
+        </button>
+      </div>
 
-        {error && <div className="error-message">{error}</div>}
+      {/* Filters */}
+      <div className="controls-section">
+        <div className="filter-controls">
+          <div className="filter-group">
+            <label htmlFor="search-employee" className="filter-label">
+              Search
+            </label>
+            <div className="input-with-icon">
+              <FontAwesomeIcon icon={faSearch} className="input-icon" />
+              <input
+                id="search-employee"
+                type="text"
+                placeholder="Name, first name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="filter-input"
+              />
+            </div>
+          </div>
 
-        {/* Search */}
-        <div className="filters animate-entry delay-2">
-          <div className="search-box">
-            <FontAwesomeIcon icon={faSearch} />
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="filter-group">
+            <label htmlFor="filter-status" className="filter-label">
+              Status
+            </label>
+            <select
+              id="filter-status"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="filter-select"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
           </div>
         </div>
+      </div>
 
-        {/* Employees Grid */}
-        <div className="admins-grid animate-entry delay-3">
-          {filteredEmployees.length > 0 ? (
-            filteredEmployees.map((employee) => (
-              <div key={employee._id} className="admin-card">
-                <div className="admin-card-header">
-                  <h3>
+      {error && <div className="error-message">{error}</div>}
+
+      {/* Employee List */}
+      <div className="admin-list">
+        {paginatedEmployees.length === 0 ? (
+          <div className="empty-state">
+            <p>No employees found.</p>
+          </div>
+        ) : (
+          paginatedEmployees.map((employee, index) => (
+            <div
+              key={employee._id}
+              className={`admin-card admin-card-delay-${Math.min(index, 9)}`}
+            >
+              {/* Badge Icon */}
+              <div className="admin-type-badge">
+                <FontAwesomeIcon icon={faUser} />
+              </div>
+
+              {/* Content */}
+              <div className="admin-content">
+                <div className="admin-header">
+                  <h3 className="admin-name">
                     {employee.firstName} {employee.lastName}
                   </h3>
                   <span
                     className={`status-badge ${
-                      employee.isActive ? 'active' : 'inactive'
+                      employee.isActive ? "active" : "inactive"
                     }`}
                   >
-                    {employee.isActive ? 'Active' : 'Inactive'}
+                    <FontAwesomeIcon
+                      icon={employee.isActive ? faCheckCircle : faTimesCircle}
+                    />
+                    <span>{employee.isActive ? "Active" : "Inactive"}</span>
                   </span>
                 </div>
 
-                <div className="admin-card-body">
-                  <p className="admin-email">
-                    <FontAwesomeIcon icon={faEnvelope} /> {employee.email}
-                  </p>
-                  {employee.managedBy && (
-                    <p className="admin-tenant">
-                      <strong>Managed by:</strong> {employee.managedBy.firstName}{' '}
-                      {employee.managedBy.lastName}
-                    </p>
-                  )}
+                <div className="admin-meta">
+                  <div className="meta-item">
+                    <FontAwesomeIcon icon={faEnvelope} className="meta-icon" />
+                    <span>{employee.email}</span>
+                  </div>
                   {employee.hasConfiguredEmail && (
-                    <p className="admin-email-configured">
-                      ✓ Email configured
-                    </p>
+                    <div className="meta-item success">
+                      <FontAwesomeIcon
+                        icon={faCheckCircle}
+                        className="meta-icon"
+                      />
+                      <span>Email configured</span>
+                    </div>
                   )}
                 </div>
 
-                <div className="admin-card-actions">
+                {/* Actions */}
+                <div className="admin-actions">
                   <button
-                    className="btn-icon view"
+                    className="btn-action btn-action-view"
                     onClick={() => viewEmployeeCommunications(employee._id)}
                     title="View Communications"
                   >
                     <FontAwesomeIcon icon={faComments} />
+                    <span>Communications</span>
                   </button>
-
                   <button
-                    className="btn-icon edit"
+                    className="btn-action btn-action-edit"
                     onClick={() => openEditModal(employee)}
                     title="Edit"
                   >
                     <FontAwesomeIcon icon={faEdit} />
+                    <span>Edit</span>
                   </button>
-
                   <button
-                    className="btn-icon toggle"
+                    className="btn-action btn-action-toggle"
                     onClick={() => handleToggleStatus(employee._id)}
-                    title={employee.isActive ? 'Deactivate' : 'Activate'}
+                    title={employee.isActive ? "Deactivate" : "Activate"}
                   >
                     <FontAwesomeIcon
                       icon={employee.isActive ? faToggleOn : faToggleOff}
                     />
                   </button>
-
                   <button
-                    className="btn-icon delete"
+                    className="btn-action btn-action-delete"
                     onClick={() => handleDeleteEmployee(employee._id)}
                     title="Delete"
                   >
@@ -314,160 +401,217 @@ function Employees() {
                   </button>
                 </div>
               </div>
-            ))
-          ) : (
-            <p className="no-data">No employees found</p>
-          )}
-        </div>
-
-        {/* Create Modal */}
-        {showCreateModal && (
-          <div
-            className="modal-overlay"
-            onClick={() => setShowCreateModal(false)}
-          >
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Create New Employee</h2>
-                <button
-                  className="modal-close"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  &times;
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateEmployee}>
-                <div className="form-group">
-                  <label>First Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Last Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="alert-info">
-                  <p>
-                    A secure password will be automatically generated and sent by email to this Employee.
-                  </p>
-                </div>
-
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setShowCreateModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary">
-                    Create Employee
-                  </button>
-                </div>
-              </form>
             </div>
-          </div>
-        )}
-
-        {/* Edit Modal */}
-        {showEditModal && (
-          <div
-            className="modal-overlay"
-            onClick={() => setShowEditModal(false)}
-          >
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Edit Employee</h2>
-                <button
-                  className="modal-close"
-                  onClick={() => setShowEditModal(false)}
-                >
-                  &times;
-                </button>
-              </div>
-
-              <form onSubmit={handleUpdateEmployee}>
-                <div className="form-group">
-                  <label>First Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Last Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setShowEditModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary">
-                    Update
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          ))
         )}
       </div>
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        loading={loading}
+      />
+
+      {/* Modals */}
+      {showCreateModal && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeCreateModal(e);
+            }
+          }}
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="close-button"
+              onClick={closeCreateModal}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+
+            <h2>Create New Employee</h2>
+            <p className="modal-subtitle">
+              Create a new employee account for your organization
+            </p>
+
+            <form className="modal-form" onSubmit={handleCreateEmployee}>
+              <div className="form-grid">
+                <div className="form-group animate-entry delay-2">
+                  <label htmlFor="create-firstName">First Name *</label>
+                  <input
+                    id="create-firstName"
+                    type="text"
+                    required
+                    value={formData.firstName}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        firstName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group animate-entry delay-3">
+                  <label htmlFor="create-lastName">Last Name *</label>
+                  <input
+                    id="create-lastName"
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, lastName: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="form-group form-group-full animate-entry delay-4">
+                  <label htmlFor="create-email">Email *</label>
+                  <input
+                    id="create-email"
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="info-banner animate-entry delay-5">
+                <FontAwesomeIcon icon={faInfoCircle} />
+                <span>
+                  A secure password will be automatically generated and sent by email to this Employee.
+                </span>
+              </div>
+
+              <div className="form-actions animate-entry delay-6">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={closeCreateModal}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit">
+                  Create Employee
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="close-button"
+              onClick={() => setShowEditModal(false)}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+
+            <h2>Edit Employee</h2>
+            <p className="modal-subtitle">
+              Update employee information
+            </p>
+
+            <form className="modal-form" onSubmit={handleUpdateEmployee}>
+              <div className="form-grid">
+                <div className="form-group animate-entry delay-2">
+                  <label htmlFor="edit-firstName">First Name *</label>
+                  <input
+                    id="edit-firstName"
+                    type="text"
+                    required
+                    value={formData.firstName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, firstName: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="form-group animate-entry delay-3">
+                  <label htmlFor="edit-lastName">Last Name *</label>
+                  <input
+                    id="edit-lastName"
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, lastName: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="form-group form-group-full animate-entry delay-4">
+                  <label htmlFor="edit-email">Email *</label>
+                  <input
+                    id="edit-email"
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-actions animate-entry delay-5">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-submit">
+                  Update
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT: Employees Management ---
+function Employees() {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setTimeout(() => setLoading(false), 500);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="admin-management-page">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Initializing...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="admin-management-page">
+      <div className="admin-management-header">
+        <h1 className="page-title">Employees Management</h1>
+      </div>
+
+      <EmployeeListTab />
     </div>
   );
 }

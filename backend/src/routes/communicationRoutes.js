@@ -18,12 +18,21 @@ const {
   generateQuestionsForEmail, // <--- RÉPONSES ASSISTÉES
   previewDraftFromAnswers, // <--- RÉPONSES ASSISTÉES (PREVIEW)
   submitQuestionnaireAndReply, // <--- RÉPONSES ASSISTÉES
+  getEscalationData, // <--- NOUVEAU
 } = require("../controllers/communicationController");
 const { protect } = require("../middleware/authMiddleware");
 
 // ============================================
 // ROUTES COMMUNICATIONS
 // ============================================
+
+/**
+ * @route   GET /api/communications/escalations
+ * @desc    Récupère les données pour le Dashboard d'Escalade
+ * @access  Private
+ * ⚠️ IMPORTANT : Doit rester AVANT la route /:id
+ */
+router.get("/escalations", protect, getEscalationData);
 
 /**
  * @route   GET /api/communications/stats/dashboard

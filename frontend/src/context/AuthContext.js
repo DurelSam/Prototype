@@ -87,7 +87,21 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user };
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Erreur connexion";
+      console.error("LOGIN ERROR DEBUG:", error);
+      let errorMessage = "Erreur connexion";
+      
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        errorMessage = error.response.data?.message || `Erreur serveur (${error.response.status})`;
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = "Serveur inaccessible. Vérifiez que le backend tourne sur le port 5000.";
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        errorMessage = error.message;
+      }
+      
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
