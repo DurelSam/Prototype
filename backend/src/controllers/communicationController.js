@@ -1179,7 +1179,12 @@ exports.generateSuggestionForEmail = async (req, res) => {
 
     // Générer une réponse automatique basée sur l'analyse et le contexte utilisateur
     const autoResponse = await grokService.generateAutoResponse(comm, analysis, user);
-    comm.ai_analysis = { ...(comm.ai_analysis || {}), suggestedResponse: autoResponse, processedAt: new Date() };
+    
+    // Ajouter la signature
+    const signature = user.emailSignature || "Cordialement,\nL'équipe Support";
+    const finalResponse = autoResponse + "\n\n" + signature;
+
+    comm.ai_analysis = { ...(comm.ai_analysis || {}), suggestedResponse: finalResponse, processedAt: new Date() };
     await comm.save();
 
     return res.status(200).json({
@@ -1325,12 +1330,16 @@ exports.previewDraftFromAnswers = async (req, res) => {
       user
     );
 
+    // Ajouter la signature
+    const signature = user.emailSignature || "Cordialement,\nL'équipe Support";
+    const finalDraft = draft + "\n\n" + signature;
+
     res.status(200).json({
       success: true,
       message: 'Brouillon généré avec succès',
       data: {
         communicationId: communication._id,
-        draft,
+        draft: finalDraft,
       },
     });
   } catch (error) {
@@ -1442,6 +1451,11 @@ exports.submitQuestionnaireAndReply = async (req, res) => {
         });
 
         generatedResponse = completion.choices[0].message.content.trim();
+        
+        // Ajouter la signature
+        const signature = user.emailSignature || "Cordialement,\nL'équipe Support";
+        generatedResponse += "\n\n" + signature;
+        
         console.log('✅ Réponse IA générée avec contexte utilisateur');
     }
 

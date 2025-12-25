@@ -219,6 +219,7 @@ const EscalationDashboardTab = ({ navigate }) => {
 
 // --- SUB-COMPONENT: Urgent Emails Tab (High/Critical) ---
 const UrgentEmailsTab = () => {
+  const { user } = useAuth();
   const [urgentEmails, setUrgentEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -322,12 +323,18 @@ const UrgentEmailsTab = () => {
 
   // Effet pour pré-remplir le contenu de la réponse avec le brouillon
   useEffect(() => {
-    if (selectedEmail && selectedEmail.ai_analysis?.suggestedResponse) {
-      setReplyContent(selectedEmail.ai_analysis.suggestedResponse);
+    if (selectedEmail) {
+      if (selectedEmail.ai_analysis?.suggestedResponse) {
+        setReplyContent(selectedEmail.ai_analysis.suggestedResponse);
+      } else {
+        // Pré-remplir avec la signature
+        const signature = user?.emailSignature || "Cordialement,\nL'équipe Support";
+        setReplyContent("\n\n" + signature);
+      }
     } else {
       setReplyContent('');
     }
-  }, [selectedEmail]);
+  }, [selectedEmail, user]);
 
   if (loading) {
     return (
@@ -1111,6 +1118,8 @@ const AssistedResponseTab = () => {
 
   const handleGenerateQuestions = async (email) => {
     try {
+      // On met loading à true mais on set aussi l'email sélectionné pour savoir où afficher le spinner
+      setSelectedEmail(email); 
       setLoading(true);
       const response = await axios.post(
         `${API_URL}/communications/${email._id}/generate-questions`,
@@ -1142,6 +1151,7 @@ const AssistedResponseTab = () => {
       console.error('Error generating questions:', error);
       setToast({ show: true, message: `Error: ${error.response?.data?.message || error.message}`, type: 'error' });
       setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 4000);
+      setSelectedEmail(null); // Reset selection on error
     } finally {
       setLoading(false);
     }
@@ -1167,11 +1177,18 @@ const AssistedResponseTab = () => {
 
     try {
       setIsGeneratingDraft(true);
-      const response = await axios.post(
-        `${API_URL}/communications/${selectedEmail._id}/preview-reply`,
-        { userAnswers },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      
+      // Petit délai artificiel pour UX (éviter le flash si trop rapide)
+      const minLoadingTime = new Promise(resolve => setTimeout(resolve, 800));
+      
+      const [response] = await Promise.all([
+        axios.post(
+          `${API_URL}/communications/${selectedEmail._id}/preview-reply`,
+          { userAnswers },
+          { headers: { Authorization: `Bearer ${token}` } }
+        ),
+        minLoadingTime
+      ]);
 
       if (response.data.success) {
         setGeneratedDraft(response.data.data.draft);
@@ -1417,11 +1434,22 @@ const AssistedResponseTab = () => {
                           handleGenerateQuestions(email);
                         }
                       }}
+                      disabled={loading && !showQuestionnaireModal} // Désactiver pendant le chargement global
                     >
-                      <FontAwesomeIcon icon={faRobot} />
-                      {email.aiGeneratedQuestions && email.aiGeneratedQuestions.length > 0
-                        ? ' Continue'
-                        : ' Assistant'}
+                      {/* Afficher un spinner spécifique si on est en train de charger pour CET email */}
+                      {loading && selectedEmail?._id === email._id ? (
+                        <>
+                          <span className="spinner-small" style={{ marginRight: '8px' }}></span>
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <FontAwesomeIcon icon={faRobot} />
+                          {email.aiGeneratedQuestions && email.aiGeneratedQuestions.length > 0
+                            ? ' Continue'
+                            : ' Assistant'}
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1475,6 +1503,16 @@ const AssistedResponseTab = () => {
               <p>
                 <strong>From:</strong> <span>{selectedEmail?.sender?.email}</span>
               </p>
+            </div>
+
+            {/* AI Summary Section - Added for Context */}
+            <div className="reply-ai-summary" style={{ marginBottom: '24px' }}>
+              <h4>
+                <FontAwesomeIcon icon={faRobot} /> AI Summary
+              </h4>
+              <div className="ai-summary-content">
+                {selectedEmail.ai_analysis?.summary || 'AI summary not available for this email.'}
+              </div>
             </div>
 
             <div className="questionnaire-body">
@@ -2115,7 +2153,14 @@ const AutoResponsesTab = () => {
                 onClick={() => handleRegenerate(selectedItem)}
                 disabled={regenerating}
               >
-                {regenerating ? 'Regenerating...' : 'Regenerate'}
+                {regenerating ? (
+                  <>
+                    <span className="spinner-small" style={{ marginRight: '8px' }}></span>
+                    Regenerating...
+                  </>
+                ) : (
+                  'Regenerate'
+                )}
               </button>
               <button className="btn-send" onClick={handleSend} disabled={sending || !draftContent.trim()}>
                 {sending ? (

@@ -441,15 +441,18 @@
 }
 
 .action-items-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-16);
+  position: relative;
   font-size: 0.875rem;
+  color: #cbd5e1;
+  padding-left: var(--space-16);
+  line-height: 1.5;
 }
 
-.action-items-list label {
-  color: #cbd5e1;
-  line-height: 1.4;
+.bullet-point {
+  color: var(--accent-blue);
+  position: absolute;
+  left: 0;
+  font-weight: 700;
 }
 
 .entities-tags {

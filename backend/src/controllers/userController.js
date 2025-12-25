@@ -31,12 +31,13 @@ exports.getMyProfile = async (req, res) => {
 
 exports.updateMyProfile = async (req, res) => {
   try {
-    const { firstName, lastName } = req.body;
+    const { firstName, lastName, emailSignature } = req.body;
 
-    // Seuls firstName et lastName sont modifiables
+    // Seuls firstName, lastName et emailSignature sont modifiables
     const updateData = {};
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
+    if (emailSignature !== undefined) updateData.emailSignature = emailSignature;
 
     const user = await User.findByIdAndUpdate(
       req.user._id,

@@ -306,21 +306,17 @@ ${user.firstName} ${user.lastName}`;
 - Sentiment: ${analysis.sentiment}
 - Urgency: ${analysis.urgency}
 
-**Respond on behalf of:**
-- Name: ${user.firstName} ${user.lastName}
-- Role: ${user.role}
-
 **Instructions:**
 1. Acknowledge receipt of their email
 2. Provide a helpful response based on the content and analysis
 3. If specific information is requested, provide a general helpful response or indicate next steps
 4. Keep the tone professional and friendly
-5. Sign off with the user's FULL NAME and ROLE/TITLE as a signature block
+5. CRITICAL: Do NOT include any closing salutation (like "Best regards", "Sincerely") and do NOT include the sender's name. The application adds the signature automatically.
 6. DO NOT include subject line, just the email body
 7. Keep it concise (3-5 sentences max)
 8. Write the ENTIRE response in the SAME LANGUAGE as the original email (auto-detect)
 
-Generate ONLY the email body text, no additional formatting or explanations.`;
+Generate ONLY the email body text. Stop immediately after the final period.`;
   }
 
   /**
@@ -514,17 +510,13 @@ Generate ONLY the JSON object, no additional text.`;
 **User Instructions (Context provided by user):**
 ${answersText}
 
-**Sender Info (Sign as):**
-- Name: ${user.firstName} ${user.lastName}
-- Role: ${user.role}
-
 **Instructions:**
 1. Write a complete, polite response incorporating the user's instructions.
 2. If the user provided specific dates, prices, or decisions, include them clearly.
-3. Sign off with the user's name.
+3. CRITICAL: Do NOT include any closing salutation (like "Best regards", "Sincerely") and do NOT include the sender's name. The application adds the signature automatically.
 4. Write in the SAME LANGUAGE as the original email.
 
-Generate ONLY the email body text.`;
+Generate ONLY the email body text. Stop immediately after the final period.`;
   }
 
   /**

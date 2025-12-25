@@ -90,8 +90,13 @@ function CommunicationDetails() {
             },
             status: data.status,
             externalId: data.externalId, // Pour les réponses
-            responseContent: data.autoResponseContent,
-            repliedAt: data.repliedAt || data.autoResponseSentAt,
+            // Unification de l'affichage de la réponse (Manuelle ou Auto)
+            responseContent: data.manualResponse?.sent 
+              ? data.manualResponse.content 
+              : data.autoResponseContent,
+            repliedAt: data.manualResponse?.sent 
+              ? data.manualResponse.sentAt 
+              : data.autoResponseSentAt,
           };
 
           setCommunication(mappedCommunication);
@@ -497,13 +502,7 @@ function CommunicationDetails() {
                 <ul className="action-items-list">
                   {communication.aiAnalysis.actionItems.map((item, index) => (
                     <li key={index}>
-                      <input
-                        type="checkbox"
-                        id={`action-${index}`}
-                        // Garde le style accent-color car c'est spécifique aux contrôles de formulaire
-                        style={{ accentColor: "#3b82f6" }}
-                      />
-                      <label htmlFor={`action-${index}`}>{item}</label>
+                      <span className="bullet-point">•</span> {item}
                     </li>
                   ))}
                 </ul>

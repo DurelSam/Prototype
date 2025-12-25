@@ -240,6 +240,13 @@ const userSchema = new mongoose.Schema(
       default: false, // Désactivé par défaut pour des raisons de sécurité
     },
 
+    // Signature email personnalisée
+    emailSignature: {
+      type: String,
+      default: "\n\nCordialement,\nL'équipe Support",
+      trim: true,
+    },
+
     isActive: {
       type: Boolean,
       default: true,

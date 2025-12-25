@@ -117,6 +117,11 @@ async function escalateAdminToUpperAdmin(communication) {
     // Transfert
     communication.userId = upperAdmin._id; 
     
+    // IMPORTANT: Retirer l'Admin de visibleToAdmins pour qu'il ne puisse plus intervenir (éviter double réponse)
+    communication.visibleToAdmins = communication.visibleToAdmins.filter(
+      id => id.toString() !== admin._id.toString()
+    );
+    
     // On laisse isEscalated à FALSE (le UpperAdmin est surveillé aussi, bien qu'il soit le dernier)
     // S'il ne répond pas, le bloc "UpperAdmin" du checkAndEscalate se déclenchera
     communication.isEscalated = false;

@@ -35,6 +35,7 @@ function Settings() {
     lastName: user?.lastName || "",
     email: user?.email || "",
     role: user?.role || "Employee",
+    emailSignature: user?.emailSignature || "",
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -156,6 +157,7 @@ function Settings() {
           {
             firstName: profileData.firstName,
             lastName: profileData.lastName,
+            emailSignature: profileData.emailSignature,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -310,7 +312,25 @@ function Settings() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" htmlFor="email">
+                    <label className="form-label" htmlFor="emailSignature">
+                      Email Signature
+                    </label>
+                    <textarea
+                      id="emailSignature"
+                      name="emailSignature"
+                      value={profileData.emailSignature}
+                      onChange={handleProfileChange}
+                      placeholder="Enter your email signature..."
+                      className="form-input"
+                      rows="4"
+                    />
+                    <span className="form-help">
+                      This signature will be appended to all your email responses.
+                    </span>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="email">
                     Email Address
                   </label>
                   <input

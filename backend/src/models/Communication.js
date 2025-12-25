@@ -288,8 +288,6 @@ communicationSchema.index({ source: 1 });
 communicationSchema.index({ externalId: 1 });
 communicationSchema.index({ "ai_analysis.sentiment": 1 });
 communicationSchema.index({ "ai_analysis.urgency": 1 });
-communicationSchema.index({ isRead: 1 }); // Index sur le nouveau champ
-communicationSchema.index({ userId: 1 }); // Index pour filtrage par utilisateur
 communicationSchema.index({ visibleToAdmins: 1 }); // Index pour filtrage Admin
 
 // Middleware SLA
