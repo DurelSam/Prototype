@@ -245,8 +245,14 @@ class OutlookSyncService {
       const accessToken = await this.refreshAccessTokenIfNeeded(user);
 
       let lastSyncDate = null;
-      if (!forceFullSync && this.lastSyncTimestamps.has(userId)) {
-        lastSyncDate = this.lastSyncTimestamps.get(userId);
+      if (!forceFullSync) {
+        if (this.lastSyncTimestamps.has(userId)) {
+          lastSyncDate = this.lastSyncTimestamps.get(userId);
+        } else if (user.outlookConfig?.lastSyncDate) {
+          // Utiliser la date en base si pas en mémoire (ex: après redémarrage serveur)
+          lastSyncDate = user.outlookConfig.lastSyncDate;
+          console.log(`📅 Utilisation de la dernière date de sync en base: ${lastSyncDate}`);
+        }
       }
 
       // On passe le tenant_id de l'utilisateur (ou undefined, géré dans storeEmail)
@@ -404,13 +410,15 @@ class OutlookSyncService {
               analysis,
               user
             );
+            const signature = user.emailSignature || "Cordialement,\nL'équipe Support";
+            const finalResponse = autoResponseContent + "\n\n" + signature;
 
             // Envoyer la réponse par Outlook
             const outlookService = require('./outlookService');
             const sendResult = await outlookService.sendEmailAsUser(user._id, {
               to: updated.sender.email,
               subject: `Re: ${updated.subject}`,
-              body: autoResponseContent,
+              body: finalResponse,
             });
 
             if (sendResult.success) {
@@ -418,7 +426,7 @@ class OutlookSyncService {
               await Communication.findByIdAndUpdate(communicationId, {
                 hasAutoResponse: true,
                 autoResponseSentAt: new Date(),
-                autoResponseContent,
+                autoResponseContent: finalResponse,
                 status: 'Validated', // Marquer comme validé car répondu automatiquement
                 hasBeenReplied: true,
                 repliedAt: new Date(),

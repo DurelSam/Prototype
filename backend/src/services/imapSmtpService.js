@@ -252,10 +252,10 @@ exports.testConnection = async (config) => {
  * Récupérer les emails d'une boîte mail IMAP
  * @param {ObjectId} userId - ID de l'utilisateur
  * @param {String} folder - Dossier à synchroniser (INBOX, Sent, etc.)
- * @param {Number} sinceDays - Nombre de jours à synchroniser (30 par défaut)
+ * @param {Date} sinceDate - Date de début de synchronisation (null = 30 jours par défaut)
  * @returns {Promise<Object>} Résultat de la synchronisation
  */
-exports.fetchEmailsFromFolder = async (userId, folder = 'INBOX', sinceDays = 30) => {
+exports.fetchEmailsFromFolder = async (userId, folder = 'INBOX', sinceDate = null) => {
   try {
     // Récupérer la config de l'utilisateur
     const user = await User.findById(userId).select('+imapSmtpConfig.password');
@@ -301,12 +301,19 @@ exports.fetchEmailsFromFolder = async (userId, folder = 'INBOX', sinceDays = 30)
             return reject(new Error(`Impossible d'ouvrir le dossier ${folder}: ${err.message}`));
           }
 
-          // Calculer la date de début (30 derniers jours par défaut)
-          const sinceDate = new Date();
-          sinceDate.setDate(sinceDate.getDate() - sinceDays);
+          // Calculer la date de début
+          let searchDate = sinceDate;
+          if (!searchDate) {
+            // Par défaut 30 jours si aucune date fournie (première synchro)
+            searchDate = new Date();
+            searchDate.setDate(searchDate.getDate() - 30);
+            console.log(`📅 Première synchro (ou forcée) pour ${folder}: récupération depuis 30 jours`);
+          } else {
+            console.log(`📅 Synchro incrémentale pour ${folder}: récupération depuis ${searchDate.toISOString()}`);
+          }
 
           // Rechercher les emails depuis cette date
-          const searchCriteria = [['SINCE', sinceDate]];
+          const searchCriteria = [['SINCE', searchDate]];
 
           imap.search(searchCriteria, async (err, results) => {
             if (err) {
@@ -315,7 +322,7 @@ exports.fetchEmailsFromFolder = async (userId, folder = 'INBOX', sinceDays = 30)
             }
 
             if (!results || results.length === 0) {
-              console.log(`📭 Aucun email trouvé dans ${folder} depuis ${sinceDays} jours`);
+              console.log(`📭 Aucun email trouvé dans ${folder} depuis la date spécifiée`);
               imap.end();
               return resolve({
                 success: true,
@@ -495,9 +502,21 @@ exports.syncAllFolders = async (userId) => {
     const foldersToSync = user.imapSmtpConfig.foldersToSync || ['INBOX'];
     const results = [];
 
+    // Déterminer la date de début de synchronisation
+    const lastSync = user.imapSmtpConfig.lastSyncDate;
+    let sinceDate = null;
+    if (lastSync) {
+      sinceDate = new Date(lastSync);
+      // Marge de sécurité : reculer d'un jour pour éviter les trous (timezones, etc.)
+      sinceDate.setDate(sinceDate.getDate() - 1);
+      console.log(`📅 Synchronisation IMAP basée sur la dernière synchro: ${lastSync.toISOString()} (avec marge J-1)`);
+    } else {
+      console.log('📅 Aucune dernière synchro trouvée, synchronisation complète (30 jours par défaut)');
+    }
+
     for (const folder of foldersToSync) {
       try {
-        const result = await exports.fetchEmailsFromFolder(userId, folder, 30);
+        const result = await exports.fetchEmailsFromFolder(userId, folder, sinceDate);
         results.push(result);
       } catch (error) {
         // Vérifier si le dossier n'existe pas
@@ -688,6 +707,8 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
               analysis,
               user
             );
+            const signature = user.emailSignature || "Cordialement,\nL'équipe Support";
+            const finalResponse = generatedResponse + "\n\n" + signature;
 
             // Vérifier si l'utilisateur a activé les réponses automatiques
             if (!user.autoResponseEnabled) {
@@ -695,7 +716,7 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
               
               // Sauvegarder comme suggestion (brouillon)
               await Communication.findByIdAndUpdate(communicationId, {
-                'ai_analysis.suggestedResponse': generatedResponse,
+                'ai_analysis.suggestedResponse': finalResponse,
                 awaitingUserInput: true // Faire apparaître dans l'onglet Réponses Auto
               });
               
@@ -708,8 +729,8 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
             const sendResult = await exports.sendEmail(user._id, {
               to: updated.sender.email,
               subject: `Re: ${updated.subject}`,
-              text: generatedResponse,
-              html: generatedResponse.replace(/\n/g, '<br>'),
+              text: finalResponse,
+              html: finalResponse.replace(/\n/g, '<br>'),
               inReplyTo: updated.externalId,
               references: updated.externalId,
             });
@@ -719,7 +740,7 @@ exports.analyzeEmailAsync = async (communicationId, emailData) => {
             await Communication.findByIdAndUpdate(communicationId, {
               hasAutoResponse: true,
               autoResponseSentAt: new Date(),
-              autoResponseContent: generatedResponse,
+              autoResponseContent: finalResponse,
               status: 'Validated', // Marquer comme validé car répondu automatiquement
               hasBeenReplied: true,
               repliedAt: new Date(),

@@ -23,6 +23,7 @@ import {
   faRobot,
   faEye,
   faCheckCircle,
+  faInfoCircle,
 } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../components/Pagination";
 import "../styles/Communications.css";
@@ -118,6 +119,17 @@ const EscalationDashboardTab = ({ navigate }) => {
   return (
     <div className="tab-content">
       <div className="escalation-dashboard">
+        <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>Escalation Dashboard</h2>
+            <p style={{ margin: 0, color: '#6b7280' }}>
+              Level 1: {stats.level1} • Level 2: {stats.level2} • Overdue: {stats.overdue}
+            </p>
+          </div>
+          <div title="Includes escalated items (status Escalated or isEscalated=true) and overdue SLAs that are not closed.">
+            <FontAwesomeIcon icon={faInfoCircle} />
+          </div>
+        </div>
         {/* KPI Card 1: Level 1 Escalations */}
         <div className="escalation-card level1-card">
           <div className="card-header">
@@ -226,6 +238,15 @@ const UrgentEmailsTab = () => {
   const [replyContent, setReplyContent] = useState('');
   const [sending, setSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterDateRange, setFilterDateRange] = useState('All');
 
@@ -240,7 +261,7 @@ const UrgentEmailsTab = () => {
 
   useEffect(() => {
     fetchUrgentEmails();
-  }, [currentPage, itemsPerPage, searchTerm, filterPriority, filterDateRange]);
+  }, [currentPage, itemsPerPage, debouncedSearchTerm, filterPriority, filterDateRange]);
 
   const fetchUrgentEmails = async () => {
     try {
@@ -251,7 +272,7 @@ const UrgentEmailsTab = () => {
         params: {
           status: 'To Validate',
           priority: priorityParam,
-          search: searchTerm,
+          search: debouncedSearchTerm,
           dateRange: filterDateRange,
           needsReply: true,
           excludeReplied: true,
@@ -292,7 +313,7 @@ const UrgentEmailsTab = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterPriority, filterDateRange]);
+  }, [debouncedSearchTerm, filterPriority, filterDateRange]);
   const handleReply = async () => {
     if (!replyContent.trim()) {
       alert('Please enter a reply message');
@@ -348,12 +369,19 @@ const UrgentEmailsTab = () => {
   return (
     <div className="urgent-emails-tab">
       <div className="urgent-header">
-        <h2>
-          <FontAwesomeIcon icon={faExclamationTriangle} /> Urgent Emails to Reply
-        </h2>
-        <p className="urgent-subtitle">
-          High/Critical emails requiring manual reply ({urgentEmails.length})
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>
+              <FontAwesomeIcon icon={faExclamationTriangle} /> Urgent Emails to Reply
+            </h2>
+            <p className="urgent-subtitle" style={{ margin: 0 }}>
+              High/Critical emails requiring manual reply ({urgentEmails.length})
+            </p>
+          </div>
+          <div title="Shows High/Critical emails requiring manual reply, excluding already replied ones. Search and date filters apply.">
+            <FontAwesomeIcon icon={faInfoCircle} />
+          </div>
+        </div>
       </div>
 
       <div className="controls-section">
@@ -577,6 +605,15 @@ const UrgentEmailsTab = () => {
 const CommunicationListTab = ({ navigate }) => {
   const [allCommunications, setAllCommunications] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const [filterType, setFilterType] = useState("All");
   const [filterPriority, setFilterPriority] = useState("All");
   const [filterSentiment, setFilterSentiment] = useState("All");
@@ -682,7 +719,7 @@ const CommunicationListTab = ({ navigate }) => {
     filterStatus,
     filterState,
     filterDateRange,
-    searchTerm,
+    debouncedSearchTerm,
     currentPage,
     itemsPerPage,
   ]);
@@ -690,7 +727,7 @@ const CommunicationListTab = ({ navigate }) => {
   // Reset à la page 1 quand les filtres changent
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterType, filterPriority, filterSentiment, filterStatus, filterState, searchTerm, filterDateRange]);
+  }, [filterType, filterPriority, filterSentiment, filterStatus, filterState, debouncedSearchTerm, filterDateRange]);
 
   // Handlers pour la pagination
   const handlePageChange = (newPage) => {
@@ -762,6 +799,17 @@ const CommunicationListTab = ({ navigate }) => {
 
   return (
     <div className="tab-content">
+      <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Summaries & Search</h2>
+          <p style={{ margin: 0, color: '#6b7280' }}>
+            Total items: {totalItems}
+          </p>
+        </div>
+        <div title="Full communications list with filters (source, priority, status, sentiment, date, search). Counts reflect filters and pagination.">
+          <FontAwesomeIcon icon={faInfoCircle} />
+        </div>
+      </div>
       <div className="controls-section">
         <div className="filter-controls">
           <div className="filter-group search-group">
@@ -1060,6 +1108,15 @@ const AssistedResponseTab = () => {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' }); // 'success' | 'error'
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterDateRange, setFilterDateRange] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
@@ -1074,13 +1131,13 @@ const AssistedResponseTab = () => {
 
   useEffect(() => {
     fetchAwaitingEmails();
-  }, [searchTerm, filterPriority, filterDateRange, currentPage, itemsPerPage]);
+  }, [debouncedSearchTerm, filterPriority, filterDateRange, currentPage, itemsPerPage]);
 
   const fetchAwaitingEmails = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
+      if (debouncedSearchTerm) params.append('search', debouncedSearchTerm);
       if (filterPriority !== 'All') params.append('priority', filterPriority);
       if (filterDateRange !== 'All') params.append('dateRange', filterDateRange);
       params.append('page', currentPage.toString());
@@ -1265,10 +1322,10 @@ const AssistedResponseTab = () => {
   // Filtrage côté client sur la liste déjà chargée (si backend ne supporte pas les filtres)
   const filteredEmails = awaitingEmails.filter((email) => {
     const matchesSearch =
-      searchTerm === '' ||
-      email.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      email.sender?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      email.ai_analysis?.summary?.toLowerCase().includes(searchTerm.toLowerCase());
+      debouncedSearchTerm === '' ||
+      email.subject?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      email.sender?.email?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      email.ai_analysis?.summary?.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
 
     const matchesPriority = filterPriority === 'All' || email.ai_analysis?.urgency === filterPriority;
 
@@ -1295,13 +1352,18 @@ const AssistedResponseTab = () => {
 
   return (
     <div className="assisted-response-tab">
-      <div className="assisted-header">
-        <h2>
-          <FontAwesomeIcon icon={faRobot} /> Assisted Automatic Responses
-        </h2>
-        <p className="assisted-subtitle">
-          Low/Medium emails awaiting your context to generate an AI response ({totalFiltered})
-        </p>
+      <div className="assisted-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>
+            <FontAwesomeIcon icon={faRobot} /> Assisted Automatic Responses
+          </h2>
+          <p className="assisted-subtitle" style={{ margin: 0 }}>
+            Low/Medium emails awaiting your context ({totalFiltered})
+          </p>
+        </div>
+        <div title="Shows Low/Medium emails where a response is expected, flagged as awaiting user input (awaitingUserInput=true). Filters apply.">
+          <FontAwesomeIcon icon={faInfoCircle} />
+        </div>
       </div>
 
       {/* Toast */}
@@ -1371,7 +1433,7 @@ const AssistedResponseTab = () => {
             </>
           ) : (
             <>
-              <p>{searchTerm || filterPriority !== 'All' || filterDateRange !== 'All' ? 'No results with these filters.' : 'No emails awaiting assisted response.'}</p>
+              <p>{debouncedSearchTerm || filterPriority !== 'All' || filterDateRange !== 'All' ? 'No results with these filters.' : 'No emails awaiting assisted response.'}</p>
               <p className="subtitle">Low/Medium emails requiring a response will appear here.</p>
             </>
           )}
@@ -1673,7 +1735,7 @@ const AssistedResponseTab = () => {
   );
 };
 
-// --- SUB-COMPONENT: Auto Responses Tab (Emails avec suggestion IA prête) ---
+// --- SUB-COMPONENT: Auto Responses Tab (Historique des réponses auto) ---
 const AutoResponsesTab = () => {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
   const token = localStorage.getItem('authToken');
@@ -1681,27 +1743,66 @@ const AutoResponsesTab = () => {
   const [error, setError] = useState(null);
   const [items, setItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [countPending, setCountPending] = useState(0);
+  const [countSent, setCountSent] = useState(0);
+  const [countAll, setCountAll] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterDateRange, setFilterDateRange] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('Pending'); // Pending, Sent, All
+  const [filterStatus, setFilterStatus] = useState('All'); // Pending, Sent, All (Default: All)
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [draftContent, setDraftContent] = useState('');
-  const [sending, setSending] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const [selectedItems, setSelectedItems] = useState([]); // Pour la sélection multiple
-  const [bulkSending, setBulkSending] = useState(false);
 
   useEffect(() => {
     fetchAutoCandidates();
-  }, [searchTerm, filterPriority, filterDateRange, filterStatus, currentPage, itemsPerPage]);
+  }, [debouncedSearchTerm, filterPriority, filterDateRange, filterStatus, currentPage, itemsPerPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterPriority, filterDateRange, filterStatus]);
+  }, [debouncedSearchTerm, filterPriority, filterDateRange, filterStatus]);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const baseParams = new URLSearchParams();
+        if (debouncedSearchTerm) baseParams.append('search', debouncedSearchTerm);
+        if (filterPriority !== 'All') baseParams.append('priority', filterPriority);
+        if (filterDateRange !== 'All') baseParams.append('dateRange', filterDateRange);
+        baseParams.append('page', '1');
+        baseParams.append('limit', '1');
+        const p = new URLSearchParams(baseParams);
+        p.append('status', 'Pending');
+        const s = new URLSearchParams(baseParams);
+        s.append('status', 'Sent');
+        const a = new URLSearchParams(baseParams);
+        a.append('status', 'All');
+        const [resP, resS, resA] = await Promise.all([
+          fetch(`${API_URL}/communications/auto-candidates?${p.toString()}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_URL}/communications/auto-candidates?${s.toString()}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_URL}/communications/auto-candidates?${a.toString()}`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        const [jsonP, jsonS, jsonA] = await Promise.all([resP.json(), resS.json(), resA.json()]);
+        setCountPending(jsonP?.pagination?.total || (jsonP?.data?.length || 0));
+        setCountSent(jsonS?.pagination?.total || (jsonS?.data?.length || 0));
+        setCountAll(jsonA?.pagination?.total || (jsonA?.data?.length || 0));
+      } catch (e) {
+        setCountPending(0);
+        setCountSent(0);
+        setCountAll(items.length);
+      }
+    };
+    fetchCounts();
+  }, [API_URL, token, debouncedSearchTerm, filterPriority, filterDateRange, items]);
 
   const fetchAutoCandidates = async () => {
     try {
@@ -1709,9 +1810,12 @@ const AutoResponsesTab = () => {
       setError(null);
 
       const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
+      if (debouncedSearchTerm) params.append('search', debouncedSearchTerm);
       if (filterPriority !== 'All') params.append('priority', filterPriority);
       if (filterDateRange !== 'All') params.append('dateRange', filterDateRange);
+      // Ajout du paramètre status pour filtrer côté backend
+      if (filterStatus !== 'All') params.append('status', filterStatus);
+      
       params.append('page', currentPage.toString());
       params.append('limit', itemsPerPage.toString());
 
@@ -1725,7 +1829,6 @@ const AutoResponsesTab = () => {
 
       const result = await response.json();
       if (result.success) {
-        // Le backend filtre déjà tout, on prend les données telles quelles
         setItems(result.data || []);
 
         if (result.pagination) {
@@ -1758,175 +1861,28 @@ const AutoResponsesTab = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    if (selectedItem?.ai_analysis?.suggestedResponse) {
-      setDraftContent(selectedItem.ai_analysis.suggestedResponse);
-    } else {
-      setDraftContent('');
-    }
-  }, [selectedItem]);
-
-  const openCompose = (item) => setSelectedItem(item);
-  const closeCompose = () => {
-    setSelectedItem(null);
-    setDraftContent('');
-  };
-
-  const handleSend = async () => {
-    if (!draftContent.trim()) {
-      alert('Please enter or verify the auto-response content');
-      return;
-    }
-    try {
-      setSending(true);
-      const response = await axios.post(
-        `${API_URL}/communications/${selectedItem._id}/reply`,
-        { replyContent: draftContent },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (response.data.success) {
-        alert('✅ Auto-response sent');
-        closeCompose();
-        fetchAutoCandidates();
-      }
-    } catch (error) {
-      console.error('Error sending auto-response:', error);
-      alert(`❌ Error: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleRegenerate = async (item) => {
-    try {
-      setRegenerating(true);
-      const response = await axios.post(
-        `${API_URL}/communications/${item._id}/generate-suggestion`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (response.data.success) {
-        const updated = response.data.data?.suggestedResponse || response.data.data;
-        setItems((prev) =>
-          prev.map((it) =>
-            it._id === item._id
-              ? { ...it, ai_analysis: { ...it.ai_analysis, suggestedResponse: updated } }
-              : it
-          )
-        );
-        if (selectedItem?._id === item._id) {
-          setDraftContent(updated || '');
-        }
-      } else {
-        alert("Regeneration failed.");
-      }
-    } catch (error) {
-      console.error('Error regenerating suggestion:', error);
-      alert(`❌ Error: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setRegenerating(false);
-    }
-  };
-
-  // Gestion de la sélection multiple
-  const toggleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedItems(items.map((i) => i._id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-
-  const toggleSelectItem = (id) => {
-    setSelectedItems((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const selectAllFiltered = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
-      if (filterPriority !== 'All') params.append('priority', filterPriority);
-      if (filterDateRange !== 'All') params.append('dateRange', filterDateRange);
-      const response = await fetch(`${API_URL}/communications/auto-candidates/ids?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Failed to fetch ids');
-      const result = await response.json();
-      if (result.success) {
-        setSelectedItems(result.data || []);
-      }
-    } catch (e) {
-      console.error('Error global selection:', e);
-    }
-  };
-
-  const deselectAllGlobal = () => {
-    setSelectedItems([]);
-  };
-
-  const handleBulkSend = async () => {
-    if (selectedItems.length === 0) return;
-    
-    if (!window.confirm(`Do you really want to send these ${selectedItems.length} auto responses?`)) {
-      return;
-    }
-
-    setBulkSending(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const id of selectedItems) {
-      let item = items.find((i) => i._id === id);
-      if (!item) {
-        try {
-          const resp = await axios.get(`${API_URL}/communications/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (resp.data?.success) {
-            item = resp.data.data;
-          }
-        } catch (fetchErr) {
-          console.error(`Error fetching item ${id}:`, fetchErr);
-        }
-      }
-      if (!item) {
-        failCount++;
-        continue;
-      }
-      try {
-        const content = item.ai_analysis?.suggestedResponse;
-        if (!content) throw new Error("No suggestion");
-        await axios.post(
-          `${API_URL}/communications/${id}/reply`,
-          { replyContent: content },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        successCount++;
-      } catch (error) {
-        console.error(`Error sending auto for ${id}:`, error);
-        failCount++;
-      }
-    }
-
-    alert(`Processing completed.\n✅ Sent: ${successCount}\n❌ Failures: ${failCount}`);
-    setBulkSending(false);
-    setSelectedItems([]);
-    fetchAutoCandidates();
-  };
-
   if (loading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
-        <p>Chargement des réponses automatiques...</p>
+        <p>Loading auto-responses history...</p>
       </div>
     );
   }
 
   return (
     <div className="tab-content">
+      <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Auto Responses</h2>
+          <p style={{ margin: 0, color: '#6b7280' }}>
+            Pending: {countPending} • Sent: {countSent} • All: {countAll}
+          </p>
+        </div>
+        <div title="Eligible: sender is not no‑reply, priority is Low/Medium, AI indicates a reply is expected. Pending: ready for auto‑response; Sent: already auto‑responded. Filters apply.">
+          <FontAwesomeIcon icon={faInfoCircle} />
+        </div>
+      </div>
       <div className="controls-section">
         <div className="filter-controls">
           <div className="filter-group search-group">
@@ -1982,53 +1938,22 @@ const AutoResponsesTab = () => {
               onChange={(e) => setFilterStatus(e.target.value)}
               className="filter-select"
             >
-              <option value="Pending">To send</option>
-              <option value="Sent">Sent</option>
               <option value="All">All</option>
+              <option value="Pending">Pending (Not Sent)</option>
+              <option value="Sent">Sent</option>
             </select>
           </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
-            onClick={selectAllFiltered}
-            disabled={totalItems === 0}
-            className="btn-reply"
-          >
-            Select results ({totalItems})
-          </button>
-          <button
-            onClick={deselectAllGlobal}
-            disabled={selectedItems.length === 0}
-            className="btn-cancel"
-          >
-            Deselect all
-          </button>
-        </div>
-        <div style={{ fontWeight: 600 }}>
-          {selectedItems.length} selected
         </div>
       </div>
 
       <div className="communications-list">
         {items.length === 0 ? (
           <div className="empty-state">
-            {error ? `Error: ${error}` : "No auto-response ready."}
+            {error ? `Error: ${error}` : "No auto-responses found."}
           </div>
         ) : (
           items.map((comm) => (
-            <div key={comm._id} className="communication-card" style={{ position: 'relative', paddingRight: '60px' }}>
-              <div style={{ position: 'absolute', right: '16px', top: '12px' }}>
-                <input
-                  type="checkbox"
-                  checked={selectedItems.includes(comm._id)}
-                  onChange={() => toggleSelectItem(comm._id)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
-              </div>
-
+            <div key={comm._id} className="communication-card">
               <div className="comm-type-badge" data-type={(comm.source || 'outlook').toLowerCase()}>
                 <FontAwesomeIcon icon={faEnvelope} />
               </div>
@@ -2063,30 +1988,22 @@ const AutoResponsesTab = () => {
                     >
                       {comm.ai_analysis?.urgency || 'Medium'}
                     </span>
-                    {comm.hasAutoResponse && (
-                      <span className="ai-tag auto-response">
-                        ✓ Auto-Response sent
+                    {comm.hasAutoResponse ? (
+                      <span className="ai-tag auto-response" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FontAwesomeIcon icon={faCheckCircle} /> Auto-Response Sent
+                      </span>
+                    ) : (
+                      <span className="ai-tag awaiting-input" style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db' }}>
+                         Pending
                       </span>
                     )}
                   </div>
-                  <button className="btn-reply" onClick={() => openCompose(comm)}>
-                    <FontAwesomeIcon icon={faPaperPlane} /> Preview/Send
-                  </button>
+                  {/* Read-only view, no actions */}
                 </div>
               </div>
             </div>
           ))
         )}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-        <button
-          onClick={handleBulkSend}
-          disabled={bulkSending || selectedItems.length === 0}
-          className="btn-send"
-        >
-          {bulkSending ? 'Sending...' : `Send (${selectedItems.length})`}
-        </button>
       </div>
 
       <Pagination
@@ -2098,85 +2015,6 @@ const AutoResponsesTab = () => {
         onItemsPerPageChange={handleItemsPerPageChange}
         loading={loading}
       />
-
-      {selectedItem && (
-        <div className="reply-modal" onClick={closeCompose}>
-          <div className="reply-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="reply-modal-header">
-              <h3>
-                <FontAwesomeIcon icon={faPaperPlane} /> Auto Response
-              </h3>
-              <button className="close-modal-btn" onClick={closeCompose}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            </div>
-
-            <div className="reply-email-info">
-              <p>
-                <strong>To:</strong> <span>{selectedItem.sender?.email}</span>
-              </p>
-              <p>
-                <strong>Subject:</strong> <span>Re: {selectedItem.subject}</span>
-              </p>
-              <p>
-                <strong>Priority:</strong>{' '}
-                <span className={`urgent-email-priority ${selectedItem.ai_analysis?.urgency?.toLowerCase()}`}>
-                  <FontAwesomeIcon icon={faExclamationTriangle} /> {selectedItem.ai_analysis?.urgency}
-                </span>
-              </p>
-            </div>
-
-            <div className="reply-ai-summary">
-              <h4>
-                <FontAwesomeIcon icon={faRobot} /> AI Summary
-              </h4>
-              <div className="ai-summary-content">
-                {selectedItem.ai_analysis?.summary || "AI summary not available."}
-              </div>
-            </div>
-
-            <div className="reply-compose">
-              <h4>Content to send</h4>
-              <textarea
-                value={draftContent}
-                onChange={(e) => setDraftContent(e.target.value)}
-                placeholder="Verify/edit the proposed auto-response..."
-              />
-            </div>
-
-            <div className="reply-modal-actions">
-              <button className="btn-cancel" onClick={closeCompose} disabled={sending}>
-                Cancel
-              </button>
-              <button
-                className="btn-cancel"
-                onClick={() => handleRegenerate(selectedItem)}
-                disabled={regenerating}
-              >
-                {regenerating ? (
-                  <>
-                    <span className="spinner-small" style={{ marginRight: '8px' }}></span>
-                    Regenerating...
-                  </>
-                ) : (
-                  'Regenerate'
-                )}
-              </button>
-              <button className="btn-send" onClick={handleSend} disabled={sending || !draftContent.trim()}>
-                {sending ? (
-                  <>
-                    <span className="spinner-small"></span> Sending...
-                  </>
-                ) : (
-                  <>
-                    <FontAwesomeIcon icon={faPaperPlane} /> Send
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -2195,13 +2033,6 @@ function Communications() {
     setTimeout(() => setLoading(false), 500);
   }, []);
 
-  // Si onglet Auto sélectionné mais désactivé, basculer vers Assisted
-  useEffect(() => {
-    if (activeTab === 'auto' && autoResponseEnabled === false) {
-      setActiveTab('assisted');
-    }
-  }, [activeTab, autoResponseEnabled]);
-
   const renderContent = () => {
     switch (activeTab) {
       case "list":
@@ -2209,7 +2040,7 @@ function Communications() {
       case "urgent":
         return <UrgentEmailsTab />;
       case "auto":
-        return autoResponseEnabled ? <AutoResponsesTab /> : <AssistedResponseTab />;
+        return <AutoResponsesTab />;
       case "assisted":
         return <AssistedResponseTab />;
       case "escalation":
@@ -2233,7 +2064,12 @@ function Communications() {
   return (
     <div className="communications-page">
       <div className="communications-header">
-        <h1 className="page-title">Communications Hub</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 className="page-title" style={{ margin: 0 }}>Communications Hub</h1>
+          <span title="Communications center with tabs for search, urgent, assisted responses, auto responses, and escalations. Counters and criteria update based on filters.">
+            <FontAwesomeIcon icon={faInfoCircle} />
+          </span>
+        </div>
 
         <div className="dashboard-tabs">
           <button
@@ -2254,14 +2090,12 @@ function Communications() {
           >
             <FontAwesomeIcon icon={faRobot} /> Assisted Responses
           </button>
-          {autoResponseEnabled && (
-            <button
-              className={`tab-button ${activeTab === "auto" ? "active" : ""}`}
-              onClick={() => setActiveTab("auto")}
-            >
-              <FontAwesomeIcon icon={faRobot} /> Auto Responses
-            </button>
-          )}
+          <button
+            className={`tab-button ${activeTab === "auto" ? "active" : ""}`}
+            onClick={() => setActiveTab("auto")}
+          >
+            <FontAwesomeIcon icon={faRobot} /> Auto Responses
+          </button>
           {user?.role !== 'UpperAdmin' && (
             <button
               className={`tab-button ${

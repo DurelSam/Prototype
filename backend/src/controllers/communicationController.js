@@ -952,20 +952,6 @@ exports.getAutoCandidates = async (req, res) => {
       });
     }
 
-    // Si l'utilisateur a désactivé les réponses automatiques, ne rien retourner
-    if (user.autoResponseEnabled === false) {
-      return res.status(200).json({
-        success: true,
-        data: [],
-        pagination: {
-          page: 1,
-          limit: parseInt(req.query.limit || 10),
-          total: 0,
-          totalPages: 1,
-        },
-      });
-    }
-
     const {
       search = "",
       priority = "All",
@@ -974,38 +960,46 @@ exports.getAutoCandidates = async (req, res) => {
       limit = 10,
     } = req.query;
 
-    // 1. Construire le filtre RBAC de base
-    const filter = await buildRbacFilter(user);
+    const baseFilter = await buildRbacFilter(user);
 
-    // 2. Filtres Auto Responses
-    // - Pas de réponse auto déjà envoyée
-    // - Pas de réponse manuelle déjà envoyée
-    // - Suggestion IA existe
-    // - Urgence Low ou Medium (High/Critical vont dans Urgent Emails)
-    // - Pas de "noreply" dans l'expéditeur
-    filter.autoActivation = "auto";
-    filter.hasAutoResponse = false;
-    filter["manualResponse.sent"] = { $ne: true };
-    filter["ai_analysis.suggestedResponse"] = { $exists: true, $ne: "" };
-    
-    // Si priorité spécifiée, on respecte le filtre UI, sinon on force Low/Medium par défaut
-    if (priority !== "All") {
-      const priorities = priority.split(',').map(p => p.trim());
-      filter["ai_analysis.urgency"] = { $in: priorities };
+    const eligibilityFilter = {
+      "sender.email": { $not: { $regex: /noreply|no-reply|do-not-reply/i } },
+      "ai_analysis.urgency": { $in: ["Low", "Medium"] },
+      "ai_analysis.requiresResponse": true,
+    };
+
+    const statusFilter = req.query.status || "All";
+
+    const combinedFilter = { $and: [baseFilter, eligibilityFilter] };
+
+    if (statusFilter === "Pending") {
+      combinedFilter.$and.push({ autoActivation: "auto" });
+      combinedFilter.$and.push({ hasAutoResponse: false });
+      combinedFilter.$and.push({ "manualResponse.sent": { $ne: true } });
+    } else if (statusFilter === "Sent") {
+      combinedFilter.$and.push({ hasAutoResponse: true });
     } else {
-      filter["ai_analysis.urgency"] = { $in: ["Low", "Medium"] };
+      combinedFilter.$and.push({
+        $or: [
+          { hasAutoResponse: true },
+          { $and: [{ autoActivation: "auto" }, { hasAutoResponse: false }, { "manualResponse.sent": { $ne: true } }] },
+        ],
+      });
     }
 
-    // Exclure les no-reply
-    filter["sender.email"] = { $not: { $regex: /noreply|no-reply|do-not-reply/i } };
+    if (priority !== "All") {
+      const priorities = priority.split(',').map(p => p.trim());
+      combinedFilter.$and.push({ "ai_analysis.urgency": { $in: priorities } });
+    }
 
-    // 3. Filtres optionnels UI (Recherche, Date)
     if (search) {
-      filter.$or = [
-        { subject: { $regex: search, $options: "i" } },
-        { content: { $regex: search, $options: "i" } },
-        { "sender.email": { $regex: search, $options: "i" } },
-      ];
+      combinedFilter.$and.push({
+        $or: [
+          { subject: { $regex: search, $options: "i" } },
+          { content: { $regex: search, $options: "i" } },
+          { "sender.email": { $regex: search, $options: "i" } },
+        ],
+      });
     }
 
     if (dateRange !== "All") {
@@ -1014,40 +1008,38 @@ exports.getAutoCandidates = async (req, res) => {
 
       switch (dateRange) {
         case "Today":
-          filter.receivedAt = { $gte: today };
+          combinedFilter.$and.push({ receivedAt: { $gte: today } });
           break;
         case "Yesterday":
           const yesterday = new Date(today);
           yesterday.setDate(yesterday.getDate() - 1);
-          filter.receivedAt = { $gte: yesterday, $lt: today };
+          combinedFilter.$and.push({ receivedAt: { $gte: yesterday, $lt: today } });
           break;
         case "Last7Days":
           const last7Days = new Date(today);
           last7Days.setDate(last7Days.getDate() - 7);
-          filter.receivedAt = { $gte: last7Days };
+          combinedFilter.$and.push({ receivedAt: { $gte: last7Days } });
           break;
         case "Last30Days":
           const last30Days = new Date(today);
           last30Days.setDate(last30Days.getDate() - 30);
-          filter.receivedAt = { $gte: last30Days };
+          combinedFilter.$and.push({ receivedAt: { $gte: last30Days } });
           break;
       }
     }
 
-    // 4. Pagination
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // 5. Exécution
-    const communications = await Communication.find(filter)
-      .sort({ receivedAt: -1 }) // Plus récents d'abord
+    const communications = await Communication.find(combinedFilter)
+      .sort({ receivedAt: -1 })
       .skip(skip)
       .limit(limitNum)
       .populate("assignedTo", "firstName lastName email")
       .lean();
 
-    const total = await Communication.countDocuments(filter);
+    const total = await Communication.countDocuments(combinedFilter);
 
     res.status(200).json({
       success: true,
@@ -1078,64 +1070,64 @@ exports.getAutoCandidateIds = async (req, res) => {
         message: "User does not belong to a tenant.",
       });
     }
-    if (user.autoResponseEnabled === false) {
-      return res.status(200).json({
-        success: true,
-        data: [],
-        count: 0,
-      });
-    }
     const { search = "", priority = "All", dateRange = "All" } = req.query;
-    const filter = await buildRbacFilter(user);
-    filter.autoActivation = "auto";
-    filter.hasAutoResponse = false;
-    filter["manualResponse.sent"] = { $ne: true };
-    filter["ai_analysis.suggestedResponse"] = { $exists: true, $ne: "" };
+    const baseFilter = await buildRbacFilter(user);
+    const combinedFilter = {
+      $and: [
+        baseFilter,
+        { autoActivation: "auto" },
+        { hasAutoResponse: false },
+        { "manualResponse.sent": { $ne: true } },
+        { "sender.email": { $not: { $regex: /noreply|no-reply|do-not-reply/i } } },
+        { "ai_analysis.requiresResponse": true },
+      ],
+    };
     if (priority !== "All") {
       const priorities = priority.split(",").map((p) => p.trim());
-      filter["ai_analysis.urgency"] = { $in: priorities };
+      combinedFilter.$and.push({ "ai_analysis.urgency": { $in: priorities } });
     } else {
-      filter["ai_analysis.urgency"] = { $in: ["Low", "Medium"] };
+      combinedFilter.$and.push({ "ai_analysis.urgency": { $in: ["Low", "Medium"] } });
     }
-    filter["sender.email"] = { $not: { $regex: /noreply|no-reply|do-not-reply/i } };
     if (search) {
-      filter.$or = [
-        { subject: { $regex: search, $options: "i" } },
-        { content: { $regex: search, $options: "i" } },
-        { "sender.email": { $regex: search, $options: "i" } },
-      ];
+      combinedFilter.$and.push({
+        $or: [
+          { subject: { $regex: search, $options: "i" } },
+          { content: { $regex: search, $options: "i" } },
+          { "sender.email": { $regex: search, $options: "i" } },
+        ],
+      });
     }
     if (dateRange !== "All") {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       switch (dateRange) {
         case "Today":
-          filter.receivedAt = { $gte: today };
+          combinedFilter.$and.push({ receivedAt: { $gte: today } });
           break;
         case "Yesterday":
           {
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
-            filter.receivedAt = { $gte: yesterday, $lt: today };
+            combinedFilter.$and.push({ receivedAt: { $gte: yesterday, $lt: today } });
           }
           break;
         case "Last7Days":
           {
             const last7Days = new Date(today);
             last7Days.setDate(last7Days.getDate() - 7);
-            filter.receivedAt = { $gte: last7Days };
+            combinedFilter.$and.push({ receivedAt: { $gte: last7Days } });
           }
           break;
         case "Last30Days":
           {
             const last30Days = new Date(today);
             last30Days.setDate(last30Days.getDate() - 30);
-            filter.receivedAt = { $gte: last30Days };
+            combinedFilter.$and.push({ receivedAt: { $gte: last30Days } });
           }
           break;
       }
     }
-    const ids = await Communication.find(filter).select("_id").lean();
+    const ids = await Communication.find(combinedFilter).select("_id").lean();
     return res.status(200).json({
       success: true,
       data: ids.map((d) => d._id),
