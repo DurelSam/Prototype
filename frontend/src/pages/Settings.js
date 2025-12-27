@@ -19,7 +19,7 @@ import axios from "axios";
 import "../styles/Settings.css";
 
 function Settings() {
-  const { user, checkAuth } = useAuth();
+  const { user, checkAuth, isUpperAdmin } = useAuth();
   const navigate = useNavigate();
 
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
@@ -28,6 +28,7 @@ function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const [companyHistoryStart, setCompanyHistoryStart] = useState(null);
 
   // Form states
   const [profileData, setProfileData] = useState({
@@ -92,6 +93,35 @@ function Settings() {
   useEffect(() => {
     fetchAutoResponseSettings();
   }, [fetchAutoResponseSettings]);
+
+  useEffect(() => {
+    if (!isUpperAdmin) {
+      return;
+    }
+
+    const fetchCompanyHistoryStart = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/email/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (
+          response.data?.success &&
+          response.data.data?.companyHistoryStartDate
+        ) {
+          setCompanyHistoryStart(
+            new Date(response.data.data.companyHistoryStartDate)
+          );
+        } else {
+          setCompanyHistoryStart(null);
+        }
+      } catch (error) {
+        setCompanyHistoryStart(null);
+      }
+    };
+
+    fetchCompanyHistoryStart();
+  }, [API_URL, token, isUpperAdmin]);
 
   const handleAutoResponseToggle = async () => {
     if (!user?.hasConfiguredEmail && !autoResponseSettings.autoResponseEnabled) {
@@ -246,6 +276,16 @@ function Settings() {
           </button>
           <h1 className="page-title">Settings</h1>
         </div>
+        {isUpperAdmin && companyHistoryStart && (
+          <p className="settings-subtitle">
+            Company email history starts from:{" "}
+            {companyHistoryStart.toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "2-digit",
+            })}
+          </p>
+        )}
       </header>
 
       {/* Main Layout */}

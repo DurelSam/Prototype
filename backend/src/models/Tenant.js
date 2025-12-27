@@ -30,6 +30,12 @@ const tenantSchema = new mongoose.Schema(
       aiAnalysis: { type: Boolean, default: true },
     },
 
+    // Date de début d'historique email pour le tenant (premier fetch)
+    emailHistoryStartDate: {
+      type: Date,
+      default: null,
+    },
+
     settings: {
       slaHours: {
         type: Number,

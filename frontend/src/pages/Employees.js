@@ -17,6 +17,7 @@ import {
   faTimesCircle,
   faUser,
   faComments,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../components/Pagination";
 import { useNavigate } from "react-router-dom";
@@ -35,6 +36,7 @@ const EmployeeListTab = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [creating, setCreating] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,6 +78,7 @@ const EmployeeListTab = () => {
   const handleCreateEmployee = async (e) => {
     e.preventDefault();
     try {
+      setCreating(true);
       const token = localStorage.getItem("authToken");
       const response = await axios.post(`${API_URL}/users/employees`, formData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -103,6 +106,8 @@ const EmployeeListTab = () => {
       }
     } catch (err) {
       alert(err.response?.data?.message || "Error creating employee");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -500,8 +505,15 @@ const EmployeeListTab = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-submit">
-                  Create Employee
+                <button type="submit" className="btn-submit" disabled={creating}>
+                  {creating ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} spin />
+                      <span style={{ marginLeft: 8 }}>Creating...</span>
+                    </>
+                  ) : (
+                    "Create Employee"
+                  )}
                 </button>
               </div>
             </form>

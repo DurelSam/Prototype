@@ -13,6 +13,7 @@ const nodemailer = require('nodemailer');
 const encryptionService = require('./encryptionService');
 const grokService = require('./grokService');
 const User = require('../models/User');
+const Tenant = require('../models/Tenant');
 const Communication = require('../models/Communication');
 
 /**
@@ -370,7 +371,7 @@ exports.fetchEmailsFromFolder = async (userId, folder = 'INBOX', sinceDate = nul
                       // Créer la communication
                       const communication = new Communication({
                         subject: parsed.subject || '(No Subject)',
-                        content: parsed.text || parsed.html || '',
+                        content: parsed.html || parsed.text || '',
                         snippet: (parsed.text || parsed.html || '').substring(0, 200),
                         sender: {
                           name: parsed.from?.value[0]?.name || parsed.from?.value[0]?.address || 'Unknown',
@@ -502,16 +503,42 @@ exports.syncAllFolders = async (userId) => {
     const foldersToSync = user.imapSmtpConfig.foldersToSync || ['INBOX'];
     const results = [];
 
-    // Déterminer la date de début de synchronisation
     const lastSync = user.imapSmtpConfig.lastSyncDate;
     let sinceDate = null;
+
     if (lastSync) {
       sinceDate = new Date(lastSync);
-      // Marge de sécurité : reculer d'un jour pour éviter les trous (timezones, etc.)
       sinceDate.setDate(sinceDate.getDate() - 1);
-      console.log(`📅 Synchronisation IMAP basée sur la dernière synchro: ${lastSync.toISOString()} (avec marge J-1)`);
+      console.log(
+        `📅 Synchronisation IMAP basée sur la dernière synchro: ${lastSync.toISOString()} (avec marge J-1)`
+      );
+    } else if (user.tenant_id) {
+      const tenant = await Tenant.findById(user.tenant_id);
+
+      if (tenant) {
+        if (!tenant.emailHistoryStartDate) {
+          const baseDate = new Date();
+          baseDate.setDate(baseDate.getDate() - 3);
+          tenant.emailHistoryStartDate = baseDate;
+          await tenant.save();
+          console.log(
+            `📅 Initialisation emailHistoryStartDate pour le tenant ${tenant._id}: ${baseDate.toISOString()}`
+          );
+        }
+
+        sinceDate = tenant.emailHistoryStartDate;
+        console.log(
+          `📅 Première synchro IMAP pour ${user.email}: récupération depuis ${sinceDate.toISOString()}`
+        );
+      } else {
+        console.log(
+          '📅 Aucune dernière synchro ni tenant trouvé, synchronisation complète (30 jours par défaut)'
+        );
+      }
     } else {
-      console.log('📅 Aucune dernière synchro trouvée, synchronisation complète (30 jours par défaut)');
+      console.log(
+        '📅 Aucune dernière synchro ni tenant associé, synchronisation complète (30 jours par défaut)'
+      );
     }
 
     for (const folder of foldersToSync) {

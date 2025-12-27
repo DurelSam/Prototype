@@ -1,5 +1,5 @@
 /* src/pages/CommunicationDetails.js */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -158,6 +158,13 @@ function CommunicationDetails() {
 
     // Extraire le texte et conserver les sauts de ligne
     return tempDiv.textContent || tempDiv.innerText || "";
+  };
+
+  const decodeHtmlEntities = (value) => {
+    if (!value) return "";
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = value;
+    return textarea.value;
   };
 
   // Handlers pour l'envoi d'emails
@@ -365,7 +372,7 @@ function CommunicationDetails() {
             </div>
 
             {/* CORPS DU MAIL */}
-            <EmailBody body={communication.body} cleanHtmlContent={cleanHtmlContent} />
+            <EmailBody body={communication.body} preferHtml={isEmailType(communication.type)} cleanHtmlContent={cleanHtmlContent} decodeHtmlEntities={decodeHtmlEntities} />
 
             {/* ATTACHMENTS SECTION */}
             {communication.attachments &&
@@ -618,9 +625,95 @@ function CommunicationDetails() {
 }
 
 // Sub-component: Email body with Show more/Show less
-function EmailBody({ body, cleanHtmlContent }) {
+function EmailBody({ body, preferHtml, cleanHtmlContent, decodeHtmlEntities }) {
   const [expanded, setExpanded] = useState(false);
-  const text = cleanHtmlContent(body || "");
+  const iframeRef = useRef(null);
+  const [iframeHeight, setIframeHeight] = useState(420);
+  const collapsedHeight = 420;
+
+  const { isHtml, htmlDoc, text } = useMemo(() => {
+    const raw = body || "";
+    const decoded = raw.includes("&lt;") ? decodeHtmlEntities(raw) : raw;
+    const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(decoded);
+    const shouldRenderHtml = !!preferHtml && looksLikeHtml;
+
+    if (!shouldRenderHtml) {
+      return { isHtml: false, htmlDoc: "", text: cleanHtmlContent(decoded) };
+    }
+
+    const hasHtmlTag = /<html[\s>]/i.test(decoded) || /<!doctype[\s>]/i.test(decoded);
+    const wrapped = hasHtmlTag
+      ? decoded
+      : `<!doctype html><html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><base target="_blank" /><style>body{margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif;background:#ffffff;color:#111827;}img{max-width:100%;height:auto;}</style></head><body>${decoded}</body></html>`;
+
+    return { isHtml: true, htmlDoc: wrapped, text: "" };
+  }, [body, cleanHtmlContent, decodeHtmlEntities, preferHtml]);
+
+  useEffect(() => {
+    if (!isHtml) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const updateHeight = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) return;
+        const newHeight = Math.max(
+          240,
+          Math.min(2000, (doc.body?.scrollHeight || 0) + 24)
+        );
+        setIframeHeight(newHeight);
+      } catch (e) {
+        return;
+      }
+    };
+
+    const timer = setTimeout(updateHeight, 50);
+    return () => clearTimeout(timer);
+  }, [htmlDoc, isHtml]);
+
+  if (isHtml) {
+    const canToggle = iframeHeight > collapsedHeight;
+    return (
+      <div className="comm-body">
+        <div className="email-html-container">
+          <iframe
+            ref={iframeRef}
+            className="email-html-frame"
+            title="Email content"
+            sandbox="allow-same-origin allow-popups"
+            srcDoc={htmlDoc}
+            style={{ height: expanded ? iframeHeight : collapsedHeight }}
+            onLoad={() => {
+              const iframe = iframeRef.current;
+              if (!iframe) return;
+              try {
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (!doc) return;
+                const newHeight = Math.max(
+                  240,
+                  Math.min(2000, (doc.body?.scrollHeight || 0) + 24)
+                );
+                setIframeHeight(newHeight);
+              } catch (e) {
+                return;
+              }
+            }}
+          />
+        </div>
+        {canToggle && (
+          <button
+            className="download-button"
+            style={{ marginTop: 8 }}
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   const previewLength = 800;
   const isLong = text.length > previewLength;
 

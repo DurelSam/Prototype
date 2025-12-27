@@ -5,6 +5,7 @@
  */
 
 const User = require('../models/User');
+const Tenant = require('../models/Tenant');
 const imapSmtpService = require('../services/imapSmtpService');
 const encryptionService = require('../services/encryptionService');
 
@@ -272,6 +273,13 @@ exports.getEmailStatus = async (req, res) => {
       });
     }
 
+    let companyHistoryStartDate = null;
+
+    if (user.tenant_id) {
+      const tenant = await Tenant.findById(user.tenant_id).select('emailHistoryStartDate');
+      companyHistoryStartDate = tenant?.emailHistoryStartDate || null;
+    }
+
     const status = {
       activeProvider: user.activeEmailProvider,
       outlook: {
@@ -287,6 +295,7 @@ exports.getEmailStatus = async (req, res) => {
         foldersToSync: user.imapSmtpConfig?.foldersToSync || [],
         enableAiAnalysis: user.imapSmtpConfig?.enableAiAnalysis || false,
       },
+      companyHistoryStartDate,
     };
 
     return res.status(200).json({

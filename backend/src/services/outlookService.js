@@ -213,6 +213,7 @@ class OutlookService {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
+          Prefer: 'outlook.body-content-type="html"',
         },
       });
 
@@ -262,6 +263,7 @@ class OutlookService {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
+            Prefer: 'outlook.body-content-type="html"',
           },
         }
       );
@@ -310,11 +312,18 @@ class OutlookService {
 
       return true;
     } catch (error) {
-      console.error(
-        "Erreur lors de l'envoi de l'email:",
-        error.response?.data || error.message
-      );
-      throw new Error("Impossible d'envoyer l'email");
+      console.error("❌ ========= ERREUR ENVOI EMAIL OUTLOOK =========");
+      console.error("Status Code:", error.response?.status);
+      console.error("Status Text:", error.response?.statusText);
+      console.error("Error Data:", JSON.stringify(error.response?.data, null, 2));
+      console.error("Request URL:", error.config?.url);
+      console.error("=================================================");
+      const msErrorMessage =
+        error.response?.data?.error?.message ||
+        error.response?.data?.error_description ||
+        error.message ||
+        "Unknown Outlook error";
+      throw new Error(`Microsoft Graph API Error: ${msErrorMessage}`);
     }
   }
 

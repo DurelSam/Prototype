@@ -192,6 +192,19 @@
   padding: 0;
 }
 
+.email-html-container {
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+
+.email-html-frame {
+  width: 100%;
+  border: 0;
+  display: block;
+}
+
 .comm-body p {
   margin-bottom: var(--space-24);
 }

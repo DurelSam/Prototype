@@ -33,6 +33,7 @@ function Integrations() {
 
   // États pour les modals IMAP/SMTP
   const [showEmailTypeModal, setShowEmailTypeModal] = useState(false);
+  const [showEmailInfoModal, setShowEmailInfoModal] = useState(false);
   const [showImapSmtpForm, setShowImapSmtpForm] = useState(false);
 
   // Données Mock avec statut et stats enrichies
@@ -64,6 +65,7 @@ function Integrations() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const [companyHistoryStart, setCompanyHistoryStart] = useState(null);
 
   // États des formulaires
   const [whatsappForm, setWhatsappForm] = useState({
@@ -82,7 +84,8 @@ function Integrations() {
       });
 
       if (response.data.success) {
-        const { activeProvider, outlook, imapSmtp } = response.data.data;
+        const { activeProvider, outlook, imapSmtp, companyHistoryStartDate } =
+          response.data.data;
 
         let emailConfig = {
           connected: false,
@@ -140,6 +143,12 @@ function Integrations() {
             ...emailConfig,
           },
         }));
+
+        if (companyHistoryStartDate) {
+          setCompanyHistoryStart(new Date(companyHistoryStartDate));
+        } else {
+          setCompanyHistoryStart(null);
+        }
       }
     } catch (error) {
       console.error("Error fetching email status:", error);
@@ -303,8 +312,11 @@ function Integrations() {
     setMessage({ type: "", text: "" });
 
     if (service === "email") {
-      // Afficher le modal de choix du type d'email
-      setShowEmailTypeModal(true);
+      if (!user?.hasConfiguredEmail) {
+        setShowEmailInfoModal(true);
+      } else {
+        setShowEmailTypeModal(true);
+      }
       setLoading(false);
     } else if (service === "whatsapp") {
       setLoading(true);
@@ -692,6 +704,17 @@ function Integrations() {
           insights to help you stay organized and productive.
         </p>
 
+        {companyHistoryStart && (
+          <p style={{ marginTop: "8px", fontWeight: 500 }}>
+            Company email history starts from:{" "}
+            {companyHistoryStart.toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "2-digit",
+            })}
+          </p>
+        )}
+
         <div className="features-list">
           <div className="feature-item">
             <span className="feature-icon">
@@ -719,6 +742,78 @@ function Integrations() {
           </div>
         </div>
       </div>
+
+      {/* Modale d'information sur la logique de synchronisation */}
+      {showEmailInfoModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowEmailInfoModal(false)}
+        >
+          <div
+            className="email-type-modal animate-entry delay-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="close-button"
+              onClick={() => setShowEmailInfoModal(false)}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+
+            <h2>How email synchronization works</h2>
+            <p className="modal-subtitle">
+              Please read this carefully before connecting your email account.
+            </p>
+
+            <div className="provider-options">
+              <div className="provider-card animate-entry delay-2">
+                <h3>First email fetch</h3>
+                <p>
+                  When your company connects the first email account (CEO /
+                  Upper Admin), the platform fetches emails received during the
+                  last 3 days before that first integration (for example:
+                  today, yesterday and the day before).
+                </p>
+                <p>
+                  All Admins created under this Upper Admin will have their
+                  first email synchronization starting from the same company
+                  start date, even if their account was created later.
+                </p>
+                <p>
+                  All Employees created under these Admins will also have their
+                  first email synchronization starting from this same company
+                  start date.
+                </p>
+              </div>
+
+              <div className="provider-card animate-entry delay-3">
+                <h3>Next synchronizations</h3>
+                <p>
+                  For every user, after the first synchronization, each next
+                  manual or automatic synchronization (cron) only fetches new
+                  emails received since the last synchronization time.
+                </p>
+                <p>
+                  This ensures that emails are not missed and that duplicates
+                  are avoided.
+                </p>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="action-button"
+                onClick={() => {
+                  setShowEmailInfoModal(false);
+                  setShowEmailTypeModal(true);
+                }}
+              >
+                I understand, continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals pour Email (Outlook vs IMAP/SMTP) */}
       {showEmailTypeModal && (

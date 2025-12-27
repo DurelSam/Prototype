@@ -143,39 +143,24 @@ async function sendEmail(senderUserId, to, subject, htmlContent) {
  * @param {string} temporaryPassword - Generated temporary password
  */
 async function sendAdminWelcomeEmail(senderUserId, adminData, temporaryPassword) {
-  try {
-    // Load template
-    const template = await loadTemplate('admin-welcome');
-
-    // Prepare variables
-    const variables = {
-      adminFirstName: adminData.firstName || 'Admin',
-      adminLastName: adminData.lastName || '',
-      adminEmail: adminData.email,
-      temporaryPassword: temporaryPassword,
-      loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      companyName: adminData.tenant_id?.companyName || 'Your Company',
-      currentYear: new Date().getFullYear(),
-    };
-
-    // Replace variables
-    const htmlContent = replaceVariables(template, variables);
-
-    // Send email
-    await sendEmail(
-      senderUserId,
-      adminData.email,
-      'Welcome - Your Administrator Account Has Been Created',
-      htmlContent
-    );
-
-    console.log(`✅ Admin welcome email sent to: ${adminData.email}`);
-
-  } catch (error) {
-    console.error('❌ Error sending Admin welcome email:', error.message);
-    // Do not throw error to avoid blocking user creation
-    // Admin can always request email resend
-  }
+  const template = await loadTemplate('admin-welcome');
+  const variables = {
+    adminFirstName: adminData.firstName || 'Admin',
+    adminLastName: adminData.lastName || '',
+    adminEmail: adminData.email,
+    temporaryPassword: temporaryPassword,
+    loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+    companyName: adminData.tenant_id?.companyName || 'Your Company',
+    currentYear: new Date().getFullYear(),
+  };
+  const htmlContent = replaceVariables(template, variables);
+  const result = await sendEmail(
+    senderUserId,
+    adminData.email,
+    'Welcome - Your Administrator Account Has Been Created',
+    htmlContent
+  );
+  return result;
 }
 
 /**
@@ -185,38 +170,24 @@ async function sendAdminWelcomeEmail(senderUserId, adminData, temporaryPassword)
  * @param {string} temporaryPassword - Generated temporary password
  */
 async function sendEmployeeWelcomeEmail(senderUserId, employeeData, temporaryPassword) {
-  try {
-    // Load template
-    const template = await loadTemplate('employee-welcome');
-
-    // Prepare variables
-    const variables = {
-      employeeFirstName: employeeData.firstName || 'Employee',
-      employeeLastName: employeeData.lastName || '',
-      employeeEmail: employeeData.email,
-      temporaryPassword: temporaryPassword,
-      loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      companyName: employeeData.tenant_id?.companyName || 'Your Company',
-      currentYear: new Date().getFullYear(),
-    };
-
-    // Replace variables
-    const htmlContent = replaceVariables(template, variables);
-
-    // Send email
-    await sendEmail(
-      senderUserId,
-      employeeData.email,
-      'Welcome - Your Employee Account Has Been Created',
-      htmlContent
-    );
-
-    console.log(`✅ Employee welcome email sent to: ${employeeData.email}`);
-
-  } catch (error) {
-    console.error('❌ Error sending Employee welcome email:', error.message);
-    // Do not throw error to avoid blocking user creation
-  }
+  const template = await loadTemplate('employee-welcome');
+  const variables = {
+    employeeFirstName: employeeData.firstName || 'Employee',
+    employeeLastName: employeeData.lastName || '',
+    employeeEmail: employeeData.email,
+    temporaryPassword: temporaryPassword,
+    loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+    companyName: employeeData.tenant_id?.companyName || 'Your Company',
+    currentYear: new Date().getFullYear(),
+  };
+  const htmlContent = replaceVariables(template, variables);
+  const result = await sendEmail(
+    senderUserId,
+    employeeData.email,
+    'Welcome - Your Employee Account Has Been Created',
+    htmlContent
+  );
+  return result;
 }
 
 /**

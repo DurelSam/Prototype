@@ -44,6 +44,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const [greeting, setGreeting] = useState("");
   const [activeTab, setActiveTab] = useState("home");
+  const [companyHistoryStart, setCompanyHistoryStart] = useState(null);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -75,6 +76,27 @@ function Dashboard() {
     members: [],
     loading: true,
   });
+
+  useEffect(() => {
+    const fetchCompanyHistoryStart = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const res = await axios.get(`${API_URL}/email/status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data?.success && res.data.data?.companyHistoryStartDate) {
+          setCompanyHistoryStart(new Date(res.data.data.companyHistoryStartDate));
+        } else {
+          setCompanyHistoryStart(null);
+        }
+      } catch (e) {
+        setCompanyHistoryStart(null);
+      }
+    };
+
+    fetchCompanyHistoryStart();
+  }, []);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -385,6 +407,16 @@ function Dashboard() {
             <p className="welcome-text">
               Welcome to your communications management dashboard.
             </p>
+            {companyHistoryStart && (
+              <p className="welcome-text">
+                Company email history starts from:{" "}
+                {companyHistoryStart.toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "2-digit",
+                })}
+              </p>
+            )}
           </div>
         </section>
 

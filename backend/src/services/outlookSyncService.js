@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Communication = require("../models/Communication");
+const Tenant = require("../models/Tenant");
 const outlookService = require("./outlookService");
 const grokService = require("./grokService");
 
@@ -229,7 +230,7 @@ class OutlookSyncService {
       this.syncInProgress.set(userId, true);
 
       const user = await User.findById(userId).select(
-        "+outlookConfig.accessToken +outlookConfig.refreshToken outlookConfig.expiry outlookConfig.isConnected tenant_id email"
+        "+outlookConfig.accessToken +outlookConfig.refreshToken outlookConfig.expiry outlookConfig.isConnected tenant_id email role"
       );
 
       if (!user || !user.outlookConfig?.isConnected) {
@@ -249,9 +250,27 @@ class OutlookSyncService {
         if (this.lastSyncTimestamps.has(userId)) {
           lastSyncDate = this.lastSyncTimestamps.get(userId);
         } else if (user.outlookConfig?.lastSyncDate) {
-          // Utiliser la date en base si pas en mémoire (ex: après redémarrage serveur)
           lastSyncDate = user.outlookConfig.lastSyncDate;
           console.log(`📅 Utilisation de la dernière date de sync en base: ${lastSyncDate}`);
+        } else if (user.tenant_id) {
+          const tenant = await Tenant.findById(user.tenant_id);
+
+          if (tenant) {
+            if (!tenant.emailHistoryStartDate) {
+              const baseDate = new Date();
+              baseDate.setDate(baseDate.getDate() - 3);
+              tenant.emailHistoryStartDate = baseDate;
+              await tenant.save();
+              console.log(
+                `📅 Initialisation emailHistoryStartDate pour le tenant ${tenant._id}: ${baseDate.toISOString()}`
+              );
+            }
+
+            lastSyncDate = tenant.emailHistoryStartDate;
+            console.log(
+              `📅 Première synchro Outlook pour ${user.email}: récupération depuis ${lastSyncDate.toISOString()}`
+            );
+          }
         }
       }
 

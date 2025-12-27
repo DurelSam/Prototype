@@ -38,6 +38,8 @@ const EscalationDashboardTab = ({ navigate }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
   const token = localStorage.getItem("authToken");
 
@@ -63,6 +65,13 @@ const EscalationDashboardTab = ({ navigate }) => {
       setLoading(false);
     }
   };
+
+  const totalItems = history.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const paginatedHistory = history.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleResolve = async (id) => {
     if (!window.confirm("Are you sure you want to mark this escalation as Resolved (Closed)?")) return;
@@ -92,6 +101,17 @@ const EscalationDashboardTab = ({ navigate }) => {
     }
   };
 
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    setCurrentPage(1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const formatTime = (dateStr) => {
     if (!dateStr) return "N/A";
     const date = new Date(dateStr);
@@ -119,48 +139,44 @@ const EscalationDashboardTab = ({ navigate }) => {
   return (
     <div className="tab-content">
       <div className="escalation-dashboard">
-        <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ margin: 0 }}>Escalation Dashboard</h2>
-            <p style={{ margin: 0, color: '#6b7280' }}>
-              Level 1: {stats.level1} • Level 2: {stats.level2} • Overdue: {stats.overdue}
-            </p>
+        <div className="escalation-dashboard-header">
+          <div className="escalation-kpi-chips">
+            <div className="escalation-kpi-item">
+              <div className="kpi-chip kpi-chip-level1">
+                <span className="kpi-label">Level 1</span>
+                <span className="kpi-value">{stats.level1}</span>
+              </div>
+              <div className="escalation-icon-pill level1-icon-pill">
+                <FontAwesomeIcon icon={faExclamationTriangle} />
+              </div>
+            </div>
+            <div className="escalation-kpi-item">
+              <div className="kpi-chip kpi-chip-level2">
+                <span className="kpi-label">Level 2</span>
+                <span className="kpi-value">{stats.level2}</span>
+              </div>
+              <div className="escalation-icon-pill level2-icon-pill">
+                <FontAwesomeIcon icon={faArrowUp} />
+              </div>
+            </div>
+            <div className="escalation-kpi-item">
+              <div className="kpi-chip kpi-chip-overdue">
+                <span className="kpi-label">Overdue</span>
+                <span className="kpi-value">{stats.overdue}</span>
+              </div>
+              <div className="escalation-icon-pill overdue-icon-pill">
+                <FontAwesomeIcon icon={faClock} />
+              </div>
+            </div>
           </div>
-          <div title="Includes escalated items (status Escalated or isEscalated=true) and overdue SLAs that are not closed.">
+          <button
+            type="button"
+            className="escalation-info-badge"
+            title="Includes escalated items (status Escalated or isEscalated=true) and overdue SLAs that are not closed."
+          >
             <FontAwesomeIcon icon={faInfoCircle} />
-          </div>
+          </button>
         </div>
-        {/* KPI Card 1: Level 1 Escalations */}
-        <div className="escalation-card level1-card">
-          <div className="card-header">
-            <h4 className="card-title">Level 1 Escalations</h4>
-            <FontAwesomeIcon
-              icon={faExclamationTriangle}
-              className="card-icon"
-            />
-          </div>
-          <p className="card-value">{stats.level1}</p>
-        </div>
-
-        {/* KPI Card 2: Level 2 Escalations */}
-        <div className="escalation-card level2-card">
-          <div className="card-header">
-            <h4 className="card-title">Level 2 (Critical)</h4>
-            <FontAwesomeIcon icon={faArrowUp} className="card-icon" />
-          </div>
-          <p className="card-value">{stats.level2}</p>
-        </div>
-
-        {/* KPI Card 3: Overdue Follow-ups */}
-        <div className="escalation-card overdue-card">
-          <div className="card-header">
-            <h4 className="card-title">Overdue Follow-ups</h4>
-            <FontAwesomeIcon icon={faClock} className="card-icon" />
-          </div>
-          <p className="card-value">{stats.overdue}</p>
-        </div>
-
-        {/* Escalation History Table */}
         <div className="escalation-table-section">
           <h3>Escalation History & Tracking</h3>
           {history.length === 0 ? (
@@ -170,53 +186,28 @@ const EscalationDashboardTab = ({ navigate }) => {
               <thead>
                 <tr>
                   <th>Subject</th>
-                  <th>Level</th>
-                  <th>Escalated By</th>
+                  <th>From</th>
+                  <th>To</th>
                   <th>Date</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th>Reason</th>
                 </tr>
               </thead>
               <tbody>
-                {history.map((item) => (
+                {paginatedHistory.map((item) => (
                   <tr key={item._id}>
                     <td>
-                      <div style={{ fontWeight: "500" }}>{item.subject}</div>
-                      <div style={{ fontSize: "0.8em", color: "#666" }}>
-                        {item.reason}
+                      <div className="escalation-subject">{item.subject}</div>
+                      <div className="escalation-meta">
+                        {item.urgency} {item.isOverdue ? "• Overdue" : ""}
                       </div>
                     </td>
                     <td>
-                      <span className={`level-badge level-${item.level}`}>
-                        Level {item.level}
-                      </span>
+                      {item.fromUser} ({item.fromRole})
                     </td>
-                    <td>{item.escalatedBy}</td>
-                    <td>{formatTime(item.date)}</td>
+                    <td>{item.toRole}</td>
+                    <td>{formatTime(item.escalatedAt)}</td>
                     <td>
-                      <span
-                        className={`status-badge ${
-                          item.isOverdue ? "overdue" : item.status.toLowerCase()
-                        }`}
-                      >
-                        {item.isOverdue ? "Overdue" : item.status}
-                      </span>
-                    </td>
-                    <td>
-                      <button 
-                        className="btn-icon view" 
-                        title="View Details"
-                        onClick={() => handleView(item._id)}
-                      >
-                        <FontAwesomeIcon icon={faEye} />
-                      </button>
-                      <button 
-                        className="btn-icon check" 
-                        title="Resolve"
-                        onClick={() => handleResolve(item._id)}
-                      >
-                        <FontAwesomeIcon icon={faCheckCircle} />
-                      </button>
+                      <span>{item.reason}</span>
                     </td>
                   </tr>
                 ))}
@@ -224,6 +215,17 @@ const EscalationDashboardTab = ({ navigate }) => {
             </table>
           )}
         </div>
+        {history.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+            onItemsPerPageChange={handleItemsPerPageChange}
+            loading={loading}
+          />
+        )}
       </div>
     </div>
   );
@@ -368,20 +370,30 @@ const UrgentEmailsTab = () => {
 
   return (
     <div className="urgent-emails-tab">
-      <div className="urgent-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ margin: 0 }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} /> Urgent Emails to Reply
-            </h2>
-            <p className="urgent-subtitle" style={{ margin: 0 }}>
-              High/Critical emails requiring manual reply ({urgentEmails.length})
-            </p>
+      <div className="escalation-dashboard-header">
+        <div className="escalation-kpi-chips">
+          <div className="kpi-chip">
+            <span className="kpi-label">Total</span>
+            <span className="kpi-value">{totalItems}</span>
           </div>
-          <div title="Shows High/Critical emails requiring manual reply, excluding already replied ones. Search and date filters apply.">
-            <FontAwesomeIcon icon={faInfoCircle} />
+          <div className="kpi-chip">
+            <span className="kpi-label">On page</span>
+            <span className="kpi-value">{urgentEmails.length}</span>
+          </div>
+          <div className="kpi-chip">
+            <span className="kpi-label">Page</span>
+            <span className="kpi-value">
+              {currentPage}/{totalPages || 1}
+            </span>
           </div>
         </div>
+        <button
+          type="button"
+          className="escalation-info-badge"
+          title="High/Critical emails requiring manual reply. Search, priority and date filters apply to these counters."
+        >
+          <FontAwesomeIcon icon={faInfoCircle} />
+        </button>
       </div>
 
       <div className="controls-section">
@@ -799,16 +811,28 @@ const CommunicationListTab = ({ navigate }) => {
 
   return (
     <div className="tab-content">
-      <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h2 style={{ margin: 0 }}>Summaries & Search</h2>
-          <p style={{ margin: 0, color: '#6b7280' }}>
-            Total items: {totalItems}
-          </p>
+      <div className="escalation-dashboard-header">
+        <div className="escalation-kpi-chips">
+          <div className="kpi-chip">
+            <span className="kpi-label">Total</span>
+            <span className="kpi-value">{totalItems}</span>
+          </div>
+          <div className="kpi-chip">
+            <span className="kpi-label">Pages</span>
+            <span className="kpi-value">{totalPages}</span>
+          </div>
+          <div className="kpi-chip">
+            <span className="kpi-label">Per page</span>
+            <span className="kpi-value">{itemsPerPage}</span>
+          </div>
         </div>
-        <div title="Full communications list with filters (source, priority, status, sentiment, date, search). Counts reflect filters and pagination.">
+        <button
+          type="button"
+          className="escalation-info-badge"
+          title="Full communications list with filters (source, priority, status, sentiment, date, search). Counts reflect filters and pagination."
+        >
           <FontAwesomeIcon icon={faInfoCircle} />
-        </div>
+        </button>
       </div>
       <div className="controls-section">
         <div className="filter-controls">
@@ -1352,18 +1376,30 @@ const AssistedResponseTab = () => {
 
   return (
     <div className="assisted-response-tab">
-      <div className="assisted-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h2 style={{ margin: 0 }}>
-            <FontAwesomeIcon icon={faRobot} /> Assisted Automatic Responses
-          </h2>
-          <p className="assisted-subtitle" style={{ margin: 0 }}>
-            Low/Medium emails awaiting your context ({totalFiltered})
-          </p>
+      <div className="escalation-dashboard-header">
+        <div className="escalation-kpi-chips">
+          <div className="kpi-chip">
+            <span className="kpi-label">Awaiting</span>
+            <span className="kpi-value">{totalFiltered}</span>
+          </div>
+          <div className="kpi-chip">
+            <span className="kpi-label">On page</span>
+            <span className="kpi-value">{paginatedEmails.length}</span>
+          </div>
+          <div className="kpi-chip">
+            <span className="kpi-label">Page</span>
+            <span className="kpi-value">
+              {currentPage}/{totalPagesClient || 1}
+            </span>
+          </div>
         </div>
-        <div title="Shows Low/Medium emails where a response is expected, flagged as awaiting user input (awaitingUserInput=true). Filters apply.">
+        <button
+          type="button"
+          className="escalation-info-badge"
+          title="Low/Medium emails awaiting contextual input before sending an assisted response. Filters apply."
+        >
           <FontAwesomeIcon icon={faInfoCircle} />
-        </div>
+        </button>
       </div>
 
       {/* Toast */}
@@ -1872,16 +1908,28 @@ const AutoResponsesTab = () => {
 
   return (
     <div className="tab-content">
-      <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h2 style={{ margin: 0 }}>Auto Responses</h2>
-          <p style={{ margin: 0, color: '#6b7280' }}>
-            Pending: {countPending} • Sent: {countSent} • All: {countAll}
-          </p>
+      <div className="escalation-dashboard-header">
+        <div className="escalation-kpi-chips">
+          <div className="kpi-chip">
+            <span className="kpi-label">Pending</span>
+            <span className="kpi-value">{countPending}</span>
+          </div>
+          <div className="kpi-chip">
+            <span className="kpi-label">Sent</span>
+            <span className="kpi-value">{countSent}</span>
+          </div>
+          <div className="kpi-chip">
+            <span className="kpi-label">Total</span>
+            <span className="kpi-value">{countAll}</span>
+          </div>
         </div>
-        <div title="Eligible: sender is not no‑reply, priority is Low/Medium, AI indicates a reply is expected. Pending: ready for auto‑response; Sent: already auto‑responded. Filters apply.">
+        <button
+          type="button"
+          className="escalation-info-badge"
+          title="Eligible: sender is not no‑reply, priority is Low/Medium, AI indicates a reply is expected. Pending: ready for auto‑response; Sent: already auto‑responded. Filters apply."
+        >
           <FontAwesomeIcon icon={faInfoCircle} />
-        </div>
+        </button>
       </div>
       <div className="controls-section">
         <div className="filter-controls">
@@ -2066,9 +2114,6 @@ function Communications() {
       <div className="communications-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h1 className="page-title" style={{ margin: 0 }}>Communications Hub</h1>
-          <span title="Communications center with tabs for search, urgent, assisted responses, auto responses, and escalations. Counters and criteria update based on filters.">
-            <FontAwesomeIcon icon={faInfoCircle} />
-          </span>
         </div>
 
         <div className="dashboard-tabs">
@@ -2096,16 +2141,14 @@ function Communications() {
           >
             <FontAwesomeIcon icon={faRobot} /> Auto Responses
           </button>
-          {user?.role !== 'UpperAdmin' && (
-            <button
-              className={`tab-button ${
-                activeTab === "escalation" ? "active" : ""
-              }`}
-              onClick={() => setActiveTab("escalation")}
-            >
-              <FontAwesomeIcon icon={faChartLine} /> Escalation Dashboard
-            </button>
-          )}
+          <button
+            className={`tab-button ${
+              activeTab === "escalation" ? "active" : ""
+            }`}
+            onClick={() => setActiveTab("escalation")}
+          >
+            <FontAwesomeIcon icon={faChartLine} /> Escalation Dashboard
+          </button>
         </div>
       </div>
 

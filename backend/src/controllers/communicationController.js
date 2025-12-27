@@ -7,30 +7,17 @@ const User = require("../models/User"); // Import nécessaire pour assignUser
  * @returns {Object} - Filtre MongoDB basé sur le rôle
  */
 async function buildRbacFilter(user) {
-  const filter = { tenant_id: user.tenant_id };
+  const tenantId =
+    user.tenant_id && user.tenant_id._id ? user.tenant_id._id : user.tenant_id;
+
+  const filter = { tenant_id: tenantId };
 
   if (user.role === "Employee") {
-    // Employee voit uniquement ses propres communications
     filter.userId = user._id;
   } else if (user.role === "Admin") {
-    // Admin voit les communications de ses Employees
-    // Récupérer les IDs de ses employees
-    const employees = await User.find({
-      managedBy: user._id,
-      role: "Employee",
-    }).select("_id");
-
-    const employeeIds = employees.map((emp) => emp._id);
-
-    // Voir soit ses propres communications, soit celles de ses employees
-    filter.$or = [
-      { userId: user._id }, // Ses propres communications (si l'Admin en a)
-      { userId: { $in: employeeIds } }, // Communications de ses employees
-      { visibleToAdmins: user._id }, // Communications transférées
-    ];
+    filter.userId = user._id;
   } else if (user.role === "UpperAdmin") {
-    // UpperAdmin voit toutes les communications du tenant (pas de filtre supplémentaire)
-    // Le filtre tenant_id suffit
+    filter.userId = user._id;
   }
 
   return filter;
@@ -43,48 +30,29 @@ async function buildRbacFilter(user) {
  * @returns {Boolean} - true si l'utilisateur a accès
  */
 async function canAccessCommunication(communication, user) {
-  // UpperAdmin voit tout dans son tenant
-  if (user.role === "UpperAdmin") {
-    return communication.tenant_id.toString() === user.tenant_id.toString();
+  const sameTenant =
+    communication.tenant_id &&
+    user.tenant_id &&
+    communication.tenant_id.toString() === user.tenant_id.toString();
+
+  if (!sameTenant) {
+    return false;
   }
 
-  // Employee voit uniquement ses propres communications
-  if (user.role === "Employee") {
-    return (
-      communication.userId &&
-      communication.userId.toString() === user._id.toString()
-    );
+  if (
+    communication.userId &&
+    communication.userId.toString() === user._id.toString()
+  ) {
+    return true;
   }
 
-  // Admin voit ses communications + celles de ses employees
-  if (user.role === "Admin") {
-    // Ses propres communications
-    if (
-      communication.userId &&
-      communication.userId.toString() === user._id.toString()
-    ) {
-      return true;
-    }
-
-    // Communications visibles pour lui
-    if (
-      communication.visibleToAdmins &&
-      communication.visibleToAdmins.some(
-        (adminId) => adminId.toString() === user._id.toString()
-      )
-    ) {
-      return true;
-    }
-
-    // Vérifier si la communication appartient à un de ses employees
-    if (communication.userId) {
-      const employee = await User.findOne({
-        _id: communication.userId,
-        managedBy: user._id,
-        role: "Employee",
-      });
-      return !!employee;
-    }
+  if (
+    communication.visibleToAdmins &&
+    communication.visibleToAdmins.some(
+      (adminId) => adminId.toString() === user._id.toString()
+    )
+  ) {
+    return true;
   }
 
   return false;
@@ -1451,29 +1419,47 @@ exports.submitQuestionnaireAndReply = async (req, res) => {
         console.log('✅ Réponse IA générée avec contexte utilisateur');
     }
 
-    // Envoyer l'email via le provider configuré
+    // Envoyer l'email via le provider configuré (avec fallback si possible)
     let sendResult;
+    const trySend = async (provider) => {
+      if (provider === 'imap_smtp') {
+        return await imapSmtpService.sendEmail(user._id, {
+          to: communication.sender.email,
+          subject: `Re: ${communication.subject}`,
+          text: generatedResponse,
+          html: generatedResponse.replace(/\n/g, '<br>'),
+          inReplyTo: communication.messageId,
+          references: communication.references || communication.messageId,
+        });
+      }
+      if (provider === 'outlook') {
+        return await outlookService.sendEmailAsUser(user._id, {
+          to: communication.sender.email,
+          subject: `Re: ${communication.subject}`,
+          body: generatedResponse.replace(/\n/g, '<br>'),
+        });
+      }
+      return { success: false, message: 'Provider email non supporté' };
+    };
 
-    if (user.activeEmailProvider === 'imap_smtp') {
-      sendResult = await imapSmtpService.sendEmail(user._id, {
-        to: communication.sender.email,
-        subject: `Re: ${communication.subject}`,
-        text: generatedResponse,
-        html: generatedResponse.replace(/\n/g, '<br>'),
-        inReplyTo: communication.messageId,
-        references: communication.references || communication.messageId,
-      });
-    } else if (user.activeEmailProvider === 'outlook') {
-      sendResult = await outlookService.sendEmailAsUser(user._id, {
-        to: communication.sender.email,
-        subject: `Re: ${communication.subject}`,
-        body: generatedResponse.replace(/\n/g, '<br>'),
-      });
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Provider email non supporté',
-      });
+    sendResult = await trySend(user.activeEmailProvider);
+
+    if (!sendResult.success) {
+      // Tentative de fallback si un autre provider est connecté
+      const userDoc = await User.findById(user._id).select('imapSmtpConfig.isConnected outlookConfig.isConnected activeEmailProvider');
+      let fallbackProvider = null;
+      if (user.activeEmailProvider === 'outlook' && userDoc.imapSmtpConfig?.isConnected) {
+        fallbackProvider = 'imap_smtp';
+      } else if (user.activeEmailProvider === 'imap_smtp' && userDoc.outlookConfig?.isConnected) {
+        fallbackProvider = 'outlook';
+      }
+      if (fallbackProvider) {
+        const retryResult = await trySend(fallbackProvider);
+        if (retryResult.success) {
+          sendResult = retryResult;
+          console.log(`✅ Envoi réussi via fallback provider: ${fallbackProvider}`);
+        }
+      }
     }
 
     if (!sendResult.success) {
@@ -1572,83 +1558,254 @@ exports.getEscalationData = async (req, res) => {
       });
     }
 
-    // Construire le filtre RBAC de base
-    const baseFilter = await buildRbacFilter(user);
-
-    // 1. Récupérer tous les items pertinents (Escaladés OU En retard)
-    // On cherche :
-    // - Status = "Escalated"
-    // - OU isEscalated = true
-    // - OU SLA dépassé ET statut pas clos
-    const escalationFilter = {
-      ...baseFilter,
-      $or: [
-        { status: "Escalated" },
-        { isEscalated: true },
-        {
-          slaDueDate: { $lt: new Date() },
-          status: { $nin: ["Closed", "Archived", "Validated"] },
-        },
-      ],
-    };
-
-    const escalatedItems = await Communication.find(escalationFilter)
-      .populate("assignedTo", "firstName lastName")
-      .sort({ "ai_analysis.urgency": -1, receivedAt: -1 }) // Critiques d'abord, puis récents
-      .lean();
-
-    // 2. Calculer les KPIs à partir de la liste récupérée (plus efficace que faire 3 countDocuments)
-    let level1Count = 0; // Escalated but NOT Critical
-    let level2Count = 0; // Escalated AND Critical
-    let overdueCount = 0; // SLA Breached
+    const tenantId =
+      user.tenant_id && user.tenant_id._id ? user.tenant_id._id : user.tenant_id;
 
     const now = new Date();
 
-    const formattedHistory = escalatedItems.map((item) => {
-      const isCritical = item.ai_analysis?.urgency === "Critical";
-      const isEscalatedStatus = item.status === "Escalated" || item.isEscalated;
-      const isOverdue =
+    const slaOverdueCondition = {
+      slaDueDate: { $lt: now },
+      status: { $nin: ["Closed", "Archived", "Validated"] },
+    };
+
+    let escalationFilter = { tenant_id: tenantId };
+
+    if (user.role === "Employee") {
+      escalationFilter.escalationHistory = {
+        $elemMatch: { responsibleUser: user._id, role: "Employee" },
+      };
+    } else if (user.role === "Admin") {
+      const adminOwned = {
+        userId: user._id,
+        $or: [
+          { status: "Escalated" },
+          { isEscalated: true },
+          slaOverdueCondition,
+        ],
+      };
+
+      const escalatedUp = {
+        escalationHistory: {
+          $elemMatch: { responsibleUser: user._id, role: "Admin" },
+        },
+      };
+
+      escalationFilter.$or = [adminOwned, escalatedUp];
+    } else if (user.role === "UpperAdmin") {
+      escalationFilter = {
+        tenant_id: tenantId,
+        userId: user._id,
+        escalationHistory: {
+          $elemMatch: { role: "Admin" },
+        },
+      };
+    }
+
+    const escalatedItems = await Communication.find(escalationFilter)
+      .populate("assignedTo", "firstName lastName role")
+      .populate("userId", "firstName lastName role")
+      .populate("escalationHistory.responsibleUser", "firstName lastName role")
+      .sort({ "ai_analysis.urgency": -1, receivedAt: -1 })
+      .lean();
+
+    let level1Count = 0;
+    let level2Count = 0;
+    let overdueCount = 0;
+
+    const historyRows = [];
+
+    escalatedItems.forEach((item) => {
+      const isCriticalItem = item.ai_analysis?.urgency === "Critical";
+      const isOverdueItem =
+        item.slaDueDate &&
         new Date(item.slaDueDate) < now &&
         !["Closed", "Archived", "Validated"].includes(item.status);
 
-      // KPIs Increment
-      if (isEscalatedStatus) {
-        if (isCritical) {
-          level2Count++;
-        } else {
-          level1Count++;
-        }
+      if (isCriticalItem) {
+        level2Count++;
+      } else {
+        level1Count++;
       }
-      
-      // Overdue is counted independently (an item can be both Escalated and Overdue)
-      if (isOverdue) {
+
+      if (isOverdueItem) {
         overdueCount++;
       }
 
-      // Déterminer le "niveau" pour l'affichage tableau
-      let displayLevel = 1;
-      if (isCritical) displayLevel = 2;
+      const currentOwnerName = item.userId
+        ? `${item.userId.firstName || ""} ${item.userId.lastName || ""}`.trim()
+        : "";
 
-      // Déterminer la raison (mock ou déduit)
-      let reason = "Manual Escalation";
-      if (isOverdue) reason = "SLA Breach";
-      if (isCritical && isEscalatedStatus) reason = "Critical Issue";
-
-      return {
-        _id: item._id,
+      const baseRow = {
         subject: item.subject,
-        level: displayLevel,
-        escalatedBy: item.assignedTo
-          ? `${item.assignedTo.firstName} ${item.assignedTo.lastName}`
-          : "System",
-        date: item.receivedAt,
+        currentOwner: currentOwnerName,
         status: item.status,
         slaDueDate: item.slaDueDate,
-        isOverdue: isOverdue,
         urgency: item.ai_analysis?.urgency || "Medium",
-        reason: reason,
+        isOverdue: isOverdueItem,
         sender: item.sender?.email || item.sender?.name || "Unknown",
       };
+
+      const steps = Array.isArray(item.escalationHistory)
+        ? item.escalationHistory
+        : [];
+
+      if (user.role === "Employee") {
+        steps
+          .filter((step) => {
+            const stepUserId = step.responsibleUser && step.responsibleUser._id;
+            return (
+              step.role === "Employee" &&
+              stepUserId &&
+              String(stepUserId) === String(user._id)
+            );
+          })
+          .forEach((step, index) => {
+            const fromUserDoc = step.responsibleUser;
+            const fromNameFromDoc = fromUserDoc
+              ? `${fromUserDoc.firstName || ""} ${
+                  fromUserDoc.lastName || ""
+                }`.trim()
+              : "";
+            const fromName = fromNameFromDoc || step.signature || "Unknown";
+
+            const rowId = `${String(item._id)}_emp_${index}`;
+
+              historyRows.push({
+              _id: rowId,
+              subject: baseRow.subject,
+              fromUser: fromName,
+              fromRole: step.role || "Employee",
+              toRole: "Admin",
+              escalatedAt: step.escalatedAt || item.receivedAt,
+              reason: step.reason || "SLA Breach",
+              currentOwner: baseRow.currentOwner,
+              status: baseRow.status,
+              slaDueDate: baseRow.slaDueDate,
+              urgency: baseRow.urgency,
+              isOverdue: baseRow.isOverdue,
+              sender: baseRow.sender,
+            });
+          });
+      } else if (user.role === "Admin") {
+        let rowsAdded = 0;
+        if (item.userId && String(item.userId._id) === String(user._id)) {
+          steps
+            .filter((step) => step.role === "Employee")
+            .forEach((step, index) => {
+              rowsAdded++;
+              const fromUserDoc = step.responsibleUser;
+              const fromNameFromDoc = fromUserDoc
+                ? `${fromUserDoc.firstName || ""} ${
+                    fromUserDoc.lastName || ""
+                  }`.trim()
+                : "";
+              const fromName = fromNameFromDoc || step.signature || "Unknown";
+              const rowId = `${String(item._id)}_empToAdmin_${index}`;
+
+              historyRows.push({
+                _id: rowId,
+                subject: baseRow.subject,
+                fromUser: fromName,
+                fromRole: step.role || "Employee",
+                toRole: "Admin",
+                escalatedAt: step.escalatedAt || item.receivedAt,
+                reason: step.reason || "SLA Breach",
+                currentOwner: baseRow.currentOwner,
+                status: baseRow.status,
+                slaDueDate: baseRow.slaDueDate,
+                urgency: baseRow.urgency,
+                isOverdue: baseRow.isOverdue,
+                sender: baseRow.sender,
+              });
+            });
+        }
+
+        steps
+          .filter((step) => {
+            const stepUserId = step.responsibleUser && step.responsibleUser._id;
+            return (
+              step.role === "Admin" &&
+              stepUserId &&
+              String(stepUserId) === String(user._id)
+            );
+          })
+          .forEach((step, index) => {
+            rowsAdded++;
+            const fromUserDoc = step.responsibleUser;
+            const fromNameFromDoc = fromUserDoc
+              ? `${fromUserDoc.firstName || ""} ${
+                  fromUserDoc.lastName || ""
+                }`.trim()
+              : "";
+            const fromName = fromNameFromDoc || step.signature || "Unknown";
+            const rowId = `${String(item._id)}_adminToUpper_${index}`;
+
+            historyRows.push({
+              _id: rowId,
+              subject: baseRow.subject,
+              fromUser: fromName,
+              fromRole: step.role || "Admin",
+              toRole: "UpperAdmin",
+              escalatedAt: step.escalatedAt || item.receivedAt,
+              reason: step.reason || "SLA Breach",
+              currentOwner: baseRow.currentOwner,
+              status: baseRow.status,
+              slaDueDate: baseRow.slaDueDate,
+              urgency: baseRow.urgency,
+              isOverdue: baseRow.isOverdue,
+              sender: baseRow.sender,
+            });
+          });
+
+        // FIX: If no history rows were added, but the item is significant (Overdue/Critical), show it as a pending item.
+        if (rowsAdded === 0 && (isOverdueItem || isCriticalItem)) {
+          const rowId = `${String(item._id)}_pending`;
+          historyRows.push({
+            _id: rowId,
+            subject: baseRow.subject,
+            fromUser: baseRow.sender, // Or "System"
+            fromRole: "System",
+            toRole: "Admin",
+            escalatedAt: item.receivedAt, // Or item.slaDueDate
+            reason: isOverdueItem ? "SLA Overdue" : "Critical Urgency",
+            currentOwner: baseRow.currentOwner,
+            status: baseRow.status,
+            slaDueDate: baseRow.slaDueDate,
+            urgency: baseRow.urgency,
+            isOverdue: baseRow.isOverdue,
+            sender: baseRow.sender,
+          });
+        }
+      } else if (user.role === "UpperAdmin") {
+        steps
+          .filter((step) => step.role === "Admin")
+          .forEach((step, index) => {
+            const fromUserDoc = step.responsibleUser;
+            const fromNameFromDoc = fromUserDoc
+              ? `${fromUserDoc.firstName || ""} ${
+                  fromUserDoc.lastName || ""
+                }`.trim()
+              : "";
+            const fromName = fromNameFromDoc || step.signature || "Unknown";
+            const rowId = `${String(item._id)}_adminToUpper_${index}`;
+
+            historyRows.push({
+              _id: rowId,
+              subject: baseRow.subject,
+              fromUser: fromName,
+              fromRole: step.role || "Admin",
+              toRole: "UpperAdmin",
+              escalatedAt: step.escalatedAt || item.receivedAt,
+              reason: step.reason || "SLA Breach",
+              currentOwner: baseRow.currentOwner,
+              status: baseRow.status,
+              slaDueDate: baseRow.slaDueDate,
+              urgency: baseRow.urgency,
+              isOverdue: baseRow.isOverdue,
+              sender: baseRow.sender,
+            });
+          });
+      }
     });
 
     res.status(200).json({
@@ -1659,7 +1816,7 @@ exports.getEscalationData = async (req, res) => {
           level2: level2Count,
           overdue: overdueCount,
         },
-        history: formattedHistory,
+        history: historyRows,
       },
     });
   } catch (error) {

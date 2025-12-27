@@ -18,6 +18,7 @@ import {
   faCheckCircle,
   faEyeSlash,
   faTimesCircle,
+  faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import Pagination from "../components/Pagination";
 import "../styles/AdminManagement.css";
@@ -35,6 +36,7 @@ const AdminListTab = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEmployeesModal, setShowEmployeesModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
+  const [creating, setCreating] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,6 +78,7 @@ const AdminListTab = () => {
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
     try {
+      setCreating(true);
       const token = localStorage.getItem("authToken");
       const response = await axios.post(`${API_URL}/users/admins`, formData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -103,6 +106,8 @@ const AdminListTab = () => {
       }
     } catch (err) {
       alert(err.response?.data?.message || "Error creating admin");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -517,8 +522,15 @@ const AdminListTab = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-submit">
-                  Create Admin
+                <button type="submit" className="btn-submit" disabled={creating}>
+                  {creating ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} spin />
+                      <span style={{ marginLeft: 8 }}>Creating...</span>
+                    </>
+                  ) : (
+                    "Create Admin"
+                  )}
                 </button>
               </div>
             </form>
